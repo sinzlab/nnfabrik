@@ -167,7 +167,7 @@ class TrainedModel(dj.Computed):
 
         # gets the input dimensions from the dataloader
         #
-        input_dim = self.get_input_dimensions(dataloader)
+        input_dim, output_dim = self.get_input_dimensions(dataloader)
         # passes the input dimensions to the model builder function
         model = (Model & key).build_model(input_dim, output_dim)
         seed = (Seed & key).get_seed()
