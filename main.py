@@ -32,14 +32,14 @@ class Model(dj.Manual):
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object)
         self.insert1(key)
 
-    def build_model(self, img_dim, key=None):
+    def build_model(self, input_dim, output_dim, seed, key=None):
         if key is None:
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
         config_fn = eval(configurator)
-        return config_fn(img_dim, **config_object)
+        return config_fn(input_dim, output_dim, seed, **config_object)
 
 
 @schema
@@ -67,6 +67,20 @@ class Dataset(dj.Manual):
     def get_dataloader(self, key=None):
         """
         Returns a dataloader for a given dataset loader function and its corresponding configurations
+
+        dataloader: is expected to be a dict in the form of
+                            {
+                            'train_loader': torch.utils.data.DataLoader,
+                             'val_loader': torch.utils.data.DataLoader,
+                             'test_loader: torch.utils.data.DataLoader,
+                             }
+                             or a similar iterable object
+
+                each loader should have as first argument the input such that
+                    next(iter(train_loader)): [input, responses, ...]
+
+                the input should have the following form:
+                    [batch_size, channels, px_x, px_y, ...]
         """
         if key is None:
             key = {}
@@ -125,7 +139,7 @@ class Seed(dj.Manual):
 
     def get_seed(self, key=None):
         """
-            returns the random seed
+        gets the seed and is passed on to the TrainedModel table
         """
         if key is None:
             key = {}
@@ -148,14 +162,16 @@ class TrainedModel(dj.Computed):
     # model_state: attach@storage has yet to be added
 
     def make(self, key):
+        seed = (Seed & key).get_seed()
         trainer, trainer_config = (Trainer & key).get_trainer()
         dataloader = (Dataset & key).get_dataloader()
 
         # gets the input dimensions from the dataloader
-        input_dim = self.get_input_dimensions(dataloader)
+        #
+        input_dim, output_dim = self.get_in_out_dimensions(dataloader)
         # passes the input dimensions to the model builder function
-        model = (Model & key).build_model(input_dim)
-        seed = (Seed & key).get_seed()
+        model = (Model & key).build_model(input_dim, output_dim, seed)
+
 
         # model training
         loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
@@ -164,10 +180,34 @@ class TrainedModel(dj.Computed):
         key['output'] = output
         self.insert1(key)
 
-    def get_input_dimensions(self, dataloader):
+    def get_in_out_dimensions(self, dataloader):
         """
-            placeholder
-        :param dataloader:
+            gets the input and output dimensions from the dataloader.
+
+        :param
+            dataloader: is expected to be a dict in the form of
+                            {
+                            'train_loader': torch.utils.data.DataLoader,
+                             'val_loader': torch.utils.data.DataLoader,
+                             'test_loader: torch.utils.data.DataLoader,
+                             }
+
+                each loader should have as first argument the input in the form of
+                    [batch_size, channels, px_x, px_y, ...]
+
+                each loader should have as second argument the out in some form
+                    [batch_size, output_units, ...]
+
+
         :return:
+            input_dim: input dimensions, expected to be a tuple in the form of input.shape.
+                        for example: (batch_size, channels, px_x, px_y, ...)
+            output_dim: out dimensions, expected to be a tuple in the form of output.shape.
+                        for example: (batch_size, output_units, ...)
+
         """
-        return 1
+        train_loader = dataloader["train_loader"]
+        train_batch = next(iter(train_loader))
+        input_batch = train_batch[0]
+        output_batch = train_batch[1]
+        return input_batch.shape, output_batch.shape
