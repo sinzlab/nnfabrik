@@ -32,14 +32,14 @@ class Model(dj.Manual):
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object)
         self.insert1(key)
 
-    def build_model(self, img_dim, key=None):
+    def build_model(self, input_dim, output_dim, seed, key=None):
         if key is None:
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
         config_fn = eval(configurator)
-        return config_fn(img_dim, **config_object)
+        return config_fn(input_dim, output_dim, seed, **config_object)
 
 
 @schema
@@ -162,15 +162,16 @@ class TrainedModel(dj.Computed):
     # model_state: attach@storage has yet to be added
 
     def make(self, key):
+        seed = (Seed & key).get_seed()
         trainer, trainer_config = (Trainer & key).get_trainer()
         dataloader = (Dataset & key).get_dataloader()
 
         # gets the input dimensions from the dataloader
         #
-        input_dim, output_dim = self.get_input_dimensions(dataloader)
+        input_dim, output_dim = self.get_in_out_dimensions(dataloader)
         # passes the input dimensions to the model builder function
-        model = (Model & key).build_model(input_dim, output_dim)
-        seed = (Seed & key).get_seed()
+        model = (Model & key).build_model(input_dim, output_dim, seed)
+
 
         # model training
         loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
