@@ -6,11 +6,11 @@ from builtins import property
 
 # datapath = "data/monkeydata/csrf_dataset_one_35ppd.pickle"
 
-def CSRF_V1(datapath, batch_size, seed,
+def CSRF_V1(datapath, batch_size, seed, image_path=None,
             train_frac=0.8, subsample=1, crop=65, time_bins_sum=np.arange(7)):
 
 
-    V1_Data = CSRF_V1_Data(raw_data_path=datapath, seed=seed,
+    V1_Data = CSRF_V1_Data(raw_data_path=datapath, image_path=image_path, seed=seed,
                         train_frac = train_frac, subsample=subsample, crop=crop,
                         time_bins_sum=time_bins_sum)
 
@@ -23,8 +23,8 @@ def CSRF_V1(datapath, batch_size, seed,
     images, responses, valid_responses = V1_Data.test()
     test_loader = getLoader_CSRF_V1(images, responses, 1*valid_responses, batch_size)
 
-    DataLoader = dict(train_loader=train_loader,val_loader=val_loader,test_loader=test_loader)
-    return DataLoader
+    data_loader = dict(train_loader=train_loader,val_loader=val_loader,test_loader=test_loader)
+    return data_loader
 
 def getLoader_CSRF_V1(images, responses, valid_responses, batch_size):
 
@@ -36,26 +36,24 @@ def getLoader_CSRF_V1(images, responses, valid_responses, batch_size):
         images = torch.tensor(images).view(im_shape[0], im_shape[3], im_shape[1], im_shape[2]).to(torch.float)
     else:
         images = torch.tensor(images).cuda().to(torch.float)
-    """
+
     responses = torch.tensor(responses).cuda().to(torch.float)
     valid_responses = torch.tensor(valid_responses).cuda().to(torch.float)
     dataset = torch.utils.TensorDataset(images, responses, valid_responses)
-    DataLoader = torch.utils.DataLoader(dataset, batch_size=batch_size)
-    """
-    responses = torch.tensor(responses).to(torch.float)
-    valid_responses = torch.tensor(valid_responses).to(torch.float)
-    dataset = utils.TensorDataset(images, responses, valid_responses)
-    DataLoader = utils.DataLoader(dataset, batch_size=batch_size)
+    data_loader = torch.utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    return DataLoader
+
+    return data_loader
 
 class CSRF_V1_Data:
     """For use with George's and Kelli's csrf data set."""
 
-    def __init__(self, raw_data_path=None, seed=None, train_frac=0.8, subsample=1, crop=0, time_bins_sum=None):
+    def __init__(self, raw_data_path, image_path, seed, train_frac, subsample, crop, time_bins_sum):
         """
         Args:
             raw_data_path: Path pointing to the raw data. Defaults to /gpfs01/bethge/share/csrf_data/csrf_dataset_one.pickle
+            image_path: if the pickle file does not contain the train_images, load them from another
+                file that does contain them
             seed: Seed for train val data set split (does not affect order of stimuli... in train val split themselves)
             train_frac: Fraction of experiments training data used for model training. Remaining data as val set.
             subsample: Integer values to downsample stimuli
@@ -68,17 +66,20 @@ class CSRF_V1_Data:
 
         # unpack data
 
-        self.__subject_ids = raw_data["subject_ids"]
-        self.__session_ids = raw_data["session_ids"]
-        self.__session_unit_response_link = raw_data["session_unit_response_link"]
-        self.__repetitions_test = raw_data["repetitions_test"]
+        self._subject_ids = raw_data["subject_ids"]
+        self._session_ids = raw_data["session_ids"]
+        self._session_unit_response_link = raw_data["session_unit_response_link"]
+        self._repetitions_test = raw_data["repetitions_test"]
         responses_train = raw_data["responses_train"].astype(np.float32)
-        self.__responses_test = raw_data["responses_test"].astype(np.float32)
+        self._responses_test = raw_data["responses_test"].astype(np.float32)
 
         real_responses = np.logical_not(np.isnan(responses_train))
-        self.__real_responses_test = np.logical_not(np.isnan(self.responses_test))
+        self._real_responses_test = np.logical_not(np.isnan(self.responses_test))
 
-        # crop
+        if image_path:
+            with open(image_path, "rb") as pkl:
+                raw_data = pickle.load(pkl)
+
         if crop == 0:
             images_train = raw_data["images_train"][:, 0::subsample, 0::subsample]
             images_test = raw_data["images_test"][:, 0::subsample, 0::subsample]
@@ -91,42 +92,42 @@ class CSRF_V1_Data:
         img_mean = np.mean(all_images)
         img_std = np.std(all_images)
         images_train = (images_train - img_mean) / img_std
-        self.__images_test = (images_test - img_mean) / img_std
+        self._images_test = (images_test - img_mean) / img_std
 
         # split into train and val set, images randomly assigned
         train_split, val_split = self.get_validation_split(real_responses, train_frac, seed)
-        self.__images_train = images_train[train_split, :, :]
-        self.__responses_train = responses_train[train_split, :, :]
-        self.__real_responses_train = real_responses[train_split, :, :]
+        self._images_train = images_train[train_split, :, :]
+        self._responses_train = responses_train[train_split, :, :]
+        self._real_responses_train = real_responses[train_split, :, :]
 
-        self.__images_val = images_train[val_split, :, :]
-        self.__responses_val = responses_train[val_split, :, :]
-        self.__real_responses_val = real_responses[val_split, :, :]
+        self._images_val = images_train[val_split, :, :]
+        self._responses_val = responses_train[val_split, :, :]
+        self._real_responses_val = real_responses[val_split, :, :]
 
-        self.__train_perm = np.random.permutation(self.__images_train.shape[0])
-        self.__val_perm = np.random.permutation(self.__images_val.shape[0])
+        self._train_perm = np.random.permutation(self._images_train.shape[0])
+        self._val_perm = np.random.permutation(self._images_val.shape[0])
 
         if time_bins_sum is not None:  # then average over given time bins
-            self.__responses_train = np.sum(self.__responses_train[:, :, time_bins_sum], axis=-1)
-            self.__responses_test = np.sum(self.__responses_test[:, :, time_bins_sum], axis=-1)
-            self.__responses_val = np.sum(self.__responses_val[:, :, time_bins_sum], axis=-1)
+            self._responses_train = np.sum(self._responses_train[:, :, time_bins_sum], axis=-1)
+            self._responses_test = np.sum(self._responses_test[:, :, time_bins_sum], axis=-1)
+            self._responses_val = np.sum(self._responses_val[:, :, time_bins_sum], axis=-1)
 
             # In real responses: If an entry for any time is False, real_responses is False for all times.
-            self.__real_responses_train = np.min(self.__real_responses_train[:, :, time_bins_sum], axis=-1)
-            self.__real_responses_test = np.min(self.__real_responses_test[:, :, time_bins_sum], axis=-1)
-            self.__real_responses_val = np.min(self.__real_responses_val[:, :, time_bins_sum], axis=-1)
+            self._real_responses_train = np.min(self._real_responses_train[:, :, time_bins_sum], axis=-1)
+            self._real_responses_test = np.min(self._real_responses_test[:, :, time_bins_sum], axis=-1)
+            self._real_responses_val = np.min(self._real_responses_val[:, :, time_bins_sum], axis=-1)
 
         # in responses, change nan to zero. Then: Use real responses vector for all valid responses
-        nan_mask = np.isnan(self.__responses_train)
-        self.__responses_train[nan_mask] = 0.
+        nan_mask = np.isnan(self._responses_train)
+        self._responses_train[nan_mask] = 0.
 
-        nan_mask = np.isnan(self.__responses_val)
-        self.__responses_val[nan_mask] = 0.
+        nan_mask = np.isnan(self._responses_val)
+        self._responses_val[nan_mask] = 0.
 
-        nan_mask = np.isnan(self.__responses_test)
-        self.__responses_test[nan_mask] = 0.
+        nan_mask = np.isnan(self._responses_test)
+        self._responses_test[nan_mask] = 0.
 
-        self.__minibatch_idx = 0
+        self._minibatch_idx = 0
 
     # getters
     @property
@@ -135,7 +136,7 @@ class CSRF_V1_Data:
         Returns:
             train images in current order (changes every time a new epoch starts)
         """
-        return np.expand_dims(self.__images_train[self.__train_perm, ...], -1)
+        return np.expand_dims(self._images_train[self._train_perm], -1)
 
     @property
     def responses_train(self):
@@ -143,40 +144,36 @@ class CSRF_V1_Data:
         Returns:
             train responses in current order (changes every time a new epoch starts)
         """
-        return self.__responses_train[self.__train_perm, ...]
+        return self._responses_train[self._train_perm]
 
     # legacy property
     @property
     def real_resps_train(self):
-        return self.__real_responses_train[self.__train_perm, ...]
+        return self._real_responses_train[self._train_perm]
 
     @property
     def real_responses_train(self):
-        return self.__real_responses_train[self.__train_perm, ...]
+        return self._real_responses_train[self._train_perm]
 
     @property
     def images_val(self):
-        return np.expand_dims(self.__images_val, -1)
+        return np.expand_dims(self._images_val, -1)
 
     @property
     def responses_val(self):
-        return self.__responses_val
+        return self._responses_val
 
     @property
     def images_test(self):
-        return np.expand_dims(self.__images_test, -1)
+        return np.expand_dims(self._images_test, -1)
 
     @property
     def responses_test(self):
-        return self.__responses_test
+        return self._responses_test
 
     @property
-    def px_x(self):
-        return self.images_train.shape[1]
-
-    @property
-    def px_y(self):
-        return self.images_train.shape[2]
+    def image_dimensions(self):
+        return self.images_train.shape[1:3]
 
     @property
     def num_neurons(self):
@@ -187,8 +184,8 @@ class CSRF_V1_Data:
         """
         Gets new random index permutation for train set, reset minibatch index.
         """
-        self.__minibatch_idx = 0
-        self.__train_perm = np.random.permutation(self.__train_perm)
+        self._minibatch_idx = 0
+        self._train_perm = np.random.permutation(self._train_perm)
 
     def get_validation_split(self, real_responses_train, train_frac=0.8, seed=None):
         """
@@ -231,7 +228,7 @@ class CSRF_V1_Data:
             images_val, responses_val, real_respsonses_val
         """
 
-        return self.images_val, self.responses_val, self.__real_responses_val
+        return self.images_val, self.responses_val, self._real_responses_val
 
     def test(self):
         """
@@ -241,4 +238,4 @@ class CSRF_V1_Data:
                 images_test, responses_test, real_responses_test
             """
 
-        return self.images_test, self.responses_test, self.__real_responses_test
+        return self.images_test, self.responses_test, self._real_responses_test
