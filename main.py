@@ -1,16 +1,33 @@
 import datajoint as dj
+import torch
 
 dj.config['database.host'] = 'datajoint.ninai.org'
-schema = dj.schema('kwilleke_generalized_model_fitting')
+schema = dj.schema('kwilleke_nnfabrik')
+
+dj.config['stores'] = {
+    'minio': {    #  store in s3
+        'protocol': 's3',
+        'endpoint': 'cantor.mvl6.uni-tuebingen.de:9000',
+        'bucket': 'nnfabrik',
+        'location': 'dj-store',
+        'access_key': os.environ['MINIO_ACCESS_KEY'],
+        'secret_key': os.environ['MINIO_SECRET_KEY']
+    }
+}
 
 # placeholder function
-def make_hash(config_input):
-    """
-        hashes the configurator input for the model-, dataset-, training-function-builders
+def make_hash(config):
+    """"
+    takes any non-nested dict to return a 32byte hash
 
-    :returns: a unique hash for each configurator
+        :args: config -- dictionary. Must not contain objects or nested dicts
+
+        :returns: 32byte hash
     """
-    return 'a_un1que_h4sh'
+    hashed = hashlib.md5()
+    for k, v in sorted(key.items()):
+        hashed.update(str(v).encode())
+    return hashed.hexdigest()
 
 
 @schema
@@ -158,6 +175,8 @@ class TrainedModel(dj.Computed):
     ---
     loss:   longblob  # loss
     output: longblob  # trainer object's output
+    model_state:  attach@minio
+    ---
     """
     # model_state: attach@storage has yet to be added
 
@@ -166,48 +185,20 @@ class TrainedModel(dj.Computed):
         trainer, trainer_config = (Trainer & key).get_trainer()
         dataloader = (Dataset & key).get_dataloader()
 
-        # gets the input dimensions from the dataloader
-        #
-        input_dim, output_dim = self.get_in_out_dimensions(dataloader)
         # passes the input dimensions to the model builder function
-        model = (Model & key).build_model(input_dim, output_dim, seed)
+        model = (Model & key).build_model(dataloader, seed)
 
 
         # model training
         loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
 
+        # minio storage
+        filepath = 'trained_models/' + make_hash(key) + '.pth.tar'
+        torch.save(model_state, filepath)
+
+        key['model_state'] = filepath
         key['loss'] = loss
         key['output'] = output
+        os.remove(filepath)
+
         self.insert1(key)
-
-    def get_in_out_dimensions(self, dataloader):
-        """
-            gets the input and output dimensions from the dataloader.
-
-        :param
-            dataloader: is expected to be a dict in the form of
-                            {
-                            'train_loader': torch.utils.data.DataLoader,
-                             'val_loader': torch.utils.data.DataLoader,
-                             'test_loader: torch.utils.data.DataLoader,
-                             }
-
-                each loader should have as first argument the input in the form of
-                    [batch_size, channels, px_x, px_y, ...]
-
-                each loader should have as second argument the out in some form
-                    [batch_size, output_units, ...]
-
-
-        :return:
-            input_dim: input dimensions, expected to be a tuple in the form of input.shape.
-                        for example: (batch_size, channels, px_x, px_y, ...)
-            output_dim: out dimensions, expected to be a tuple in the form of output.shape.
-                        for example: (batch_size, output_units, ...)
-
-        """
-        train_loader = dataloader["train_loader"]
-        train_batch = next(iter(train_loader))
-        input_batch = train_batch[0]
-        output_batch = train_batch[1]
-        return input_batch.shape, output_batch.shape
