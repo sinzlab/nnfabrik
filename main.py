@@ -78,7 +78,7 @@ class Dataset(dj.Manual):
                    dataset_config=dataset_config)
         self.insert1(key)
 
-    def get_dataloader(self, key=None):
+    def get_dataloader(self, seed, key=None):
         """
         Returns a dataloader for a given dataset loader function and its corresponding configurations
         dataloader: is expected to be a dict in the form of
@@ -99,7 +99,7 @@ class Dataset(dj.Manual):
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
         dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
         config_fn = eval(dataset_loader)
-        return config_fn(**dataset_config)
+        return config_fn(seed=seed, **dataset_config)
 
 
 @schema
