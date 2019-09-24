@@ -7,26 +7,26 @@ from builtins import property
 # datapath = "data/monkeydata/csrf_dataset_one_35ppd.pickle"
 
 def CSRF_V1(datapath, batch_size, seed, image_path=None,
-            train_frac=0.8, subsample=1, crop=65, time_bins_sum=np.arange(7)):
+            train_frac=0.8, subsample=1, crop=65, time_bins_sum=tuple(range(7))):
 
 
-    V1_Data = CSRF_V1_Data(raw_data_path=datapath, image_path=image_path, seed=seed,
+    v1_data = CSRF_V1_Data(raw_data_path=datapath, image_path=image_path, seed=seed,
                         train_frac = train_frac, subsample=subsample, crop=crop,
                         time_bins_sum=time_bins_sum)
 
-    images, responses, valid_responses = V1_Data.train()
-    train_loader = getLoader_CSRF_V1(images, responses, 1*valid_responses, batch_size)
+    images, responses, valid_responses = v1_data.train()
+    train_loader = get_loader_csrf_V1(images, responses, 1 * valid_responses, batch_size)
 
-    images, responses, valid_responses = V1_Data.val()
-    val_loader = getLoader_CSRF_V1(images, responses, 1*valid_responses, batch_size)
+    images, responses, valid_responses = v1_data.val()
+    val_loader = get_loader_csrf_V1(images, responses, 1 * valid_responses, batch_size)
 
-    images, responses, valid_responses = V1_Data.test()
-    test_loader = getLoader_CSRF_V1(images, responses, 1*valid_responses, batch_size)
+    images, responses, valid_responses = v1_data.test()
+    test_loader = get_loader_csrf_V1(images, responses, 1 * valid_responses, batch_size)
 
     data_loader = dict(train_loader=train_loader,val_loader=val_loader,test_loader=test_loader)
     return data_loader
 
-def getLoader_CSRF_V1(images, responses, valid_responses, batch_size):
+def get_loader_csrf_V1(images, responses, valid_responses, batch_size):
 
     # Expected Dimension of the Image Tensor is Images x Channels x size_x x size_y
     # In some CSRF files, Channels are at Dim4, the image tensor is thus reshaped accordingly
@@ -39,8 +39,8 @@ def getLoader_CSRF_V1(images, responses, valid_responses, batch_size):
 
     responses = torch.tensor(responses).cuda().to(torch.float)
     valid_responses = torch.tensor(valid_responses).cuda().to(torch.float)
-    dataset = torch.utils.TensorDataset(images, responses, valid_responses)
-    data_loader = torch.utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataset = utils.TensorDataset(images, responses, valid_responses)
+    data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 
     return data_loader
