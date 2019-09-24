@@ -4,11 +4,12 @@ from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_stat
 from itertools import repeat
 from scipy import stats
 from tqdm import tqdm
+
 # TrainedModels table calls the trainer as follows:
 # loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
 
 def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
-                     loss_function ='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
+                     loss_function=PoissonLoss, epoch=0, interval=1, patience=10, max_iter=50,
                      maximize=True, tolerance=1e-5, cuda=True, restore_best=True, tracker=None,
                      train_loader=None, val_loader=None, test_loader=None):
     """"
@@ -22,19 +23,21 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
                 'gamma stop'
                 'exp_stop'
                 'poisson_stop'
-            loss_function: selects the loss function from mlutils.measures.py. Has to be a string
-                            of the following:
-                'PoissonLoss'
-                'GammaLoss'
+            loss_function: any callable is accepted.
+                Loss functions that are built in at mlutils that can
+                be selected in the trainer config are:
+                    PoissonLoss
+                    GammaLoss
         train_loader: PyTorch DtaLoader -- training data
         val_loader: validation data loader
-        test_loader: test data loader
+        test_loader: test data loader -- not used during training
 
     Returns:
         loss: training loss after each epoch
             Expected format: ndarray or dict
         output: user specified output of the training procedure.
             Expected format: ndarray or dict
+        model_state: the full state_dict() of the trained model
     """
 
     # --- begin of helper function definitions
@@ -145,8 +148,7 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
         torch.cuda.manual_seed(seed)
 
     model.train(True)
-    # get loss function from mlutils.measures based on the keyword
-    criterion = eval(loss_function)()
+    criterion = loss_function()
     # get stopping criterion from helper functions based on keyword
     stop_closure = partial(eval(stop_function), model)
 
