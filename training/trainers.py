@@ -1,12 +1,16 @@
 from functools import partial
-
+from mlutils.measures import *
+from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state
+from itertools import repeat
+from scipy import stats
+from tqdm import tqdm
 # TrainedModels table calls the trainer as follows:
 # loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
 
 def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
                      loss_function ='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
                      maximize=True, tolerance=1e-5, cuda=True, restore_best=True, tracker=None,
-                     train_loader, val_loader, test_loader):
+                     train_loader=None, val_loader=None, test_loader=None):
     """"
     Args:
         model: PyTorch nn module
@@ -112,7 +116,7 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
             restore_best, tracker):
 
         optimizer.zero_grad()
-        for epoch, val_obj in early_stopping(model=model, stop_closure=stop_closure,
+        for epoch, val_obj in early_stopping(model, stop_closure,
                                              interval=interval, patience=patience,
                                              start=epoch, max_iter=max_iter, maximize=maximize,
                                              tolerance=tolerance, restore_best=restore_best,
@@ -125,7 +129,7 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
             print(loss)
 
             # store the training loss/output after each epoch loop
-            loss_ret.append(loss)
+            loss_ret.append(loss.detach().cpu().numpy())
             val_output.append(val_obj)
 
 
@@ -134,12 +138,18 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
     # --- end of helper function definitions
 
     # set up the model and the loss/early_stopping functions
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if cuda:
+        model.cuda()
+        torch.cuda.manual_seed(seed)
 
     model.train(True)
     # get loss function from mlutils.measures based on the keyword
     criterion = eval(loss_function)()
     # get stopping criterion from helper functions based on keyword
     stop_closure = partial(eval(stop_function), model)
+
     tracker = MultipleObjectiveTracker(poisson=partial(poisson_stop, model),
                                        gamma=partial(gamma_stop, model),
                                        correlation=partial(corr_stop, model),
@@ -148,7 +158,6 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
     val_output = []
     loss_ret = []
 
-    # Run the Training
     for opt, lr in zip(repeat(torch.optim.Adam), lr_schedule):
         print('Training with learning rate {}'.format(lr))
         optimizer = opt(model.parameters(), lr=lr)
