@@ -1,5 +1,6 @@
 import datajoint as dj
 import torch
+import os
 
 dj.config['database.host'] = 'datajoint.ninai.org'
 schema = dj.schema('kwilleke_nnfabrik')
@@ -15,17 +16,14 @@ dj.config['stores'] = {
     }
 }
 
-# placeholder function
 def make_hash(config):
     """"
     takes any non-nested dict to return a 32byte hash
-
         :args: config -- dictionary. Must not contain objects or nested dicts
-
         :returns: 32byte hash
     """
     hashed = hashlib.md5()
-    for k, v in sorted(key.items()):
+    for k, v in sorted(config.items()):
         hashed.update(str(v).encode())
     return hashed.hexdigest()
 
@@ -49,14 +47,14 @@ class Model(dj.Manual):
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object)
         self.insert1(key)
 
-    def build_model(self, input_dim, output_dim, seed, key=None):
+    def build_model(self, dataloader, seed, key=None):
         if key is None:
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
         config_fn = eval(configurator)
-        return config_fn(input_dim, output_dim, seed, **config_object)
+        return config_fn(dataloader, seed, **config_object)
 
 
 @schema
@@ -71,7 +69,6 @@ class Dataset(dj.Manual):
     def add_entry(self, dataset_loader, dataset_config):
         """
         inserts one new entry into the Dataset Table
-
         dataset_loader -- name of dataset function/class that's callable
         dataset_config -- actual Python object with which the dataset function is called
         """
@@ -84,7 +81,6 @@ class Dataset(dj.Manual):
     def get_dataloader(self, key=None):
         """
         Returns a dataloader for a given dataset loader function and its corresponding configurations
-
         dataloader: is expected to be a dict in the form of
                             {
                             'train_loader': torch.utils.data.DataLoader,
@@ -92,10 +88,8 @@ class Dataset(dj.Manual):
                              'test_loader: torch.utils.data.DataLoader,
                              }
                              or a similar iterable object
-
                 each loader should have as first argument the input such that
                     next(iter(train_loader)): [input, responses, ...]
-
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
@@ -120,7 +114,6 @@ class Trainer(dj.Manual):
     def add_entry(self, training_function, training_config):
         """
         inserts one new entry into the Trainer Table
-
         training_function -- name of trainer function/class that's callable
         training_config -- actual Python object with which the trainer function is called
         """
@@ -147,23 +140,6 @@ class Seed(dj.Manual):
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
 
-    def add_entry(self, seed):
-        """
-            inserts a user specified seed into the Seed Table
-        """
-        key = dict(seed=seed)
-        self.insert1(key)
-
-    def get_seed(self, key=None):
-        """
-        gets the seed and is passed on to the TrainedModel table
-        """
-        if key is None:
-            key = {}
-
-        seed = (self & key).fetch1('seed')
-        return seed
-
 
 @schema
 class TrainedModel(dj.Computed):
@@ -181,7 +157,7 @@ class TrainedModel(dj.Computed):
     # model_state: attach@storage has yet to be added
 
     def make(self, key):
-        seed = (Seed & key).get_seed()
+        seed = (Seed & key).fetch1('seed')
         trainer, trainer_config = (Trainer & key).get_trainer()
         dataloader = (Dataset & key).get_dataloader()
 
@@ -192,13 +168,11 @@ class TrainedModel(dj.Computed):
         # model training
         loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
 
-        # minio storage
-        filepath = 'trained_models/' + make_hash(key) + '.pth.tar'
-        torch.save(model_state, filepath)
-
-        key['model_state'] = filepath
-        key['loss'] = loss
-        key['output'] = output
-        os.remove(filepath)
-
-        self.insert1(key)
+        with tempfile.TemporaryDirectory() as trained_models:
+            filename = make_hash(key) + '.pth.tar'
+            filepath = os.path.join(trained_models, filename)
+            torch.save(model_state, filepath)
+            key['loss'] = loss
+            key['output'] = output
+            key['model_state'] = filepath
+            self.insert1(key)
