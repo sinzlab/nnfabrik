@@ -61,23 +61,13 @@ def stacked2d_core_point_readout(dataloader, seed,
         return readout.feature_l1() * gamma_readout
     readout.regularizer = regularizer
 
-
-
-    train_loader = dataloader["train_loader"]
-
-    n_batches = 25
-    train_responses = np.zeros((n_batches, num_neurons))
-    train_valid_responses = np.zeros((n_batches, num_neurons))
-    for i in range(n_batches):
-        _, responses, valid_responses = next(iter(train_loader))
-        train_responses[i, :] = responses.mean((0)).cpu().numpy()
-        train_valid_responses[i, :] = valid_responses.mean((0)).cpu().numpy()
-
-    avg_responses = np.mean(train_responses / train_valid_responses, axis=0)
+    _, train_responses, train_valid_responses = dataloader["train_loader"].dataset[:]
+    # initialize readout bias by avg firing rate, scaled by how many images the neuron has seen.
+    avg_responses = train_responses.mean(0) / train_valid_responses.mean(0)
 
     model = Encoder(core, readout)
     model.core.initialize()
-    model.readout.bias.data = torch.as_tensor(avg_responses).to(torch.float).mean((0))
+    model.readout.bias.data = avg_responses
     return model
 
 
