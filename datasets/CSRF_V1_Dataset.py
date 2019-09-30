@@ -4,14 +4,12 @@ import numpy as np
 import pickle
 from builtins import property
 
-# datapath = "data/monkeydata/csrf_dataset_one_35ppd.pickle"
-
 def CSRF_V1(datapath, batch_size, seed, image_path=None,
             train_frac=0.8, subsample=1, crop=65, time_bins_sum=tuple(range(7))):
 
 
     v1_data = CSRF_V1_Data(raw_data_path=datapath, image_path=image_path, seed=seed,
-                        train_frac = train_frac, subsample=subsample, crop=crop,
+                        train_frac=train_frac, subsample=subsample, crop=crop,
                         time_bins_sum=time_bins_sum)
 
     images, responses, valid_responses = v1_data.train()
@@ -51,20 +49,34 @@ class CSRF_V1_Data:
     def __init__(self, raw_data_path, image_path, seed, train_frac, subsample, crop, time_bins_sum):
         """
         Args:
-            raw_data_path: Path pointing to the raw data. Defaults to /gpfs01/bethge/share/csrf_data/csrf_dataset_one.pickle
-            image_path: if the pickle file does not contain the train_images, load them from another
-                file that does contain them
-            seed: Seed for train val data set split (does not affect order of stimuli... in train val split themselves)
-            train_frac: Fraction of experiments training data used for model training. Remaining data as val set.
-            subsample: Integer values to downsample stimuli
+            raw_data_path: Path pointing to a pickle file that contains the experimental data.
+                            Not all pickle files of the CSRF dataset contain the image data.
+                            If the images are missing, an image_path argument should be provided.
+            image_path: Path pointing to a pickle file which should contain the image data
+                        (training and testing images).
+            seed: Random seed for train val data set split (does not affect order of stimuli... in train val split themselves)
+            train_frac: Fraction of experiments training data used for model training.
+                        Remaining data serves as validation set
+                    Float Value between 0 and 1
+
+            subsample: Integer value to downsample the input.
+                Example usage:  subsample=1 keeps original resolution
+                                subsample=2 cuts the resolution in half
+
             crop: Integer value to crop stimuli from each side (left, right, bottom, top), before subsampling
-            time_bins_sum: array-like, values 0[0, ..., 12], time bins to average over. (40ms to 160ms following image onset in steps of 10ms)
+            time_bins_sum: a tuple which specifies which times bins are included in the analysis.
+                        there are 13 bins (0 to 12), which correspond to 10ms bins from 40 to 160 ms
+                        after stimulus presentation
+                Exmple usage:   (0,1,2,3) will only include the first four time bins into the analysis
         """
+
+        # unpacking pickle data
+        if image_path:
+            with open(image_path, "rb") as pkl:
+                image_data = pickle.load(pkl)
 
         with open(raw_data_path, "rb") as pkl:
             raw_data = pickle.load(pkl)
-
-        # unpack data
 
         self._subject_ids = raw_data["subject_ids"]
         self._session_ids = raw_data["session_ids"]
@@ -76,16 +88,12 @@ class CSRF_V1_Data:
         real_responses = np.logical_not(np.isnan(responses_train))
         self._real_responses_test = np.logical_not(np.isnan(self.responses_test))
 
-        if image_path:
-            with open(image_path, "rb") as pkl:
-                raw_data = pickle.load(pkl)
+        # if an image path is provided, load the images from the corresponding pickle file
+        raw_data = image_data if image_path else raw_data
 
-        if crop == 0:
-            images_train = raw_data["images_train"][:, 0::subsample, 0::subsample]
-            images_test = raw_data["images_test"][:, 0::subsample, 0::subsample]
-        else:
-            images_train = raw_data["images_train"][:, crop:-crop:subsample, crop:-crop:subsample]
-            images_test = raw_data["images_test"][:, crop:-crop:subsample, crop:-crop:subsample]
+        _, h, w = raw_data['images_train'].shape[:3]
+        images_train = raw_data['images_train'][:, crop:h - crop:subsample, crop:w - crop:subsample]
+        images_test = raw_data['images_test'][:, crop:h - crop:subsample, crop:w - crop:subsample]
 
         # z-score all images by mean, and sigma of all images
         all_images = np.append(images_train, images_test, axis=0)
@@ -96,13 +104,16 @@ class CSRF_V1_Data:
 
         # split into train and val set, images randomly assigned
         train_split, val_split = self.get_validation_split(real_responses, train_frac, seed)
-        self._images_train = images_train[train_split, :, :]
-        self._responses_train = responses_train[train_split, :, :]
-        self._real_responses_train = real_responses[train_split, :, :]
+        self._images_train = images_train[train_split]
+        self._responses_train = responses_train[train_split]
+        self._real_responses_train = real_responses[train_split]
 
-        self._images_val = images_train[val_split, :, :]
-        self._responses_val = responses_train[val_split, :, :]
-        self._real_responses_val = real_responses[val_split, :, :]
+        self._images_val = images_train[val_split]
+        self._responses_val = responses_train[val_split]
+        self._real_responses_val = real_responses[val_split]
+
+        if seed:
+            np.random.seed(seed)
 
         self._train_perm = np.random.permutation(self._images_train.shape[0])
         self._val_perm = np.random.permutation(self._images_val.shape[0])
@@ -113,19 +124,14 @@ class CSRF_V1_Data:
             self._responses_val = np.sum(self._responses_val[:, :, time_bins_sum], axis=-1)
 
             # In real responses: If an entry for any time is False, real_responses is False for all times.
-            self._real_responses_train = np.min(self._real_responses_train[:, :, time_bins_sum], axis=-1)
-            self._real_responses_test = np.min(self._real_responses_test[:, :, time_bins_sum], axis=-1)
-            self._real_responses_val = np.min(self._real_responses_val[:, :, time_bins_sum], axis=-1)
+            self._real_responses_train = np.all(self._real_responses_train[:, :, time_bins_sum], axis=-1)
+            self._real_responses_test = np.all(self._real_responses_test[:, :, time_bins_sum], axis=-1)
+            self._real_responses_val = np.all(self._real_responses_val[:, :, time_bins_sum], axis=-1)
 
         # in responses, change nan to zero. Then: Use real responses vector for all valid responses
-        nan_mask = np.isnan(self._responses_train)
-        self._responses_train[nan_mask] = 0.
-
-        nan_mask = np.isnan(self._responses_val)
-        self._responses_val[nan_mask] = 0.
-
-        nan_mask = np.isnan(self._responses_test)
-        self._responses_test[nan_mask] = 0.
+        self._responses_train[np.isnan(self._responses_train)] = 0
+        self._responses_val[np.isnan(self._responses_val)] = 0
+        self._responses_test[np.isnan(self._responses_test)] = 0
 
         self._minibatch_idx = 0
 
@@ -195,7 +201,7 @@ class CSRF_V1_Data:
         :return: returns permuted indeces for the training and validation set
         """
         if seed:
-            np.random.seed(seed)  # only affects the next call of a random number generator, i.e. np.random.permutation
+            np.random.seed(seed)
 
         num_images = real_responses_train.shape[0]
         Neurons_per_image = np.sum(real_responses_train, axis=1)[:, 0]
@@ -239,3 +245,4 @@ class CSRF_V1_Data:
             """
 
         return self.images_test, self.responses_test, self._real_responses_test
+
