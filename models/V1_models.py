@@ -3,7 +3,7 @@ import torch
 from mlutils.layers.readouts import PointPooled2d
 from mlutils.layers.cores import Stacked2dCore
 from torch import nn as nn
-from utility.helper_functions import *
+from utility.nn_helpers import *
 from torch.nn import functional as F
 
 
@@ -45,12 +45,12 @@ def stacked2d_core_point_readout(dataloader, seed,
                          batch_norm=batch_norm,
                          hidden_dilation=hidden_dilation)
 
-    input_shape, output_shape = get_in_out_dimensions(dataloader)
-    readout_in_shape = get_core_output_shape(core,input_shape)
+    input_shape, output_shape = get_io_dims(dataloader["train_loader"])
+    readout_in_shape = get_module_output(core,input_shape)
     num_neurons=output_shape[1]
 
     # get a PointPooled Readout from mlutils
-    readout = PointPooled2d(readout_in_shape,
+    readout = PointPooled2d(readout_in_shape[1:],
                             num_neurons,
                             pool_steps=pool_steps,
                             pool_kern=pool_kern,
@@ -61,9 +61,9 @@ def stacked2d_core_point_readout(dataloader, seed,
         return readout.feature_l1() * gamma_readout
     readout.regularizer = regularizer
 
-    _, train_responses, train_valid_responses = dataloader["train_loader"].dataset[:]
+    _, train_responses, weights = dataloader["train_loader"].dataset[:]
     # initialize readout bias by avg firing rate, scaled by how many images the neuron has seen.
-    avg_responses = train_responses.mean(0) / train_valid_responses.mean(0)
+    avg_responses = train_responses.mean(0) / weights.mean(0)
 
     model = Encoder(core, readout)
     model.core.initialize()
