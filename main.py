@@ -3,14 +3,13 @@ import torch
 import numpy as np
 import os
 import tempfile
-import hashlib
 
 from mlutils.measures import corr, PoissonLoss, GammaLoss
 
-from Datasets.CSRF_V1_Dataset import *
-from Models.V1_models import *
-from Training.trainers import *
-from utility.helper_functions import *
+from datasets.CSRF_V1_Dataset import *
+from models.V1_models import *
+from training.trainers import *
+from utility.nn_helpers import *
 
 dj.config['database.host'] = 'datajoint.ninai.org'
 schema = dj.schema('kwilleke_nnfabrik')
@@ -25,18 +24,6 @@ dj.config['stores'] = {
         'secret_key': os.environ['MINIO_SECRET_KEY']
     }
 }
-
-def make_hash(config):
-    """"
-    takes any non-nested dict to return a 32byte hash
-        :args: config -- dictionary. Must not contain objects or nested dicts
-        :returns: 32byte hash
-    """
-    hashed = hashlib.md5()
-    for k, v in sorted(config.items()):
-        hashed.update(str(v).encode())
-    return hashed.hexdigest()
-
 
 @schema
 class Model(dj.Manual):
