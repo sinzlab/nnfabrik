@@ -1,20 +1,17 @@
-# helper functions used by the nnfabrik framework
+# helper functions concerning the ANN architecture
 
 import torch
+from mlutils.training import eval_state
 
-def get_in_out_dimensions(data_loader):
+
+def get_io_dims(data_loader):
     """
-        gets the input and output dimensions from the dataloader.
-    :param
-        dataloader: is expected to be a dict in the form of
-                        {
-                        'train_loader': torch.utils.data.DataLoader,
-                         'val_loader': torch.utils.data.DataLoader,
-                         'test_loader: torch.utils.data.DataLoader,
-                         }
+    gets the input and output dimensions from the dataloader.
+    :Args
+        dataloader: is expected to be a pytorch Dataloader object
             each loader should have as first argument the input in the form of
                 [batch_size, channels, px_x, px_y, ...]
-            each loader should have as second argument the out in some form
+            each loader should have as second argument the output in the form of
                 [batch_size, output_units, ...]
     :return:
         input_dim: input dimensions, expected to be a tuple in the form of input.shape.
@@ -22,11 +19,10 @@ def get_in_out_dimensions(data_loader):
         output_dim: out dimensions, expected to be a tuple in the form of output.shape.
                     for example: (batch_size, output_units, ...)
     """
-    train_loader = data_loader["train_loader"]
-    input_batch, output_batch, _ = next(iter(train_loader))
+    input_batch, output_batch, _ = next(iter(data_loader))
     return input_batch.shape, output_batch.shape
 
-def get_core_output_shape(core, input_shape):
+def get_module_output(model, input_shape):
     """
     Gets the output dimensions of the convolutional core
         by passing an input image through all convolutional layers
@@ -37,9 +33,8 @@ def get_core_output_shape(core, input_shape):
 
     :return: output dimensions of the core
     """
-    train_state = core.training
-    core.eval()
-    input_tensor = torch.ones(input_shape)
-    tensor_out = core(input_tensor).shape[1:]
-    core.train(train_state)
+    with eval_state(model):
+        input_tensor = torch.zeros(input_shape)
+        tensor_out = model(input_tensor).shape
     return tensor_out
+
