@@ -45,8 +45,6 @@ class Model(dj.Manual):
         self.insert1(key)
 
     def build_model(self, dataloader, seed, key=None):
-=======
-    def build_model(self, input_dim, output_dim, seed, key=None):
         if key is None:
             key = {}
 
@@ -165,8 +163,6 @@ class TrainedModel(dj.Computed):
 
         # passes the input dimensions to the model builder function
         model = (Model & key).build_model(dataloader, seed)
-
-
 
         # model training
         loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
