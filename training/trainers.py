@@ -4,13 +4,14 @@ from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_stat
 from itertools import repeat
 from scipy import stats
 from tqdm import tqdm
+import warnings
 
 # TrainedModels table calls the trainer as follows:
 # loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
 
 def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
                      loss_function=PoissonLoss, epoch=0, interval=1, patience=10, max_iter=50,
-                     maximize=True, tolerance=1e-5, cuda=True, restore_best=True, tracker=None,
+                     maximize=True, tolerance=1e-5, device='cuda', restore_best=True, tracker=None,
                      train_loader=None, val_loader=None, test_loader=None):
     """"
     Args:
@@ -28,6 +29,8 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
                 be selected in the trainer config are:
                     PoissonLoss
                     GammaLoss
+            device: Device that the model resides on. Expects arguments such as torch.device('')
+                Examples: 'cpu', 'cuda:2' (0-indexed gpu)
         train_loader: PyTorch DtaLoader -- training data
         val_loader: validation data loader
         test_loader: test data loader -- not used during training
@@ -50,9 +53,10 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
             output: responses as predicted by the network
         """
         target, output = [], []
-        for images, responses, val_responses in loader:
-            output.append(model(images).detach().cpu().numpy() * val_responses.detach().cpu().numpy())
-            target.append(responses.detach().cpu().numpy() * val_responses.detach().cpu().numpy())
+        for images, responses, *weights in loader:
+            weights = weights if weights else 1
+            output.append(model(images).detach().cpu().numpy() * weights.detach().cpu().numpy())
+            target.append(responses.detach().cpu().numpy() * weights.detach().cpu().numpy())
         target, output = map(np.vstack, (target, output))
         return target, output
 
@@ -102,17 +106,19 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
         # -- average if requested
         return ret.mean()
 
-    def full_objective(inputs, targets, val_responses):
+    def full_objective(inputs, targets, weights):
         """
+        Computes the training loss for the model and prespecified criterion
         Args:
             inputs: i.e. images
             targets: neuronal responses that the model should predict
-            val_responses: valid responses. Target and output are only valid for images,
-                that the particular neuron in its session has actually seen
+            weights: can either be a mask that selects for which output neurons
+                there was a valid input. Or can be used as normalization during training.
 
-        Returns: loss of the model based on the user specified criterion
+        Returns: training loss of the model
         """
-        return criterion(model(inputs) * val_responses, targets) + model.core.regularizer() + model.readout.regularizer()
+        weights = weights if weights else 1
+        return criterion(model(inputs) * weights, targets) + model.core.regularizer() + model.readout.regularizer()
 
     def run(model, full_objective, optimizer, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
@@ -143,8 +149,9 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
     # set up the model and the loss/early_stopping functions
     np.random.seed(seed)
     torch.manual_seed(seed)
-    if cuda:
-        model.cuda()
+    model.to(device)
+
+    if next(model.parameters()).is_cuda:
         torch.cuda.manual_seed(seed)
 
     model.train(True)
