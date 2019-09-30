@@ -45,6 +45,8 @@ class Model(dj.Manual):
         self.insert1(key)
 
     def build_model(self, dataloader, seed, key=None):
+=======
+    def build_model(self, input_dim, output_dim, seed, key=None):
         if key is None:
             key = {}
 
@@ -52,6 +54,7 @@ class Model(dj.Manual):
         config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
         config_fn = eval(configurator)
         return config_fn(dataloader, seed, **config_object)
+
 
 
 @schema
@@ -85,8 +88,10 @@ class Dataset(dj.Manual):
                              'test_loader: torch.utils.data.DataLoader,
                              }
                              or a similar iterable object
+
                 each loader should have as first argument the input such that
                     next(iter(train_loader)): [input, responses, ...]
+
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
@@ -136,7 +141,7 @@ class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
-
+    
 
 @schema
 class TrainedModel(dj.Computed):
@@ -160,6 +165,7 @@ class TrainedModel(dj.Computed):
 
         # passes the input dimensions to the model builder function
         model = (Model & key).build_model(dataloader, seed)
+
 
 
         # model training
