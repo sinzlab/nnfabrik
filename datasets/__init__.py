@@ -1,1 +1,1 @@
-import datasets.csrf_v1_dataset
+from . import csrf_v1_dataset
