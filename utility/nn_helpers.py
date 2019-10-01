@@ -2,7 +2,7 @@
 
 import torch
 from mlutils.training import eval_state
-
+import numpy as np
 
 def get_io_dims(data_loader):
     """
@@ -37,4 +37,15 @@ def get_module_output(model, input_shape):
         input_tensor = torch.zeros(input_shape)
         tensor_out = model(input_tensor).shape
     return tensor_out
+
+def set_random_seed(seed):
+    """
+    Sets all random seeds
+    """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+
+
 
