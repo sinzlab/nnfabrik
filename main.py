@@ -6,13 +6,16 @@ import tempfile
 
 from mlutils.measures import corr, PoissonLoss, GammaLoss
 
-from datasets.CSRF_V1_Dataset import *
-from models.V1_models import *
-from training.trainers import *
-from utility.nn_helpers import *
+import utility
+import datasets
+import training
+import models
 
-dj.config['database.host'] = 'datajoint.ninai.org'
-schema = dj.schema('kwilleke_nnfabrik')
+from utility.dj_helpers import make_hash
+
+
+dj.config['database.host'] = 'datajoint-db.mlcloud.uni-tuebingen.de'
+schema = dj.schema('nnfabrik_core')
 
 dj.config['stores'] = {
     'minio': {    #  store in s3
@@ -54,7 +57,6 @@ class Model(dj.Manual):
         return config_fn(dataloader, seed, **config_object)
 
 
-
 @schema
 class Dataset(dj.Manual):
     definition = """
@@ -86,10 +88,8 @@ class Dataset(dj.Manual):
                              'test_loader: torch.utils.data.DataLoader,
                              }
                              or a similar iterable object
-
                 each loader should have as first argument the input such that
                     next(iter(train_loader)): [input, responses, ...]
-
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
@@ -139,7 +139,7 @@ class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
-    
+
 
 @schema
 class TrainedModel(dj.Computed):
@@ -154,7 +154,6 @@ class TrainedModel(dj.Computed):
     model_state:  attach@minio
     ---
     """
-    # model_state: attach@storage has yet to be added
 
     def make(self, key):
         seed = (Seed & key).fetch1('seed')
@@ -163,6 +162,7 @@ class TrainedModel(dj.Computed):
 
         # passes the input dimensions to the model builder function
         model = (Model & key).build_model(dataloader, seed)
+
 
         # model training
         loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
