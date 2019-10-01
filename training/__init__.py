@@ -1,1 +1,1 @@
-import training.trainers
+from . import trainers
