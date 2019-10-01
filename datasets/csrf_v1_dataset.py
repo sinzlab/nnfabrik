@@ -2,7 +2,6 @@ import torch
 import torch.utils.data as utils
 import numpy as np
 import pickle
-from builtins import property
 
 def csrf_v1(datapath, batch_size, seed, image_path=None,
             train_frac=0.8, subsample=1, crop=65, time_bins_sum=tuple(range(7))):
