@@ -7,7 +7,7 @@ from tqdm import tqdm
 import warnings
 from utility.nn_helpers import set_random_seed
 
-def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
+def early_stop_trainer(model, seed, lr_schedule=[0.001], stop_function ='corr_stop',
                      loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
                      maximize=True, tolerance=1e-5, device='cuda', restore_best=True, tracker=None,
                      train_loader=None, val_loader=None, test_loader=None):
@@ -52,7 +52,7 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
         """
         target, output = [], []
         for images, responses, *weights in loader:
-            weights = weights if weights else 1
+            weights = weights[0] if weights else 1
             output.append(model(images).detach().cpu().numpy() * weights.detach().cpu().numpy())
             target.append(responses.detach().cpu().numpy() * weights.detach().cpu().numpy())
         target, output = map(np.vstack, (target, output))
@@ -115,7 +115,7 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
 
         Returns: training loss of the model
         """
-        weights = weights if weights else 1
+        weights = weights if weights is not None else 1
         return criterion(model(inputs) * weights, targets) + model.core.regularizer() + model.readout.regularizer()
 
     def run(model, full_objective, optimizer, stop_closure, train_loader,
@@ -160,7 +160,6 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
                                        )
     val_output = []
     loss_ret = []
-
     for opt, lr in zip(repeat(torch.optim.Adam), lr_schedule):
         print('Training with learning rate {}'.format(lr))
         optimizer = opt(model.parameters(), lr=lr)
