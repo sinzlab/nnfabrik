@@ -4,7 +4,7 @@ import numpy as np
 import pickle
 from builtins import property
 
-def CSRF_V1(datapath, batch_size, seed, image_path=None,
+def csrf_v1(datapath, batch_size, seed, image_path=None,
             train_frac=0.8, subsample=1, crop=65, time_bins_sum=tuple(range(7))):
 
 
@@ -40,13 +40,13 @@ def get_loader_csrf_V1(images, responses, valid_responses, batch_size):
     dataset = utils.TensorDataset(images, responses, valid_responses)
     data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-
     return data_loader
 
 class CSRF_V1_Data:
     """For use with George's and Kelli's csrf data set."""
 
-    def __init__(self, raw_data_path, image_path, seed, train_frac, subsample, crop, time_bins_sum):
+    def __init__(self, raw_data_path, image_path=None, seed=None, train_frac=0.8,
+                 subsample=1, crop=65, time_bins_sum=tuple(range(7))):
         """
         Args:
             raw_data_path: Path pointing to a pickle file that contains the experimental data.
@@ -69,12 +69,7 @@ class CSRF_V1_Data:
                         after stimulus presentation
                 Exmple usage:   (0,1,2,3) will only include the first four time bins into the analysis
         """
-
         # unpacking pickle data
-        if image_path:
-            with open(image_path, "rb") as pkl:
-                image_data = pickle.load(pkl)
-
         with open(raw_data_path, "rb") as pkl:
             raw_data = pickle.load(pkl)
 
@@ -89,7 +84,9 @@ class CSRF_V1_Data:
         self._real_responses_test = np.logical_not(np.isnan(self.responses_test))
 
         # if an image path is provided, load the images from the corresponding pickle file
-        raw_data = image_data if image_path else raw_data
+        if image_path:
+            with open(image_path, "rb") as pkl:
+                raw_data = pickle.load(pkl)
 
         _, h, w = raw_data['images_train'].shape[:3]
         images_train = raw_data['images_train'][:, crop:h - crop:subsample, crop:w - crop:subsample]
