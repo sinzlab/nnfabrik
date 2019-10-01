@@ -1,2 +1,2 @@
-import utility.nn_helpers
-import utility.dj_helpers
+from . import nn_helpers
+from . import dj_helpers
