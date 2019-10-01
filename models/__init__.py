@@ -1,1 +1,1 @@
-import models.v1_models
+from . import v1_models
