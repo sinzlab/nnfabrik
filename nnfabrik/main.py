@@ -1,17 +1,32 @@
 import datajoint as dj
+import torch
+import numpy as np
+import os
+import tempfile
 
-dj.config['database.host'] = 'datajoint.ninai.org'
-schema = dj.schema('kwilleke_generalized_model_fitting')
+from mlutils.measures import corr, PoissonLoss, GammaLoss
 
-# placeholder function
-def make_hash(config_input):
-    """
-        hashes the configurator input for the model-, dataset-, training-function-builders
+import utility
+import datasets
+import training
+import models
 
-    :returns: a unique hash for each configurator
-    """
-    return 'a_un1que_h4sh'
+from utility.dj_helpers import make_hash
 
+
+dj.config['database.host'] = 'datajoint-db.mlcloud.uni-tuebingen.de'
+schema = dj.schema('nnfabrik_core')
+
+dj.config['stores'] = {
+    'minio': {    #  store in s3
+        'protocol': 's3',
+        'endpoint': 'cantor.mvl6.uni-tuebingen.de:9000',
+        'bucket': 'nnfabrik',
+        'location': 'dj-store',
+        'access_key': os.environ['MINIO_ACCESS_KEY'],
+        'secret_key': os.environ['MINIO_SECRET_KEY']
+    }
+}
 
 @schema
 class Model(dj.Manual):
@@ -32,14 +47,14 @@ class Model(dj.Manual):
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object)
         self.insert1(key)
 
-    def build_model(self, input_dim, output_dim, seed, key=None):
+    def build_model(self, dataloader, seed, key=None):
         if key is None:
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
         config_fn = eval(configurator)
-        return config_fn(input_dim, output_dim, seed, **config_object)
+        return config_fn(dataloader, seed, **config_object)
 
 
 @schema
@@ -54,7 +69,6 @@ class Dataset(dj.Manual):
     def add_entry(self, dataset_loader, dataset_config):
         """
         inserts one new entry into the Dataset Table
-
         dataset_loader -- name of dataset function/class that's callable
         dataset_config -- actual Python object with which the dataset function is called
         """
@@ -64,10 +78,9 @@ class Dataset(dj.Manual):
                    dataset_config=dataset_config)
         self.insert1(key)
 
-    def get_dataloader(self, key=None):
+    def get_dataloader(self, seed, key=None):
         """
         Returns a dataloader for a given dataset loader function and its corresponding configurations
-
         dataloader: is expected to be a dict in the form of
                             {
                             'train_loader': torch.utils.data.DataLoader,
@@ -75,10 +88,8 @@ class Dataset(dj.Manual):
                              'test_loader: torch.utils.data.DataLoader,
                              }
                              or a similar iterable object
-
                 each loader should have as first argument the input such that
                     next(iter(train_loader)): [input, responses, ...]
-
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
@@ -88,7 +99,7 @@ class Dataset(dj.Manual):
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
         dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
         config_fn = eval(dataset_loader)
-        return config_fn(**dataset_config)
+        return config_fn(seed=seed, **dataset_config)
 
 
 @schema
@@ -103,7 +114,6 @@ class Trainer(dj.Manual):
     def add_entry(self, training_function, training_config):
         """
         inserts one new entry into the Trainer Table
-
         training_function -- name of trainer function/class that's callable
         training_config -- actual Python object with which the trainer function is called
         """
@@ -130,23 +140,6 @@ class Seed(dj.Manual):
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
 
-    def add_entry(self, seed):
-        """
-            inserts a user specified seed into the Seed Table
-        """
-        key = dict(seed=seed)
-        self.insert1(key)
-
-    def get_seed(self, key=None):
-        """
-        gets the seed and is passed on to the TrainedModel table
-        """
-        if key is None:
-            key = {}
-
-        seed = (self & key).fetch1('seed')
-        return seed
-
 
 @schema
 class TrainedModel(dj.Computed):
@@ -158,56 +151,27 @@ class TrainedModel(dj.Computed):
     ---
     loss:   longblob  # loss
     output: longblob  # trainer object's output
+    model_state:  attach@minio
+    ---
     """
-    # model_state: attach@storage has yet to be added
 
     def make(self, key):
-        seed = (Seed & key).get_seed()
+        seed = (Seed & key).fetch1('seed')
         trainer, trainer_config = (Trainer & key).get_trainer()
         dataloader = (Dataset & key).get_dataloader()
 
-        # gets the input dimensions from the dataloader
-        #
-        input_dim, output_dim = self.get_in_out_dimensions(dataloader)
         # passes the input dimensions to the model builder function
-        model = (Model & key).build_model(input_dim, output_dim, seed)
+        model = (Model & key).build_model(dataloader, seed)
 
 
         # model training
         loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
 
-        key['loss'] = loss
-        key['output'] = output
-        self.insert1(key)
-
-    def get_in_out_dimensions(self, dataloader):
-        """
-            gets the input and output dimensions from the dataloader.
-
-        :param
-            dataloader: is expected to be a dict in the form of
-                            {
-                            'train_loader': torch.utils.data.DataLoader,
-                             'val_loader': torch.utils.data.DataLoader,
-                             'test_loader: torch.utils.data.DataLoader,
-                             }
-
-                each loader should have as first argument the input in the form of
-                    [batch_size, channels, px_x, px_y, ...]
-
-                each loader should have as second argument the out in some form
-                    [batch_size, output_units, ...]
-
-
-        :return:
-            input_dim: input dimensions, expected to be a tuple in the form of input.shape.
-                        for example: (batch_size, channels, px_x, px_y, ...)
-            output_dim: out dimensions, expected to be a tuple in the form of output.shape.
-                        for example: (batch_size, output_units, ...)
-
-        """
-        train_loader = dataloader["train_loader"]
-        train_batch = next(iter(train_loader))
-        input_batch = train_batch[0]
-        output_batch = train_batch[1]
-        return input_batch.shape, output_batch.shape
+        with tempfile.TemporaryDirectory() as trained_models:
+            filename = make_hash(key) + '.pth.tar'
+            filepath = os.path.join(trained_models, filename)
+            torch.save(model_state, filepath)
+            key['loss'] = loss
+            key['output'] = output
+            key['model_state'] = filepath
+            self.insert1(key)
