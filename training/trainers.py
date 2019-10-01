@@ -5,12 +5,10 @@ from itertools import repeat
 from scipy import stats
 from tqdm import tqdm
 import warnings
-
-# TrainedModels table calls the trainer as follows:
-# loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
+from utility.nn_helpers import set_random_seed
 
 def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
-                     loss_function=PoissonLoss, epoch=0, interval=1, patience=10, max_iter=50,
+                     loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
                      maximize=True, tolerance=1e-5, device='cuda', restore_best=True, tracker=None,
                      train_loader=None, val_loader=None, test_loader=None):
     """"
@@ -24,11 +22,11 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
                 'gamma stop'
                 'exp_stop'
                 'poisson_stop'
-            loss_function: any callable is accepted.
+            loss_function: has to be a string that gets evaluated with eval()
                 Loss functions that are built in at mlutils that can
                 be selected in the trainer config are:
-                    PoissonLoss
-                    GammaLoss
+                    'PoissonLoss'
+                    'GammaLoss'
             device: Device that the model resides on. Expects arguments such as torch.device('')
                 Examples: 'cpu', 'cuda:2' (0-indexed gpu)
         train_loader: PyTorch DtaLoader -- training data
@@ -106,7 +104,7 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
         # -- average if requested
         return ret.mean()
 
-    def full_objective(inputs, targets, weights):
+    def full_objective(inputs, targets, weights=None):
         """
         Computes the training loss for the model and prespecified criterion
         Args:
@@ -124,19 +122,20 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
             epoch, interval, patience, max_iter, maximize, tolerance,
             restore_best, tracker):
 
-        optimizer.zero_grad()
+
         for epoch, val_obj in early_stopping(model, stop_closure,
                                              interval=interval, patience=patience,
                                              start=epoch, max_iter=max_iter, maximize=maximize,
                                              tolerance=tolerance, restore_best=restore_best,
                                              tracker=tracker):
             for data in tqdm(train_loader, desc='Epoch {}'.format(epoch)):
+                optimizer.zero_grad()
                 loss = full_objective(*data)
                 loss.backward()
                 optimizer.step()
-                optimizer.zero_grad()
-            print(loss)
+            print('Training loss: {}'.format(loss))
 
+            optimizer.zero_grad()
             # store the training loss/output after each epoch loop
             loss_ret.append(loss.detach().cpu().numpy())
             val_output.append(val_obj)
@@ -147,15 +146,10 @@ def early_stop_trainer(model, seed, lr_schedule,stop_function ='corr_stop',
     # --- end of helper function definitions
 
     # set up the model and the loss/early_stopping functions
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    set_random_seed(seed)
     model.to(device)
-
-    if next(model.parameters()).is_cuda:
-        torch.cuda.manual_seed(seed)
-
-    model.train(True)
-    criterion = loss_function()
+    model.train()
+    criterion = eval(loss_function)()
     # get stopping criterion from helper functions based on keyword
     stop_closure = partial(eval(stop_function), model)
 
