@@ -44,8 +44,8 @@ class Model(dj.Manual):
     config_hash: varchar(64)    # hash of the configuration object
     ---    
     config_object: longblob     # configuration object to be passed into the function
-    -> Fabrikant
-    model_comment: varchar(64)  # short description
+    -> Fabrikant.proj(model_architect='architect_name')
+    model_comment= : varchar(64)  # short description
     model_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
 
     """
@@ -58,7 +58,7 @@ class Model(dj.Manual):
 
         config_hash = make_hash(config_object)
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object,
-                   architect_name=architect_name, model_comment=model_comment)
+                   model_architect=architect_name, model_comment=model_comment)
         self.insert1(key)
 
     def build_model(self, dataloader, seed, key=None):
@@ -78,8 +78,8 @@ class Dataset(dj.Manual):
     dataset_config_hash: varchar(64)    # hash of the configuration object
     ---
     dataset_config: longblob     # dataset configuration object
-    -> Fabrikant
-    dataset_comment: varchar(64)  # short description
+    -> Fabrikant.proj(dataset_architect='architect_name')
+    dataset_comment= : varchar(64)  # short description
     dataset_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
@@ -92,7 +92,7 @@ class Dataset(dj.Manual):
 
         dataset_config_hash = make_hash(dataset_config)
         key = dict(dataset_loader=dataset_loader, dataset_config_hash=dataset_config_hash,
-                   dataset_config=dataset_config, architect_name=architect_name, dataset_comment=dataset_comment)
+                   dataset_config=dataset_config, dataset_architect=architect_name, dataset_comment=dataset_comment)
         self.insert1(key)
 
     def get_dataloader(self, seed, key=None):
@@ -126,8 +126,8 @@ class Trainer(dj.Manual):
     training_config_hash: varchar(64)  # hash of the configuration object
     ---
     training_config: longblob          # training configuration object
-    -> Fabrikant
-    trainer_comment: varchar(64)  # short description
+    -> Fabrikant.proj(trainer_architect='architect_name')
+    trainer_comment= : varchar(64)  # short description
     trainer_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
@@ -139,7 +139,7 @@ class Trainer(dj.Manual):
         """
         training_config_hash = make_hash(training_config)
         key = dict(training_function=training_function, training_config_hash=training_config_hash,
-                   training_config=training_config, architect_name=architect_name, trainer_comment=trainer_comment)
+                   training_config=training_config, trainer_architect=architect_name, trainer_comment=trainer_comment)
         self.insert1(key)
 
     def get_trainer(self, key=None):
@@ -150,7 +150,7 @@ class Trainer(dj.Manual):
             key = {}
 
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
-        training_config = {k: training_config[k].item() for k in training_config.dtype.fields}
+        training_config = {k: training_config[k][0].item() for k in training_config.dtype.fields}
         return eval(training_function), training_config
 
 
