@@ -14,19 +14,8 @@ import models
 from utility.dj_helpers import make_hash
 
 
-dj.config['database.host'] = 'datajoint-db.mlcloud.uni-tuebingen.de'
 schema = dj.schema('nnfabrik_core')
 
-dj.config['stores'] = {
-    'minio': {    #  store in s3
-        'protocol': 's3',
-        'endpoint': 'cantor.mvl6.uni-tuebingen.de:9000',
-        'bucket': 'nnfabrik',
-        'location': 'dj-store',
-        'access_key': os.environ['MINIO_ACCESS_KEY'],
-        'secret_key': os.environ['MINIO_SECRET_KEY']
-    }
-}
 
 @schema
 class Model(dj.Manual):
