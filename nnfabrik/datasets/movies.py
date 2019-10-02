@@ -9,6 +9,7 @@ import numpy as np
 
 def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, area='V1', layer='L2/3', normalize=False,
                        tier='train'):
+
     field_names = ['inputs', 'behavior', 'eye_position', 'responses']
 
     # load the dataset
@@ -47,7 +48,22 @@ def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, ar
 
 
 
+def load_movie_set(data_path, batch_size, stats_source='all', seq_len=30, area='V1', layer='L2/3', normalize=False, tiers_map=None):
+    if tiers_map is None:
+        tiers_map = {
+            'train_loader': 'train',
+            'val_loader': 'validation',
+            'test_loader': 'test'
+        }
 
+    data_loaders = {}
+
+    for key, tier in tiers_map.items():
+        print('Packaging data loader for {tier}'.format(tier=tier))
+        data_loaders[key] = load_movie_dataset(data_path, batch_size, stats_source=stats_source, seq_len=seq_len, area=area,
+                                       layer=layer, normalize=normalize, tier=tier)
+
+    return data_loaders
 
 
 
