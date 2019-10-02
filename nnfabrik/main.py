@@ -4,8 +4,6 @@ import numpy as np
 import os
 import tempfile
 
-from mlutils.measures import corr, PoissonLoss, GammaLoss
-
 import utility
 import datasets
 import training
@@ -28,23 +26,39 @@ dj.config['stores'] = {
     }
 }
 
+
+@schema
+class Fabrikant(dj.Manual):
+    definition = """
+    architect_name: varchar(32)       # Name of the contributor that added this entry
+    ---
+    email: varchar(64)      # e-mail address 
+    affiliation: varchar(32) # conributor's affiliation
+    """
+
+
 @schema
 class Model(dj.Manual):
     definition = """
     configurator: varchar(32)   # name of the configuration function
     config_hash: varchar(64)    # hash of the configuration object
-    ---
+    ---    
     config_object: longblob     # configuration object to be passed into the function
+    -> Fabrikant.proj(model_architect='architect_name')
+    model_comment= : varchar(64)  # short description
+    model_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+
     """
 
-    def add_entry(self, configurator, config_object):
+    def add_entry(self, configurator, config_object, architect_name, model_comment=''):
         """
         configurator -- name of the function/class that's callable
         config_object -- actual Python object
         """
 
         config_hash = make_hash(config_object)
-        key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object)
+        key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object,
+                   model_architect=architect_name, model_comment=model_comment)
         self.insert1(key)
 
     def build_model(self, dataloader, seed, key=None):
@@ -64,9 +78,12 @@ class Dataset(dj.Manual):
     dataset_config_hash: varchar(64)    # hash of the configuration object
     ---
     dataset_config: longblob     # dataset configuration object
+    -> Fabrikant.proj(dataset_architect='architect_name')
+    dataset_comment= : varchar(64)  # short description
+    dataset_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
-    def add_entry(self, dataset_loader, dataset_config):
+    def add_entry(self, dataset_loader, dataset_config, architect_name, dataset_comment=''):
         """
         inserts one new entry into the Dataset Table
         dataset_loader -- name of dataset function/class that's callable
@@ -75,7 +92,7 @@ class Dataset(dj.Manual):
 
         dataset_config_hash = make_hash(dataset_config)
         key = dict(dataset_loader=dataset_loader, dataset_config_hash=dataset_config_hash,
-                   dataset_config=dataset_config)
+                   dataset_config=dataset_config, dataset_architect=architect_name, dataset_comment=dataset_comment)
         self.insert1(key)
 
     def get_dataloader(self, seed, key=None):
@@ -109,9 +126,12 @@ class Trainer(dj.Manual):
     training_config_hash: varchar(64)  # hash of the configuration object
     ---
     training_config: longblob          # training configuration object
+    -> Fabrikant.proj(trainer_architect='architect_name')
+    trainer_comment= : varchar(64)  # short description
+    trainer_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
-    def add_entry(self, training_function, training_config):
+    def add_entry(self, training_function, training_config, architect_name, trainer_comment=''):
         """
         inserts one new entry into the Trainer Table
         training_function -- name of trainer function/class that's callable
@@ -119,7 +139,7 @@ class Trainer(dj.Manual):
         """
         training_config_hash = make_hash(training_config)
         key = dict(training_function=training_function, training_config_hash=training_config_hash,
-                   training_config=training_config)
+                   training_config=training_config, trainer_architect=architect_name, trainer_comment=trainer_comment)
         self.insert1(key)
 
     def get_trainer(self, key=None):
@@ -149,29 +169,30 @@ class TrainedModel(dj.Computed):
     -> Trainer
     -> Seed
     ---
-    loss:   longblob  # loss
+    score:   float  # loss
     output: longblob  # trainer object's output
     model_state:  attach@minio
-    ---
+    ->Fabrikant
+    trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
     def make(self, key):
+        architect_name = (Fabrikant & key).fetch1('architect_name')
         seed = (Seed & key).fetch1('seed')
         trainer, trainer_config = (Trainer & key).get_trainer()
-        dataloader = (Dataset & key).get_dataloader()
+        dataloader = (Dataset & key).get_dataloader(seed)
 
         # passes the input dimensions to the model builder function
         model = (Model & key).build_model(dataloader, seed)
 
-
         # model training
-        loss, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
-
+        score, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
         with tempfile.TemporaryDirectory() as trained_models:
             filename = make_hash(key) + '.pth.tar'
             filepath = os.path.join(trained_models, filename)
             torch.save(model_state, filepath)
-            key['loss'] = loss
+            key['score'] = score
             key['output'] = output
             key['model_state'] = filepath
+            key['architect_name'] = architect_name
             self.insert1(key)
