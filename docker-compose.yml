@@ -9,6 +9,7 @@ services:
       - /mnt/qb/data:/data
       - /tmp:/tmp
       - .:/src/nnfabrik
+      - ./notebooks:/notebooks
     environment:
       - DISPLAY=$DISPLAY
       - NVIDIA_VISIBLE_DEVICES=3

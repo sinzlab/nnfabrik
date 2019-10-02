@@ -34,7 +34,7 @@ class Model(dj.Manual):
     ---    
     config_object: longblob     # configuration object to be passed into the function
     -> Fabrikant.proj(model_architect='architect_name')
-    model_comment= : varchar(64)  # short description
+    model_comment='' : varchar(64)  # short description
     model_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
 
     """
@@ -68,7 +68,7 @@ class Dataset(dj.Manual):
     ---
     dataset_config: longblob     # dataset configuration object
     -> Fabrikant.proj(dataset_architect='architect_name')
-    dataset_comment= : varchar(64)  # short description
+    dataset_comment='' : varchar(64)  # short description
     dataset_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
@@ -116,7 +116,7 @@ class Trainer(dj.Manual):
     ---
     training_config: longblob          # training configuration object
     -> Fabrikant.proj(trainer_architect='architect_name')
-    trainer_comment= : varchar(64)  # short description
+    trainer_comment='' : varchar(64)  # short description
     trainer_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 

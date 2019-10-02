@@ -4,6 +4,7 @@ from mlutils.data.datasets import MovieSet
 from mlutils.data.transforms import Subsequence, Subsample, Normalizer, ToTensor
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch.utils.data import DataLoader
+import numpy as np
 
 
 def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, area='V1', layer='L2/3', normalize=False,
