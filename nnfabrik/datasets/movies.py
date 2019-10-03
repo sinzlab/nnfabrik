@@ -27,7 +27,7 @@ def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, ar
     if normalize:
         transforms.append(Normalizer(dataset, ))
 
-    transforms.append(ToTensor())
+    transforms.append(ToTensor(cuda=True))
 
     # subselect to areas & layer
     areas = dataset.neurons.area
