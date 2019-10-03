@@ -12,4 +12,4 @@ services:
       - ./notebooks:/notebooks
     environment:
       - DISPLAY=$DISPLAY
-      - NVIDIA_VISIBLE_DEVICES=3
+      - NVIDIA_VISIBLE_DEVICES=3,4
