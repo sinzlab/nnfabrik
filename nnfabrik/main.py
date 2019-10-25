@@ -4,28 +4,15 @@ import numpy as np
 import os
 import tempfile
 
-import utility
-import datasets
-import training
-import models
+from . import utility
+from . import datasets
+from . import training
+from . import models
 
-from utility.dj_helpers import make_hash
+from .utility.dj_helpers import make_hash
 
 
-dj.config['database.host'] = 'datajoint-db.mlcloud.uni-tuebingen.de'
 schema = dj.schema('nnfabrik_core')
-
-dj.config['stores'] = {
-    'minio': {    #  store in s3
-        'protocol': 's3',
-        'endpoint': 'cantor.mvl6.uni-tuebingen.de:9000',
-        'bucket': 'nnfabrik',
-        'location': 'dj-store',
-        'access_key': os.environ['MINIO_ACCESS_KEY'],
-        'secret_key': os.environ['MINIO_SECRET_KEY']
-    }
-}
-
 
 @schema
 class Fabrikant(dj.Manual):
@@ -45,7 +32,7 @@ class Model(dj.Manual):
     ---    
     config_object: longblob     # configuration object to be passed into the function
     -> Fabrikant.proj(model_architect='architect_name')
-    model_comment= : varchar(64)  # short description
+    model_comment='' : varchar(64)  # short description
     model_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
 
     """
@@ -61,13 +48,14 @@ class Model(dj.Manual):
                    model_architect=architect_name, model_comment=model_comment)
         self.insert1(key)
 
+
     def build_model(self, dataloader, seed, key=None):
         if key is None:
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
-        config_fn = eval(configurator)
+        config_fn = eval('models.' + configurator)
         return config_fn(dataloader, seed, **config_object)
 
 
@@ -79,7 +67,7 @@ class Dataset(dj.Manual):
     ---
     dataset_config: longblob     # dataset configuration object
     -> Fabrikant.proj(dataset_architect='architect_name')
-    dataset_comment= : varchar(64)  # short description
+    dataset_comment='' : varchar(64)  # short description
     dataset_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
@@ -115,7 +103,7 @@ class Dataset(dj.Manual):
 
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
         dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
-        config_fn = eval(dataset_loader)
+        config_fn = eval('datasets.' + dataset_loader)
         return config_fn(seed=seed, **dataset_config)
 
 
@@ -127,7 +115,7 @@ class Trainer(dj.Manual):
     ---
     training_config: longblob          # training configuration object
     -> Fabrikant.proj(trainer_architect='architect_name')
-    trainer_comment= : varchar(64)  # short description
+    trainer_comment='' : varchar(64)  # short description
     trainer_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
@@ -151,7 +139,7 @@ class Trainer(dj.Manual):
 
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
         training_config = {k: training_config[k][0].item() for k in training_config.dtype.fields}
-        return eval(training_function), training_config
+        return eval('training.' + training_function), training_config
 
 
 @schema

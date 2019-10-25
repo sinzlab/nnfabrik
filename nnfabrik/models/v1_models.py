@@ -3,7 +3,7 @@ import torch
 from mlutils.layers.readouts import PointPooled2d
 from mlutils.layers.cores import Stacked2dCore
 from torch import nn as nn
-from utility.nn_helpers import get_io_dims, get_module_output, set_random_seed
+from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed
 from torch.nn import functional as F
 
 
