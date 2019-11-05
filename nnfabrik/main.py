@@ -12,14 +12,14 @@ from . import models
 from .utility.dj_helpers import make_hash
 
 
-schema = dj.schema('nnfabrik_core')
+schema = dj.schema(dj.config['schema_name'])  #dj.schema('nnfabrik_core')
 
 @schema
 class Fabrikant(dj.Manual):
     definition = """
     architect_name: varchar(32)       # Name of the contributor that added this entry
     ---
-    email: varchar(64)      # e-mail address 
+    email: varchar(64)      # e-mail address
     affiliation: varchar(32) # conributor's affiliation
     """
 
@@ -29,7 +29,7 @@ class Model(dj.Manual):
     definition = """
     configurator: varchar(32)   # name of the configuration function
     config_hash: varchar(64)    # hash of the configuration object
-    ---    
+    ---
     config_object: longblob     # configuration object to be passed into the function
     -> Fabrikant.proj(model_architect='architect_name')
     model_comment='' : varchar(64)  # short description
