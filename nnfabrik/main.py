@@ -4,12 +4,13 @@ import numpy as np
 import os
 import tempfile
 
+# TODO: This should go, because now we are importing it from the main project and not nnFabrik
 from . import utility
 from . import datasets
 from . import training
 from . import models
 
-from .utility.dj_helpers import make_hash
+from .utility.dj_helpers import make_hash, split_module_name, dynamic_import, gitlog
 
 
 schema = dj.schema(dj.config['schema_name'])  #dj.schema('nnfabrik_core')
@@ -27,7 +28,7 @@ class Fabrikant(dj.Manual):
 @schema
 class Model(dj.Manual):
     definition = """
-    configurator: varchar(32)   # name of the configuration function
+    configurator: varchar(64)   # name of the configuration function
     config_hash: varchar(64)    # hash of the configuration object
     ---
     config_object: longblob     # configuration object to be passed into the function
@@ -54,15 +55,15 @@ class Model(dj.Manual):
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
-        config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
-        config_fn = eval('models.' + configurator)
-        return config_fn(dataloader, seed, **config_object)
+        module_path, class_name = split_module_name(configurator)
+        model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
+        return model_fn(dataloader, seed, **config_object)
 
 
 @schema
 class Dataset(dj.Manual):
     definition = """
-    dataset_loader: varchar(32)         # name of the dataset loader function
+    dataset_loader: varchar(64)         # name of the dataset loader function
     dataset_config_hash: varchar(64)    # hash of the configuration object
     ---
     dataset_config: longblob     # dataset configuration object
@@ -102,15 +103,15 @@ class Dataset(dj.Manual):
             key = {}
 
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
-        dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
-        config_fn = eval('datasets.' + dataset_loader)
-        return config_fn(seed=seed, **dataset_config)
+        module_path, class_name = split_module_name(dataset_loader)
+        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
+        return dataset_fn(seed=seed, **dataset_config)
 
 
 @schema
 class Trainer(dj.Manual):
     definition = """
-    training_function: varchar(32)     # name of the Trainer loader function
+    training_function: varchar(64)     # name of the Trainer loader function
     training_config_hash: varchar(64)  # hash of the configuration object
     ---
     training_config: longblob          # training configuration object
@@ -138,8 +139,9 @@ class Trainer(dj.Manual):
             key = {}
 
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
-        training_config = {k: training_config[k][0].item() for k in training_config.dtype.fields}
-        return eval('training.' + training_function), training_config
+        module_path, class_name = split_module_name(training_function)
+        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
+        return trainer_fn, training_config
 
 
 @schema
@@ -150,6 +152,7 @@ class Seed(dj.Manual):
 
 
 @schema
+# @gitlog
 class TrainedModel(dj.Computed):
     definition = """
     -> Model
