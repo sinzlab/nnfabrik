@@ -4,7 +4,6 @@ import numpy as np
 import os
 import tempfile
 
-# TODO: This should go, because now we are importing it from the main project and not nnFabrik
 from . import utility
 from . import datasets
 from . import training
