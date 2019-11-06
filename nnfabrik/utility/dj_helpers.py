@@ -1,7 +1,6 @@
 # helper functions that the datajoint tables are requiring
 import hashlib
 import datajoint as dj
-from importlib import import_module
 
 def make_hash(config):
     """"
@@ -14,19 +13,6 @@ def make_hash(config):
         hashed.update(str(v).encode())
     return hashed.hexdigest()
 
-
-def split_module_name(abs_class_name):
-    abs_module_path = '.'.join(abs_class_name.split('.')[:-1])
-    class_name = abs_class_name.split('.')[-1]
-
-    return (abs_module_path, class_name)
-
-
-def dynamic_import(abs_module_path, class_name):
-    module_object = import_module(abs_module_path)
-    target_class = getattr(module_object, class_name)
-
-    return target_class
 
 def gitlog(cls):
     """

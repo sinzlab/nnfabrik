@@ -9,7 +9,8 @@ from . import datasets
 from . import training
 from . import models
 
-from .utility.dj_helpers import make_hash, split_module_name, dynamic_import, gitlog
+from .utility.dj_helpers import make_hash, gitlog
+from .utility.nnf_helper import module_dynamic_import
 
 
 schema = dj.schema(dj.config['schema_name'])  #dj.schema('nnfabrik_core')
@@ -54,8 +55,7 @@ class Model(dj.Manual):
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
-        module_path, class_name = split_module_name(configurator)
-        model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
+        model_fn = module_dynamic_import(configurator, pre='models.')
         return model_fn(dataloader, seed, **config_object)
 
 
@@ -102,8 +102,7 @@ class Dataset(dj.Manual):
             key = {}
 
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
-        module_path, class_name = split_module_name(dataset_loader)
-        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
+        dataset_fn = module_dynamic_import(dataset_loader, pre='datasets.')
         return dataset_fn(seed=seed, **dataset_config)
 
 
@@ -138,8 +137,7 @@ class Trainer(dj.Manual):
             key = {}
 
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
-        module_path, class_name = split_module_name(training_function)
-        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
+        trainer_fn = module_dynamic_import(training_function, pre='training.')
         return trainer_fn, training_config
 
 
