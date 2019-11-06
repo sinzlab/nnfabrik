@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import os
 import tempfile
+import warnings
 
 import utility
 import datasets
@@ -50,15 +51,21 @@ class Model(dj.Manual):
 
     """
 
-    def add_entry(self, configurator, config_object, architect_name, model_comment=''):
+    def add_entry(self, configurator, config_object, model_architect, model_comment=''):
         """
         configurator -- name of the function/class that's callable
         config_object -- actual Python object
         """
 
+        try:
+            callable(eval(configurator))
+        except NameError:
+            warnings.warn("configurator function does not exist. Table entry rejected")
+            return
+
         config_hash = make_hash(config_object)
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object,
-                   model_architect=architect_name, model_comment=model_comment)
+                   model_architect=model_architect, model_comment=model_comment)
         self.insert1(key)
 
     def build_model(self, dataloader, seed, key=None):
@@ -66,7 +73,8 @@ class Model(dj.Manual):
             key = {}
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
-        config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
+        if type(config_object).__name__ == 'recarray':
+            config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
         config_fn = eval(configurator)
         return config_fn(dataloader, seed, **config_object)
 
@@ -83,16 +91,22 @@ class Dataset(dj.Manual):
     dataset_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
-    def add_entry(self, dataset_loader, dataset_config, architect_name, dataset_comment=''):
+    def add_entry(self, dataset_loader, dataset_config, dataset_architect, dataset_comment=''):
         """
         inserts one new entry into the Dataset Table
         dataset_loader -- name of dataset function/class that's callable
         dataset_config -- actual Python object with which the dataset function is called
         """
 
+        try:
+            callable(eval(dataset_loader))
+        except NameError:
+            warnings.warn("dataset_loader function does not exist. Table entry rejected")
+            return
+
         dataset_config_hash = make_hash(dataset_config)
         key = dict(dataset_loader=dataset_loader, dataset_config_hash=dataset_config_hash,
-                   dataset_config=dataset_config, dataset_architect=architect_name, dataset_comment=dataset_comment)
+                   dataset_config=dataset_config, dataset_architect=dataset_architect, dataset_comment=dataset_comment)
         self.insert1(key)
 
     def get_dataloader(self, seed, key=None):
@@ -114,7 +128,8 @@ class Dataset(dj.Manual):
             key = {}
 
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
-        dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
+        if type(dataset_config).__name__ == 'recarray':
+            dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
         config_fn = eval(dataset_loader)
         return config_fn(seed=seed, **dataset_config)
 
@@ -131,15 +146,23 @@ class Trainer(dj.Manual):
     trainer_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
-    def add_entry(self, training_function, training_config, architect_name, trainer_comment=''):
+    def add_entry(self, training_function, training_config, trainer_architect, trainer_comment=''):
         """
         inserts one new entry into the Trainer Table
         training_function -- name of trainer function/class that's callable
         training_config -- actual Python object with which the trainer function is called
         """
+
+        try:
+            callable(eval(training_function))
+        except NameError:
+            warnings.warn("dataset_loader function does not exist. Table entry rejected")
+            return
+
         training_config_hash = make_hash(training_config)
         key = dict(training_function=training_function, training_config_hash=training_config_hash,
-                   training_config=training_config, trainer_architect=architect_name, trainer_comment=trainer_comment)
+                   training_config=training_config, trainer_architect=trainer_architect,
+                   trainer_comment=trainer_comment)
         self.insert1(key)
 
     def get_trainer(self, key=None):
@@ -150,7 +173,8 @@ class Trainer(dj.Manual):
             key = {}
 
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
-        training_config = {k: training_config[k][0].item() for k in training_config.dtype.fields}
+        if type(training_config).__name__ == 'recarray':
+            training_config = {k: training_config[k][0].item() for k in training_config.dtype.fields}
         return eval(training_function), training_config
 
 
@@ -171,10 +195,18 @@ class TrainedModel(dj.Computed):
     ---
     score:   float  # loss
     output: longblob  # trainer object's output
-    model_state:  attach@minio
     ->Fabrikant
     trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
+
+    class ModelStorage(dj.Part):
+        definition = """
+        # Contains the paths to the stored models
+
+        -> master
+        ---
+        model_state:            attach@minio   
+        """
 
     def make(self, key):
         architect_name = (Fabrikant & key).fetch1('architect_name')
@@ -191,8 +223,11 @@ class TrainedModel(dj.Computed):
             filename = make_hash(key) + '.pth.tar'
             filepath = os.path.join(trained_models, filename)
             torch.save(model_state, filepath)
+
             key['score'] = score
             key['output'] = output
-            key['model_state'] = filepath
             key['architect_name'] = architect_name
             self.insert1(key)
+
+            key['model_state'] = filepath
+            self.ModelStorage.insert1(key, ignore_extra_fields=True)
