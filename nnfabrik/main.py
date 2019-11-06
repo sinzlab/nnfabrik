@@ -169,14 +169,14 @@ class TrainedModel(dj.Computed):
     def make(self, key):
         architect_name = (Fabrikant & key).fetch1('architect_name')
         seed = (Seed & key).fetch1('seed')
-        trainer, trainer_config = (Trainer & key).get_trainer()
-        dataloader = (Dataset & key).get_dataloader(seed)
 
-        # passes the input dimensions to the model builder function
+        dataloader = (Dataset & key).get_dataloader(seed)
         model = (Model & key).build_model(dataloader, seed)
+        trainer, trainer_config = (Trainer & key).get_trainer()
 
         # model training
-        score, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
+        score, output, model_state = trainer(model, seed, **dataloader, **trainer_config)
+
         with tempfile.TemporaryDirectory() as trained_models:
             filename = make_hash(key) + '.pth.tar'
             filepath = os.path.join(trained_models, filename)
