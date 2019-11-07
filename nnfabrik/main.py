@@ -10,8 +10,8 @@ import datasets
 import training
 import models
 
-from utility.dj_helpers import make_hash
-
+from .utility.dj_helpers import make_hash, gitlog
+from .utility.nnf_helper import split_module_name, dynamic_import
 
 dj.config['database.host'] = 'datajoint-db.mlcloud.uni-tuebingen.de'
 schema = dj.schema('nnfabrik_core')
@@ -75,8 +75,9 @@ class Model(dj.Manual):
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         if type(config_object).__name__ == 'recarray':
             config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
-        config_fn = eval(configurator)
-        return config_fn(dataloader, seed, **config_object)
+        module_path, class_name = split_module_name(configurator)
+        model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
+        return model_fn(dataloader, seed, **config_object)
 
 
 @schema
@@ -130,8 +131,9 @@ class Dataset(dj.Manual):
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
         if type(dataset_config).__name__ == 'recarray':
             dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
-        config_fn = eval(dataset_loader)
-        return config_fn(seed=seed, **dataset_config)
+        module_path, class_name = split_module_name(dataset_loader)
+        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
+        return dataset_fn(seed=seed, **dataset_config)
 
 
 @schema
@@ -175,7 +177,9 @@ class Trainer(dj.Manual):
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
         if type(training_config).__name__ == 'recarray':
             training_config = {k: training_config[k][0].item() for k in training_config.dtype.fields}
-        return eval(training_function), training_config
+        module_path, class_name = split_module_name(training_function)
+        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
+        return trainer_fn, training_config
 
 
 @schema
