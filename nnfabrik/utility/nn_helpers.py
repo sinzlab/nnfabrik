@@ -34,8 +34,9 @@ def get_module_output(model, input_shape):
     :return: output dimensions of the core
     """
     with eval_state(model):
-        input_tensor = torch.zeros(input_shape)
-        tensor_out = model(input_tensor).shape
+        with torch.no_grad():
+            input_tensor = torch.zeros(input_shape)
+            tensor_out = model(input_tensor).shape
     return tensor_out
 
 def set_random_seed(seed):
@@ -46,6 +47,3 @@ def set_random_seed(seed):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
-
-
-

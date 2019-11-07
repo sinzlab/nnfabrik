@@ -5,7 +5,7 @@ from itertools import repeat
 from scipy import stats
 from tqdm import tqdm
 import warnings
-from utility.nn_helpers import set_random_seed
+from ..utility.nn_helpers import set_random_seed
 
 def early_stop_trainer(model, seed, lr_schedule=[0.001], stop_function ='corr_stop',
                      loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,

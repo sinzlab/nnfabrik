@@ -5,35 +5,22 @@ import os
 import tempfile
 import warnings
 
-import utility
-import datasets
-import training
-import models
+from . import utility
+from . import datasets
+from . import training
+from . import models
 
 from .utility.dj_helpers import make_hash, gitlog
 from .utility.nnf_helper import split_module_name, dynamic_import
 
-dj.config['database.host'] = 'datajoint-db.mlcloud.uni-tuebingen.de'
-schema = dj.schema('nnfabrik_core')
-
-dj.config['stores'] = {
-    'minio': {    #  store in s3
-        'protocol': 's3',
-        'endpoint': 'cantor.mvl6.uni-tuebingen.de:9000',
-        'bucket': 'nnfabrik',
-        'location': 'dj-store',
-        'access_key': os.environ['MINIO_ACCESS_KEY'],
-        'secret_key': os.environ['MINIO_SECRET_KEY']
-    }
-}
-
+schema = dj.schema(dj.config['schema_name'])  #dj.schema('nnfabrik_core')
 
 @schema
 class Fabrikant(dj.Manual):
     definition = """
     architect_name: varchar(32)       # Name of the contributor that added this entry
     ---
-    email: varchar(64)      # e-mail address 
+    email: varchar(64)      # e-mail address
     affiliation: varchar(32) # conributor's affiliation
     """
 
@@ -41,12 +28,12 @@ class Fabrikant(dj.Manual):
 @schema
 class Model(dj.Manual):
     definition = """
-    configurator: varchar(32)   # name of the configuration function
+    configurator: varchar(64)   # name of the configuration function
     config_hash: varchar(64)    # hash of the configuration object
-    ---    
+    ---
     config_object: longblob     # configuration object to be passed into the function
     -> Fabrikant.proj(model_architect='architect_name')
-    model_comment= : varchar(64)  # short description
+    model_comment='' : varchar(64)  # short description
     model_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
 
     """
@@ -68,6 +55,7 @@ class Model(dj.Manual):
                    model_architect=model_architect, model_comment=model_comment)
         self.insert1(key)
 
+
     def build_model(self, dataloader, seed, key=None):
         if key is None:
             key = {}
@@ -75,6 +63,7 @@ class Model(dj.Manual):
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         if type(config_object).__name__ == 'recarray':
             config_object = {k: config_object[k][0].item() for k in config_object.dtype.fields}
+
         module_path, class_name = split_module_name(configurator)
         model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
         return model_fn(dataloader, seed, **config_object)
@@ -83,12 +72,12 @@ class Model(dj.Manual):
 @schema
 class Dataset(dj.Manual):
     definition = """
-    dataset_loader: varchar(32)         # name of the dataset loader function
+    dataset_loader: varchar(64)         # name of the dataset loader function
     dataset_config_hash: varchar(64)    # hash of the configuration object
     ---
     dataset_config: longblob     # dataset configuration object
     -> Fabrikant.proj(dataset_architect='architect_name')
-    dataset_comment= : varchar(64)  # short description
+    dataset_comment='' : varchar(64)  # short description
     dataset_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
@@ -131,6 +120,7 @@ class Dataset(dj.Manual):
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
         if type(dataset_config).__name__ == 'recarray':
             dataset_config = {k: dataset_config[k][0].item() for k in dataset_config.dtype.fields}
+
         module_path, class_name = split_module_name(dataset_loader)
         dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
         return dataset_fn(seed=seed, **dataset_config)
@@ -139,12 +129,12 @@ class Dataset(dj.Manual):
 @schema
 class Trainer(dj.Manual):
     definition = """
-    training_function: varchar(32)     # name of the Trainer loader function
+    training_function: varchar(64)     # name of the Trainer loader function
     training_config_hash: varchar(64)  # hash of the configuration object
     ---
     training_config: longblob          # training configuration object
     -> Fabrikant.proj(trainer_architect='architect_name')
-    trainer_comment= : varchar(64)  # short description
+    trainer_comment='' : varchar(64)  # short description
     trainer_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
@@ -177,6 +167,7 @@ class Trainer(dj.Manual):
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
         if type(training_config).__name__ == 'recarray':
             training_config = {k: training_config[k][0].item() for k in training_config.dtype.fields}
+
         module_path, class_name = split_module_name(training_function)
         trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
         return trainer_fn, training_config
@@ -190,6 +181,7 @@ class Seed(dj.Manual):
 
 
 @schema
+# @gitlog
 class TrainedModel(dj.Computed):
     definition = """
     -> Model
@@ -215,14 +207,14 @@ class TrainedModel(dj.Computed):
     def make(self, key):
         architect_name = (Fabrikant & key).fetch1('architect_name')
         seed = (Seed & key).fetch1('seed')
-        trainer, trainer_config = (Trainer & key).get_trainer()
-        dataloader = (Dataset & key).get_dataloader(seed)
 
-        # passes the input dimensions to the model builder function
+        dataloader = (Dataset & key).get_dataloader(seed)
         model = (Model & key).build_model(dataloader, seed)
+        trainer, trainer_config = (Trainer & key).get_trainer()
 
         # model training
-        score, output, model_state = trainer(model, seed, **trainer_config, **dataloader)
+        score, output, model_state = trainer(model, seed, **dataloader, **trainer_config)
+
         with tempfile.TemporaryDirectory() as trained_models:
             filename = make_hash(key) + '.pth.tar'
             filepath = os.path.join(trained_models, filename)
