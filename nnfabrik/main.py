@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import os
 import tempfile
+import warnings
 
 from . import utility
 from . import datasets
@@ -14,6 +15,8 @@ from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy
 
 # check if schema_name defined, otherwise default to nnfabrik_core
 schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core')) 
+=======
+
 
 @schema
 class Fabrikant(dj.Manual):
@@ -38,15 +41,21 @@ class Model(dj.Manual):
 
     """
 
-    def add_entry(self, configurator, config_object, architect_name, model_comment=''):
+    def add_entry(self, configurator, config_object, model_architect, model_comment=''):
         """
         configurator -- name of the function/class that's callable
         config_object -- actual Python object
         """
 
+        try:
+            callable(eval(configurator))
+        except NameError:
+            warnings.warn("configurator function does not exist. Table entry rejected")
+            return
+
         config_hash = make_hash(config_object)
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object,
-                   model_architect=architect_name, model_comment=model_comment)
+                   model_architect=model_architect, model_comment=model_comment)
         self.insert1(key)
 
 
@@ -57,6 +66,7 @@ class Model(dj.Manual):
 
         configurator, config_object = (self & key).fetch1('configurator', 'config_object')
         config_object = cleanup_numpy_scalar(config_object)
+
         module_path, class_name = split_module_name(configurator)
         model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
         return model_fn(dataloader, seed, **config_object)
@@ -74,16 +84,22 @@ class Dataset(dj.Manual):
     dataset_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
-    def add_entry(self, dataset_loader, dataset_config, architect_name, dataset_comment=''):
+    def add_entry(self, dataset_loader, dataset_config, dataset_architect, dataset_comment=''):
         """
         inserts one new entry into the Dataset Table
         dataset_loader -- name of dataset function/class that's callable
         dataset_config -- actual Python object with which the dataset function is called
         """
 
+        try:
+            callable(eval(dataset_loader))
+        except NameError:
+            warnings.warn("dataset_loader function does not exist. Table entry rejected")
+            return
+
         dataset_config_hash = make_hash(dataset_config)
         key = dict(dataset_loader=dataset_loader, dataset_config_hash=dataset_config_hash,
-                   dataset_config=dataset_config, dataset_architect=architect_name, dataset_comment=dataset_comment)
+                   dataset_config=dataset_config, dataset_architect=dataset_architect, dataset_comment=dataset_comment)
         self.insert1(key)
 
     def get_dataloader(self, seed=None, key=None):
@@ -106,6 +122,7 @@ class Dataset(dj.Manual):
 
         dataset_loader, dataset_config = (self & key).fetch1('dataset_loader', 'dataset_config')
         dataset_config = cleanup_numpy_scalar(dataset_config)
+
         module_path, class_name = split_module_name(dataset_loader)
         dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
         if seed is not None:
@@ -126,16 +143,24 @@ class Trainer(dj.Manual):
     trainer_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
 
-    def add_entry(self, training_function, training_config, architect_name, trainer_comment=''):
+    def add_entry(self, training_function, training_config, trainer_architect, trainer_comment=''):
         """
         inserts one new entry into the Trainer Table
         training_function -- name of trainer function/class that's callable
         training_config -- actual Python object with which the trainer function is called
         """
         print('Loading the trainer...')
+
+        try:
+            callable(eval(training_function))
+        except NameError:
+            warnings.warn("dataset_loader function does not exist. Table entry rejected")
+            return
+
         training_config_hash = make_hash(training_config)
         key = dict(training_function=training_function, training_config_hash=training_config_hash,
-                   training_config=training_config, trainer_architect=architect_name, trainer_comment=trainer_comment)
+                   training_config=training_config, trainer_architect=trainer_architect,
+                   trainer_comment=trainer_comment)
         self.insert1(key)
 
     def get_trainer(self, key=None):
@@ -147,6 +172,7 @@ class Trainer(dj.Manual):
 
         training_function, training_config = (self & key).fetch1('training_function', 'training_config')
         training_config = cleanup_numpy_scalar(training_config)
+
         module_path, class_name = split_module_name(training_function)
         trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
         return trainer_fn, training_config
@@ -170,10 +196,18 @@ class TrainedModel(dj.Computed):
     ---
     score:   float  # loss
     output: longblob  # trainer object's output
-    model_state:  attach@minio
     ->Fabrikant
     trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
     """
+
+    class ModelStorage(dj.Part):
+        definition = """
+        # Contains the paths to the stored models
+
+        -> master
+        ---
+        model_state:            attach@minio   
+        """
 
     def make(self, key):
         architect_name = (Fabrikant & key).fetch1('architect_name')
@@ -190,8 +224,11 @@ class TrainedModel(dj.Computed):
             filename = make_hash(key) + '.pth.tar'
             filepath = os.path.join(trained_models, filename)
             torch.save(model_state, filepath)
+
             key['score'] = score
             key['output'] = output
-            key['model_state'] = filepath
             key['architect_name'] = architect_name
             self.insert1(key)
+
+            key['model_state'] = filepath
+            self.ModelStorage.insert1(key, ignore_extra_fields=True)
