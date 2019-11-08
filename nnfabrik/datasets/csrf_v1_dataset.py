@@ -35,7 +35,7 @@ def get_loader_csrf_V1(images, responses, valid_responses, batch_size=None, shuf
         images = images.transpose((0, 3, 1, 2))
 
     if retina_warp:
-        images = np.array(list(map(warp_image, images[:, 0, ::])))[:, None]
+        images = np.array(list(map(warp_image, images[:, 0])))[:, None]
 
     images = torch.tensor(images).to(torch.float).cuda()
 
