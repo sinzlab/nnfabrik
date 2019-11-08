@@ -1,11 +1,10 @@
 from functools import partial
 from mlutils.measures import *
 from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state
-from itertools import repeat
 from scipy import stats
 from tqdm import tqdm
 import warnings
-from utility.nn_helpers import set_random_seed
+from ..utility.nn_helpers import set_random_seed
 
 
 def early_stop_trainer(model, seed, stop_function='corr_stop',
@@ -120,7 +119,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         weights = weights if weights is not None else 1
         return criterion(model(inputs) * weights, targets) + model.core.regularizer() + model.readout.regularizer()
 
-    def run(model, full_objective, optimizer, stop_closure, train_loader,
+    def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
             restore_best, tracker):
 
@@ -171,6 +170,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     model, epoch = run(model=model,
                        full_objective=full_objective,
                        optimizer=optimizer,
+                       scheduler=scheduler,
                        stop_closure=stop_closure,
                        train_loader=train_loader,
                        epoch=epoch,
