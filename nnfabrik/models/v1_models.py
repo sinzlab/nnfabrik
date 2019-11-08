@@ -1,7 +1,7 @@
 from mlutils.layers.readouts import PointPooled2d
 from mlutils.layers.cores import Stacked2dCore
 from torch import nn as nn
-from utility.nn_helpers import get_io_dims, get_module_output, set_random_seed
+from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed
 from torch.nn import functional as F
 
 
@@ -22,9 +22,9 @@ def stacked2d_core_point_readout(dataloader, seed, hidden_channels=32, input_ker
             self.readout = readout
 
         def forward(self, x):
-            output_of_the_core = self.core(x)
-            readout_output = self.readout(output_of_the_core)
-            return F.elu(readout_output) + 1
+            x = self.core(x)
+            x = self.readout(x)
+            return F.elu(x) + 1
 
     set_random_seed(seed)
 
@@ -51,11 +51,11 @@ def stacked2d_core_point_readout(dataloader, seed, hidden_channels=32, input_ker
     readout = PointPooled2d(readout_in_shape[1:],
                             num_neurons,
                             pool_steps=pool_steps,
-                            pool_kern=int(pool_kern),
+                            pool_kern=pool_kern,
                             bias=readout_bias,
                             init_range=init_range)
 
-    gamma_readout = gamma_readout = 0.5
+    gamma_readout = 0.5
 
     def regularizer():
         return readout.feature_l1() * gamma_readout
