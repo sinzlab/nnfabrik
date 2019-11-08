@@ -1,16 +1,17 @@
 from functools import partial
 from mlutils.measures import *
 from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state
-from itertools import repeat
 from scipy import stats
 from tqdm import tqdm
 import warnings
 from ..utility.nn_helpers import set_random_seed
 
-def early_stop_trainer(model, seed, lr_schedule=[0.001], stop_function ='corr_stop',
-                     loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
-                     maximize=True, tolerance=1e-5, device='cuda', restore_best=True, tracker=None,
-                     train_loader=None, val_loader=None, test_loader=None):
+
+def early_stop_trainer(model, seed, stop_function='corr_stop',
+                       loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
+                       maximize=True, tolerance=1e-5, device='cuda', restore_best=True, tracker=None,
+                       lr_init=0.003, lr_decay_factor=0.5, lr_decay_patience=5, lr_decay_threshold=0.001,
+                       min_lr=0.0001, train_loader=None, val_loader=None, test_loader=None):
     """"
     Args:
         model: PyTorch nn module
@@ -118,16 +119,16 @@ def early_stop_trainer(model, seed, lr_schedule=[0.001], stop_function ='corr_st
         weights = weights if weights is not None else 1
         return criterion(model(inputs) * weights, targets) + model.core.regularizer() + model.readout.regularizer()
 
-    def run(model, full_objective, optimizer, stop_closure, train_loader,
+    def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
             restore_best, tracker):
-
 
         for epoch, val_obj in early_stopping(model, stop_closure,
                                              interval=interval, patience=patience,
                                              start=epoch, max_iter=max_iter, maximize=maximize,
                                              tolerance=tolerance, restore_best=restore_best,
                                              tracker=tracker):
+            scheduler.step(val_obj)
             for data in tqdm(train_loader, desc='Epoch {}'.format(epoch)):
                 optimizer.zero_grad()
                 loss = full_objective(*data)
@@ -136,10 +137,6 @@ def early_stop_trainer(model, seed, lr_schedule=[0.001], stop_function ='corr_st
             print('Training loss: {}'.format(loss))
 
             optimizer.zero_grad()
-            # store the training loss/output after each epoch loop
-            loss_ret.append(loss.detach().cpu().numpy())
-            val_output.append(val_obj)
-
 
         return model, epoch
 
@@ -158,27 +155,42 @@ def early_stop_trainer(model, seed, lr_schedule=[0.001], stop_function ='corr_st
                                        correlation=partial(corr_stop, model),
                                        exponential=partial(exp_stop, model),
                                        )
-    val_output = []
-    loss_ret = []
-    for opt, lr in zip(repeat(torch.optim.Adam), lr_schedule):
-        print('Training with learning rate {}'.format(lr))
-        optimizer = opt(model.parameters(), lr=lr)
 
-        model, epoch = run(model=model,
-                           full_objective=full_objective,
-                           optimizer=optimizer,
-                           stop_closure=stop_closure,
-                           train_loader=train_loader,
-                           epoch=epoch,
-                           interval=interval,
-                           patience=patience,
-                           max_iter=max_iter,
-                           maximize=maximize,
-                           tolerance=tolerance,
-                           restore_best=restore_best,
-                           tracker=tracker,
-                           )
+    # reduce on plateau feature from pytorch 1.2
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                           mode='max',
+                                                           factor=lr_decay_factor,
+                                                           patience=lr_decay_patience,
+                                                           threshold=lr_decay_threshold,
+                                                           min_lr=min_lr,
+                                                           )
+
+    model, epoch = run(model=model,
+                       full_objective=full_objective,
+                       optimizer=optimizer,
+                       scheduler=scheduler,
+                       stop_closure=stop_closure,
+                       train_loader=train_loader,
+                       epoch=epoch,
+                       interval=interval,
+                       patience=patience,
+                       max_iter=max_iter,
+                       maximize=maximize,
+                       tolerance=tolerance,
+                       restore_best=restore_best,
+                       tracker=tracker,
+                       )
+
     model.eval()
     tracker.finalize()
 
-    return loss_ret, val_output, model.state_dict()
+    val_output = tracker.log["correlation"]
+
+    # compute average test correlations as the score
+    y, y_hat = model_predictions(test_loader, model)
+    AvgCorr = corr(y, y_hat, axis=0)
+
+    return np.mean(AvgCorr), val_output, model.state_dict()
+
