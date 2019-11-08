@@ -15,7 +15,6 @@ from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy
 
 # check if schema_name defined, otherwise default to nnfabrik_core
 schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core')) 
-=======
 
 
 @schema
