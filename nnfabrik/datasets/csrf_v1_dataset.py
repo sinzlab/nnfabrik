@@ -2,7 +2,8 @@ import torch
 import torch.utils.data as utils
 import numpy as np
 import pickle
-# from retina.retina import warp_image
+#from retina.retina import warp_image
+
 
 # function that returns Datloaders for Kellis CSRF Dataset
 def csrf_v1(datapath, batch_size, seed, image_path=None,
@@ -28,21 +29,20 @@ def csrf_v1(datapath, batch_size, seed, image_path=None,
 # begin of helper functions
 
 def get_loader_csrf_V1(images, responses, valid_responses, batch_size=None, shuffle=True, retina_warp=False):
-
     # Expected Dimension of the Image Tensor is Images x Channels x size_x x size_y
     # In some CSRF files, Channels are at Dim4, the image tensor is thus reshaped accordingly
     if images.shape[1] > 3:
         images = images.transpose((0, 3, 1, 2))
 
     if retina_warp:
-        images = np.array(list(map(warp_image, images[:, 0, ::])))[:, None, ::]
+        images = np.array(list(map(warp_image, images[:, 0, ::])))[:, None]
 
     images = torch.tensor(images).to(torch.float).cuda()
 
     responses = torch.tensor(responses).cuda().to(torch.float)
     valid_responses = torch.tensor(valid_responses).cuda().to(torch.float)
     dataset = utils.TensorDataset(images, responses, valid_responses)
-    data_loader = utils.DataLoader(dataset, batch_size=int(batch_size), shuffle=shuffle)
+    data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
     return data_loader
 
