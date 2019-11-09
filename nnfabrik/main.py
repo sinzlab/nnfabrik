@@ -45,9 +45,9 @@ class Model(dj.Manual):
         config_object -- actual Python object
         """
         module_path, class_name = split_module_name(configurator)
-        configurator = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
+        config_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
         try:
-            callable(configurator)
+            callable(config_fn)
         except NameError:
             warnings.warn("configurator function does not exist. Table entry rejected")
             return
@@ -91,9 +91,9 @@ class Dataset(dj.Manual):
         """
 
         module_path, class_name = split_module_name(dataset_loader)
-        dataset_loader = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
+        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
         try:
-            callable(dataset_loader)
+            callable(dataset_fn)
         except NameError:
             warnings.warn("dataset_loader function does not exist. Table entry rejected")
             return
@@ -152,9 +152,9 @@ class Trainer(dj.Manual):
         """
 
         module_path, class_name = split_module_name(training_function)
-        training_function = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
+        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
         try:
-            callable(training_function)
+            callable(trainer_fn)
         except NameError:
             warnings.warn("dataset_loader function does not exist. Table entry rejected")
             return
