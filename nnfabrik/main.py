@@ -14,7 +14,7 @@ from .utility.dj_helpers import make_hash, gitlog
 from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy_scalar
 
 # check if schema_name defined, otherwise default to nnfabrik_core
-schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core')) 
+schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
 
 
 @schema
@@ -37,7 +37,6 @@ class Model(dj.Manual):
     -> Fabrikant.proj(model_architect='architect_name')
     model_comment='' : varchar(64)  # short description
     model_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-
     """
 
     def add_entry(self, configurator, config_object, model_architect, model_comment=''):
@@ -45,9 +44,10 @@ class Model(dj.Manual):
         configurator -- name of the function/class that's callable
         config_object -- actual Python object
         """
-
+        module_path, class_name = split_module_name(configurator)
+        config_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + configurator)
         try:
-            callable(eval(configurator))
+            callable(config_fn)
         except NameError:
             warnings.warn("configurator function does not exist. Table entry rejected")
             return
@@ -90,8 +90,10 @@ class Dataset(dj.Manual):
         dataset_config -- actual Python object with which the dataset function is called
         """
 
+        module_path, class_name = split_module_name(dataset_loader)
+        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_loader)
         try:
-            callable(eval(dataset_loader))
+            callable(dataset_fn)
         except NameError:
             warnings.warn("dataset_loader function does not exist. Table entry rejected")
             return
@@ -148,10 +150,11 @@ class Trainer(dj.Manual):
         training_function -- name of trainer function/class that's callable
         training_config -- actual Python object with which the trainer function is called
         """
-        print('Loading the trainer...')
 
+        module_path, class_name = split_module_name(training_function)
+        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + training_function)
         try:
-            callable(eval(training_function))
+            callable(trainer_fn)
         except NameError:
             warnings.warn("dataset_loader function does not exist. Table entry rejected")
             return
@@ -202,7 +205,6 @@ class TrainedModel(dj.Computed):
     class ModelStorage(dj.Part):
         definition = """
         # Contains the paths to the stored models
-
         -> master
         ---
         model_state:            attach@minio   
