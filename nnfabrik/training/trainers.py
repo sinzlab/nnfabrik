@@ -1,3 +1,4 @@
+import torch
 from functools import partial
 from mlutils.measures import *
 from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state
@@ -105,7 +106,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         # -- average if requested
         return ret.mean()
 
-    def full_objective(inputs, targets, weights=None):
+    def full_objective(model, data_key, inputs, targets, **kwargs):
         """
         Computes the training loss for the model and prespecified criterion
         Args:
@@ -117,11 +118,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         Returns: training loss of the model
         """
 
-        # readoutkey AND regularizer key
-        #
-
-        weights = weights if weights is not None else 1
-        return criterion(model(inputs) * weights, targets) + model.core.regularizer() + model.readout.regularizer()
+        return criterion(model(inputs, data_key, **kwargs), targets) + model.regularizer(data_key)
 
     def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
@@ -133,12 +130,10 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                                              tolerance=tolerance, restore_best=restore_best,
                                              tracker=tracker):
             scheduler.step(val_obj)
-            # cycle dataset
-            for data in tqdm(train_loader, desc='Epoch {}'.format(epoch)):
-                optimizer.zero_grad()
+            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(trainloaders)),
+                                                      desc='Epoch {}'.format(epoch)):
 
-                # readoutkey
-                loss = full_objective(*data)
+                loss = full_objective(model, data_key, **data)
 
                 loss.backward()
                 optimizer.step()

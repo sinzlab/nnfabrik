@@ -1,22 +1,26 @@
 from mlutils.layers.readouts import PointPooled2d
 from mlutils.layers.cores import Stacked2dCore
 from torch import nn as nn
-from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_dict
+from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 from torch.nn import functional as F
 
 
 
 class PointPooled2dReadout(nn.ModuleDict):
-    def __init__(self, in_shape, n_neurons, gamma_readout):
-        for k, neurons in n_neurons:
-            self.add_module(k, PointPooled2d(in_shape,
+    def __init__(self, in_shape, n_neurons, pool_steps,pool_kern, bias, init_range, gamma_readout):
+        for k in n_neurons:
+            in_shape = in_shape[k][1:]
+            neurons = n_neurons[k]
+            self.add_module(k, PointPooled2d(
+                            in_shape,
                             neurons,
                             pool_steps=pool_steps,
                             pool_kern=pool_kern,
-                            bias=readout_bias,
-                            init_range=init_range))
+                            bias=bias,
+                            init_range=init_range)
+                            )
 
-        self.gamma_reaodut =gamma_readout
+        self.gamma_reaodut = gamma_readout
 
     def forward(self, *args, key=None, **kwargs):
         if key is None and len(self) == 1:
@@ -35,14 +39,13 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  pad_input=True, batch_norm=True, hidden_dilation=1,
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,
                                  gamma_readout=0.5, laplace_padding=None):
-    # use all shape dict instead
-    shape_dict = get_io_dims(list(dataloaders.values())[0])
-    input_channels = shape_dict['inputs'][1]
 
+    session_shape_dict = get_dims_for_loader_dict(dataloaders)
 
-    all_shape_dict = get_dims_dict(dataloaders)
+    n_neurons = {k: v['targets'][1] for k, v in session_shape_dict}
+    in_shapes = {k: v['inputs'] for k, v in session_shape_dict}
+    input_channels = list(session_shape_dict.values())[0][1]
 
-    n_neurons = {k: v['targets'][1] for k, v in all_shape_dict}
 
     class Encoder(nn.Module):
 
@@ -51,9 +54,9 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
             self.core = core
             self.readout = readout
 
-        def forward(self, x, key=None, **kwargs):
+        def forward(self, x, data_key=None, **kwargs):
             x = self.core(x)
-            x = self.readout(x, key=key)
+            x = self.readout(x, data_key=data_key)
             return F.elu(x) + 1
 
         def regularizer(self, data_key):
@@ -78,23 +81,17 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          hidden_dilation=hidden_dilation,
                          laplace_padding=laplace_padding)
 
-    readout_in_shape = get_module_output(core, shape_dict['inputs'])
-
-    # get a PointPooled Readout from mlutils
-    readout = PointPooled2dReadout(readout_in_shape[1:],
+    readout = PointPooled2dReadout(in_shapes,
                             n_neurons,
                             pool_steps=pool_steps,
                             pool_kern=pool_kern,
                             bias=readout_bias,
                             init_range=init_range)
 
-    gamma_readout = 0.5
-    def regularizer():
-        return readout.feature_l1() * gamma_readout
 
-    readout.regularizer = regularizer
+    # to do: cycle through datasets and initialize the bias
 
-    _, train_responses, weights = dataloader["train_loader"].dataset[:]
+    _, train_responses, weights = dataloaders["train_loader"].dataset[:]
     # initialize readout bias by avg firing rate, scaled by how many images the neuron has seen.
     avg_responses = train_responses.mean(0) / weights.mean(0)
 
