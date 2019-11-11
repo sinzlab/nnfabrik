@@ -9,8 +9,9 @@ from . import utility
 from . import datasets
 from . import training
 from . import models
+from . import config
 
-from .utility.dj_helpers import make_hash, gitlog
+from .utility.dj_helpers import make_hash, check_repo_commit
 from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy_scalar
 
 # check if schema_name defined, otherwise default to nnfabrik_core
@@ -207,29 +208,54 @@ class TrainedModel(dj.Computed):
         # Contains the paths to the stored models
         -> master
         ---
-        model_state:            attach@minio   
+        model_state:            attach@minio
+        """
+
+    class GitLog(dj.Part):
+        definition = """
+        ->master
+        ---
+        sha1 :             longblob #varchar(40)
+        branch :           longblob #varchar(50)
+        commit_date :      longblob #datetime
+        commiter_name :    longblob #varchar(50)
+        commiter_email :   longblob #varchar(50)
+        origin_url :       longblob #varchar(100)
         """
 
     def make(self, key):
-        architect_name = (Fabrikant & key).fetch1('architect_name')
-        seed = (Seed & key).fetch1('seed')
 
-        dataloader = (Dataset & key).get_dataloader(seed)
-        model = (Model & key).build_model(dataloader, seed)
-        trainer, trainer_config = (Trainer & key).get_trainer()
+        # check for all the dependencies (none of them should have uncommitted changes)
+        commits_info = []
+        if config['repos']:
+            for repo in config['repos']:
+                commits_info.append(check_repo_commit(repo))
 
-        # model training
-        score, output, model_state = trainer(model, seed, **dataloader, **trainer_config)
+        if all(commits_info):
 
-        with tempfile.TemporaryDirectory() as trained_models:
-            filename = make_hash(key) + '.pth.tar'
-            filepath = os.path.join(trained_models, filename)
-            torch.save(model_state, filepath)
+            architect_name = (Fabrikant & key).fetch1('architect_name')
+            seed = (Seed & key).fetch1('seed')
 
-            key['score'] = score
-            key['output'] = output
-            key['architect_name'] = architect_name
-            self.insert1(key)
+            dataloader = (Dataset & key).get_dataloader(seed)
+            model = (Model & key).build_model(dataloader, seed)
+            trainer, trainer_config = (Trainer & key).get_trainer()
 
-            key['model_state'] = filepath
-            self.ModelStorage.insert1(key, ignore_extra_fields=True)
+            # model training
+            score, output, model_state = trainer(model, seed, **dataloader, **trainer_config)
+
+            with tempfile.TemporaryDirectory() as trained_models:
+                filename = make_hash(key) + '.pth.tar'
+                filepath = os.path.join(trained_models, filename)
+                torch.save(model_state, filepath)
+
+                key['score'] = score
+                key['output'] = output
+                key['architect_name'] = architect_name
+                self.insert1(key)
+
+                key['model_state'] = filepath
+                self.ModelStorage.insert1(key, ignore_extra_fields=True)
+
+                # add the git info to the part table
+                key['sha1'], key['branch'], key['commit_date'], key['commiter_name'], key['commiter_email'], key['origin_url'] = list(zip(*commits_info))
+                self.GitLog().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
