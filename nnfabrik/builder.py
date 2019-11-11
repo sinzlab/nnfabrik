@@ -70,7 +70,7 @@ def get_trainer(trainer_fn, trainer_config=None):
     """
     if isinstance(trainer_fn, str):
         module_path, class_name = split_module_name(trainer_fn)
-        trainer_fn = dynamic_import(module_path, class_name) if module_p ath else eval('training.' + trainer_fn)
+        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + trainer_fn)
 
     if trainer_config is not None:
         trainer_fn = partial(trainer_fn, **trainer_config)

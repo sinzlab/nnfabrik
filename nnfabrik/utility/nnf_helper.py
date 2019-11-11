@@ -29,7 +29,3 @@ def dynamic_import(abs_module_path, class_name):
     return target_class
 
 
-
-def build_network()
-
-
