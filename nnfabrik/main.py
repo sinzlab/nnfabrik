@@ -4,6 +4,7 @@ import os
 import tempfile
 import warnings
 
+from . import config
 from .builder import get_data, get_trainer, get_model, get_all_parts
 
 from .utility.dj_helpers import make_hash, check_repo_commit
