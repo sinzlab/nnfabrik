@@ -116,6 +116,10 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
         Returns: training loss of the model
         """
+
+        # readoutkey AND regularizer key
+        #
+
         weights = weights if weights is not None else 1
         return criterion(model(inputs) * weights, targets) + model.core.regularizer() + model.readout.regularizer()
 
@@ -129,9 +133,13 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                                              tolerance=tolerance, restore_best=restore_best,
                                              tracker=tracker):
             scheduler.step(val_obj)
+            # cycle dataset
             for data in tqdm(train_loader, desc='Epoch {}'.format(epoch)):
                 optimizer.zero_grad()
+
+                # readoutkey
                 loss = full_objective(*data)
+
                 loss.backward()
                 optimizer.step()
             print('Training loss: {}'.format(loss))

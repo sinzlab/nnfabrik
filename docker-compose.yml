@@ -1,15 +1,16 @@
 version: '2.3'
 services:
-  notebook3:
+  notebook:
     build: .
     env_file: .env
     ports:
       - "5003:8888"
     volumes:
-      - /mnt/qb/data:/data
+      - ../data:/data
+      #- /mnt/qb/data:/data
       - /tmp:/tmp
       - .:/src/nnfabrik
       - ./notebooks:/notebooks
     environment:
       - DISPLAY=$DISPLAY
-      - NVIDIA_VISIBLE_DEVICES=3,4
+      - NVIDIA_VISIBLE_DEVICES=0

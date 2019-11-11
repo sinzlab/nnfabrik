@@ -19,8 +19,12 @@ def get_io_dims(data_loader):
         output_dim: out dimensions, expected to be a tuple in the form of output.shape.
                     for example: (batch_size, output_units, ...)
     """
-    input_batch, output_batch, _ = next(iter(data_loader))
-    return input_batch.shape, output_batch.shape
+    items = next(iter(data_loader))
+    return {k: v.shape for k, v in items._asdict().items()}
+
+
+def get_dims_dict(dataloaders):
+    return {k: get_io_dims(v) for k, v in dataloaders.items()}
 
 def get_module_output(model, input_shape):
     """

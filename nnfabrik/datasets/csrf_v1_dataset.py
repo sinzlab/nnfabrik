@@ -3,7 +3,7 @@ import torch.utils.data as utils
 import numpy as np
 import pickle
 #from retina.retina import warp_image
-
+from collections import namedtuple
 
 # function that returns Datloaders for Kellis CSRF Dataset
 def csrf_v1(datapath, batch_size, seed, image_path=None,
@@ -45,6 +45,28 @@ def get_loader_csrf_V1(images, responses, valid_responses, batch_size=None, shuf
     data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
     return data_loader
+
+
+class NamedTensorDataset(utils.Dataset):
+    r"""Dataset wrapping tensors.
+
+    Each sample will be retrieved by indexing tensors along the first dimension.
+
+    Arguments:
+        *tensors (Tensor): tensors that have the same size of the first dimension.
+    """
+
+    def __init__(self, *tensors, names=('inputs','targets')):
+        assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
+        assert len(tensors) == len(names)
+        self.tensors = tensors
+        self.DataPoint = namedtuple('DataPoint', names)
+
+    def __getitem__(self, index):
+        return self.DataPoint(*[tensor[index] for tensor in self.tensors])
+
+    def __len__(self):
+        return self.tensors[0].size(0)
 
 
 # class definitions. Data is organized within the classes.
