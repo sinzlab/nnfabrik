@@ -283,12 +283,16 @@ class TrainedModel(dj.Computed):
     def make(self, key):
 
         # check for all the dependencies (none of them should have uncommitted changes)
-        commits_info = []
         if config['repos']:
+            commits_info = []
             for repo in config['repos']:
                 commits_info.append(check_repo_commit(repo))
+            can_populate = all(commits_info)
 
-        if all(commits_info):
+        else:
+            can_populate = True
+
+        if can_populate:
 
             # by default try to lookup the architect corresponding to the current DJ user
             architect_name = Fabrikant.get_current_user()
