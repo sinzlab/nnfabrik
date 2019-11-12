@@ -5,30 +5,129 @@ import pickle
 #from retina.retina import warp_image
 from collections import namedtuple
 
-# function that returns Datloaders for Kellis CSRF Dataset
-def csrf_v1(datapath, batch_size, seed, image_path=None,
+
+def csrf_v1(datafiles, imagepath, batch_size, seed,
             train_frac=0.8, subsample=1, crop=65, time_bins_sum=tuple(range(12))):
-    v1_data = CSRF_V1_Data(raw_data_path=datapath, image_path=image_path, seed=seed,
-                           train_frac=train_frac, subsample=subsample, crop=crop,
-                           time_bins_sum=time_bins_sum)
+    """
+    creates a nested dictionary of dataloaders in the format
+            {'train' : dict_of_loaders,
+             'val'   : dict_of_loaders,
+            'test'  : dict_of_loaders, }
 
-    images, responses, valid_responses = v1_data.train()
-    train_loader = get_loader_csrf_V1(images, responses, 1 * valid_responses, batch_size=batch_size)
+        in each dict_of_loaders, there will be  one dataloader per data-key (refers to a unique session ID)
+        with the format:
+            {'data-key1': torch.utils.data.DataLoader,
+             'data-key2': torch.utils.data.DataLoader, ... }
 
-    images, responses, valid_responses = v1_data.val()
-    val_loader = get_loader_csrf_V1(images, responses, 1 * valid_responses, batch_size=batch_size)
+    required inputs is a list of datafiles specified as a full path, together with a full path
+        to a file that contains all the actually images
 
-    images, responses, valid_responses = v1_data.test()
-    test_loader = get_loader_csrf_V1(images, responses, 1 * valid_responses, batch_size=batch_size, shuffle=False)
+    :param datapath: a list of sessions
+    :param batch_size:
+    :param seed:
+    :param imagepath:
+    :param train_frac:
+    :param subsample:
+    :param crop:
+    :param time_bins_sum:
+    :return:
+    """
 
-    data_loader = dict(train_loader=train_loader, val_loader=val_loader, test_loader=test_loader)
+    # initialize dataloaders as empty dict
+    dataloaders = {'train': {}, 'val': {}, 'test': {}}
 
-    return data_loader
+    if imagepath:
+        with open(imagepath, "rb") as pkl:
+            image_data = pickle.load(pkl)
+
+    # images = image_data["something"]
+    images = np.random.randn(24076,20,20,1)
+    _, h, w = images.shape[:3]
+    img_mean = np.mean(images)
+    img_std = np.std(images)
+
+    # cycling through all datafiles to fill the dataloaders with an entry per session
+    for i, datapath in enumerate(datafiles):
+
+        data_key = "test_key"+str(i)
+
+        with open(datapath, "rb") as pkl:
+            raw_data = pickle.load(pkl)
+
+        # additional information related to session and animal. Has to find its way into datajoint
+        subject_ids = raw_data["subject_id"]
+        session_ids = raw_data["session_id"]
+        repetitions_test = raw_data["testing_repetitions"]
+
+        responses_train = raw_data["training_responses"].astype(np.float32)
+        responses_test = raw_data["testing_responses"].astype(np.float32)
+        training_image_ids = raw_data["training_image_ids"]
+        testing_image_ids = raw_data["testing_image_ids"]
+
+        responses_test = responses_test.transpose((2, 0, 1))
+        responses_train = responses_train.transpose((2, 0, 1))
+
+        images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+        images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+
+        images_train = (images_train - img_mean) / img_std
+        images_test = (images_test - img_mean) / img_std
+
+        if time_bins_sum is not None:  # then average over given time bins
+            responses_train = np.sum(responses_train[:, :, time_bins_sum], axis=-1)
+            responses_test = np.sum(responses_test[:, :, time_bins_sum], axis=-1)
+
+        train_idx, val_idx = get_validation_split(responses_train, train_frac=train_frac, seed=seed)
+        images_val = images_train[val_idx]
+        images_train = images_train[train_idx]
+        responses_val = responses_train[val_idx]
+        responses_train = responses_train[train_idx]
+
+        train_loader = get_loader_csrf_v1(images_train, responses_train, batch_size=batch_size)
+        val_loader = get_loader_csrf_v1(images_val, responses_val, batch_size=batch_size)
+        test_loader = get_loader_csrf_v1(images_test, responses_test, batch_size=batch_size, shuffle=False)
+
+        dataloaders["train"][data_key] = train_loader
+        dataloaders["val"][data_key] = val_loader
+        dataloaders["test"][data_key] = test_loader
+
+    return dataloaders
 
 
-# begin of helper functions
+def get_validation_split(responses_train, train_frac=0.8, seed=None):
+    """
+    gets indices to split the full training set into train and validation data
 
-def get_loader_csrf_V1(images, responses, valid_responses, batch_size=None, shuffle=True, retina_warp=False):
+    :param responses_train:
+    :param train_fac:
+    :param seed:
+    :return: indeces of the training_set and validation_set
+    """
+
+    if seed:
+        np.random.seed(seed)
+
+    n_images = responses_train.shape[0]
+    n_train = int(np.round(n_images * train_frac))
+
+    train_idx = np.random.choice(np.arange(n_images), n_train, replace=False)
+    val_idx = np.arange(n_images)[np.logical_not(np.isin(np.arange(n_images), train_idx))]
+
+    assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
+    assert sum((len(train_idx), len(val_idx))) == n_images, "not all images were used for train/val split"
+    return train_idx, val_idx
+
+
+def get_loader_csrf_v1(images, responses, batch_size, shuffle=True, retina_warp=False):
+    """
+    :param images:
+    :param responses:
+    :param batch_size:
+    :param shuffle:
+    :param retina_warp:
+    :return:
+    """
+
     # Expected Dimension of the Image Tensor is Images x Channels x size_x x size_y
     # In some CSRF files, Channels are at Dim4, the image tensor is thus reshaped accordingly
     if images.shape[1] > 3:
@@ -37,18 +136,18 @@ def get_loader_csrf_V1(images, responses, valid_responses, batch_size=None, shuf
     if retina_warp:
         images = np.array(list(map(warp_image, images[:, 0])))[:, None]
 
-    images = torch.tensor(images).to(torch.float).cuda()
+    images = torch.tensor(images).to(torch.float)
+    responses = torch.tensor(responses).to(torch.float)
 
-    responses = torch.tensor(responses).cuda().to(torch.float)
-    valid_responses = torch.tensor(valid_responses).cuda().to(torch.float)
-    dataset = utils.TensorDataset(images, responses, valid_responses)
+    dataset = NamedTensorDataset(images, responses)
     data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
     return data_loader
 
 
 class NamedTensorDataset(utils.Dataset):
-    r"""Dataset wrapping tensors.
+    """
+    Dataset wrapping tensors.
 
     Each sample will be retrieved by indexing tensors along the first dimension.
 
@@ -69,7 +168,49 @@ class NamedTensorDataset(utils.Dataset):
         return self.tensors[0].size(0)
 
 
-# class definitions. Data is organized within the classes.
+
+# legacy functions for dataloader creation
+
+def csrf_v1_legacy(datapath, image_path, batch_size, seed, train_frac=0.8,
+                   subsample=1, crop=65, time_bins_sum=tuple(range(12))):
+    v1_data = CSRF_V1_Data(raw_data_path=datapath, image_path=image_path, seed=seed,
+                           train_frac=train_frac, subsample=subsample, crop=crop,
+                           time_bins_sum=time_bins_sum)
+
+    images, responses, valid_responses = v1_data.train()
+    train_loader = get_loader_csrf_V1_legacy(images, responses, 1 * valid_responses, batch_size=batch_size)
+
+    images, responses, valid_responses = v1_data.val()
+    val_loader = get_loader_csrf_V1_legacy(images, responses, 1 * valid_responses, batch_size=batch_size)
+
+    images, responses, valid_responses = v1_data.test()
+    test_loader = get_loader_csrf_V1_legacy(images, responses, 1 * valid_responses, batch_size=batch_size, shuffle=False)
+
+    data_loader = dict(train_loader=train_loader, val_loader=val_loader, test_loader=test_loader)
+
+    return data_loader
+
+
+# begin of helper functions
+
+def get_loader_csrf_V1_legacy(images, responses, valid_responses, batch_size=None, shuffle=True, retina_warp=False):
+    # Expected Dimension of the Image Tensor is Images x Channels x size_x x size_y
+    # In some CSRF files, Channels are at Dim4, the image tensor is thus reshaped accordingly
+    if images.shape[1] > 3:
+        images = images.transpose((0, 3, 1, 2))
+
+    if retina_warp:
+        images = np.array(list(map(warp_image, images[:, 0])))[:, None]
+
+    images = torch.tensor(images).to(torch.float).cuda()
+
+    responses = torch.tensor(responses).cuda().to(torch.float)
+    valid_responses = torch.tensor(valid_responses).cuda().to(torch.float)
+    dataset = utils.TensorDataset(images, responses, valid_responses)
+    data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+
+    return data_loader
+
 
 class CSRF_V1_Data:
     """For use with George's and Kelli's csrf data set."""

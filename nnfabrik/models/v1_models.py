@@ -3,17 +3,19 @@ from mlutils.layers.cores import Stacked2dCore
 from torch import nn as nn
 from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 from torch.nn import functional as F
-
+import numpy as np
 
 
 class PointPooled2dReadout(nn.ModuleDict):
-    def __init__(self, in_shape, n_neurons, pool_steps,pool_kern, bias, init_range, gamma_readout):
-        for k in n_neurons:
-            in_shape = in_shape[k][1:]
-            neurons = n_neurons[k]
+    def __init__(self, core, in_shape_dict, n_neurons_dict, pool_steps, pool_kern, bias, init_range, gamma_readout):
+        # super init to get the _module attribute
+        super(PointPooled2dReadout, self).__init__()
+        for k in n_neurons_dict:
+            in_shape = get_module_output(core, in_shape_dict[k])[1:]
+            n_neurons = n_neurons_dict[k]
             self.add_module(k, PointPooled2d(
                             in_shape,
-                            neurons,
+                            n_neurons,
                             pool_steps=pool_steps,
                             pool_kern=pool_kern,
                             bias=bias,
@@ -42,10 +44,11 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
 
-    n_neurons = {k: v['targets'][1] for k, v in session_shape_dict}
-    in_shapes = {k: v['inputs'] for k, v in session_shape_dict}
-    input_channels = list(session_shape_dict.values())[0][1]
-
+    n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
+    in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
+    input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
+    assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
+    print("input channels: ", input_channels[0])
 
     class Encoder(nn.Module):
 
@@ -65,7 +68,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     set_random_seed(seed)
 
     # get a stacked2D core from mlutils
-    core = Stacked2dCore(input_channels=input_channels,
+    core = Stacked2dCore(input_channels=input_channels[0],
                          hidden_channels=hidden_channels,
                          input_kern=input_kern,
                          hidden_kern=hidden_kern,
@@ -81,12 +84,13 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          hidden_dilation=hidden_dilation,
                          laplace_padding=laplace_padding)
 
-    readout = PointPooled2dReadout(in_shapes,
-                            n_neurons,
-                            pool_steps=pool_steps,
-                            pool_kern=pool_kern,
-                            bias=readout_bias,
-                            init_range=init_range)
+    readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
+                                   n_neurons_dict=n_neurons_dict,
+                                   pool_steps=pool_steps,
+                                   pool_kern=pool_kern,
+                                   bias=readout_bias,
+                                   init_range=init_range,
+                                   gamma_readout=gamma_readout)
 
 
     # to do: cycle through datasets and initialize the bias

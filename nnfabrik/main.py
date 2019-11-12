@@ -4,6 +4,10 @@ import os
 import tempfile
 import warnings
 
+from . import utility
+from . import datasets
+from . import training
+from . import models
 
 from .builder import get_data, get_trainer, get_model, get_all_parts
 
@@ -74,7 +78,6 @@ class Model(dj.Manual):
         key = dict(configurator=configurator, config_hash=config_hash, config_object=config_object,
                    model_architect=model_architect, model_comment=model_comment)
         self.insert1(key)
-
 
     def build_model(self, dataloader, seed=None, key=None):
         print('Loading model...')
@@ -187,7 +190,6 @@ class Trainer(dj.Manual):
             return
 
         training_config_hash = make_hash(training_config)
-
 
         if trainer_architect is None:
             trainer_architect = Fabrikant.get_current_user()
