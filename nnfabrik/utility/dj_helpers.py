@@ -51,11 +51,11 @@ def check_repo_commit(repo_path):
     if can_populate:
         sha1, branch = repo.head.commit.name_rev.split()
         commit_date = datetime.fromtimestamp(repo.head.commit.authored_date).strftime("%A %d. %B %Y %H:%M:%S")
-        commiter_name = repo.head.commit.committer.name
-        commiter_email = repo.head.commit.committer.email
+        committer_name = repo.head.commit.committer.name
+        committer_email = repo.head.commit.committer.email
         origin_url = get_origin_url(g)
 
-        return sha1, branch, commit_date, commiter_name, commiter_email, origin_url
+        return sha1, branch, commit_date, committer_name, committer_email, origin_url
 
 
 # def gitlog(cls):
