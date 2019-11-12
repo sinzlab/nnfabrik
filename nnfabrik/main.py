@@ -267,12 +267,12 @@ class TrainedModel(dj.Computed):
         definition = """
         ->master
         ---
-        sha1 :             longblob #varchar(40)
-        branch :           longblob #varchar(50)
-        commit_date :      longblob #datetime
-        committer_name :    longblob #varchar(50)
-        committer_email :   longblob #varchar(50)
-        origin_url :       longblob #varchar(100)
+        sha1 :              longblob
+        branch :            longblob
+        commit_date :       longblob
+        committer_name :    longblob
+        committer_email :   longblob
+        origin_url :        longblob
         """
 
 
@@ -283,7 +283,8 @@ class TrainedModel(dj.Computed):
     def make(self, key):
 
         commits_info = [check_repo_commit(repo) for repo in config['repos']]
-        if commits_info and all(commits_info):
+        assert len(commits_info) == len(config['repos'])
+        if all(commits_info):
 
             # by default try to lookup the architect corresponding to the current DJ user
             architect_name = Fabrikant.get_current_user()
@@ -309,5 +310,6 @@ class TrainedModel(dj.Computed):
                 self.ModelStorage.insert1(key, ignore_extra_fields=True)
 
                 # add the git info to the part table
-                key['sha1'], key['branch'], key['commit_date'], key['committer_name'], key['committer_email'], key['origin_url'] = list(zip(*commits_info))
-                self.GitLog().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
+                if commits_info:
+                    key['sha1'], key['branch'], key['commit_date'], key['committer_name'], key['committer_email'], key['origin_url'] = list(zip(*commits_info))
+                    self.GitLog().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
