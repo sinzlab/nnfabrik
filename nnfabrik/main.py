@@ -262,6 +262,7 @@ class TrainedModel(dj.Computed):
         model_state:            attach@minio
         """
 
+
     class GitLog(dj.Part):
         definition = """
         ->master
@@ -273,6 +274,7 @@ class TrainedModel(dj.Computed):
         commiter_email :   longblob #varchar(50)
         origin_url :       longblob #varchar(100)
         """
+
 
     def get_entry(self, key):
         (Dataset & key).fetch()
@@ -287,10 +289,11 @@ class TrainedModel(dj.Computed):
                 commits_info.append(check_repo_commit(repo))
 
         if all(commits_info):
-            
+
             # by default try to lookup the architect corresponding to the current DJ user
             architect_name = Fabrikant.get_current_user()
             seed = (Seed & key).fetch1('seed')
+
             config_dict = self.get_full_config(key)
             dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
 
