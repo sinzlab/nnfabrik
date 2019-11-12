@@ -54,8 +54,13 @@ def check_repo_commit(repo_path):
         committer_name = repo.head.commit.committer.name
         committer_email = repo.head.commit.committer.email
         origin_url = get_origin_url(g)
+        repo_name = origin_url.split("/")[-1].split(".")[0]
 
-        return sha1, branch, commit_date, committer_name, committer_email, origin_url
+        return repo_name, {"sha1": sha1, "branch": branch, "commit_date": commit_date,
+                          "committer_name": committer_name, "committer_email": committer_email,
+                          "origin_url": origin_url}
+    else:
+        return None, None
 
 
 # def gitlog(cls):

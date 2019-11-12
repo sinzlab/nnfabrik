@@ -267,12 +267,7 @@ class TrainedModel(dj.Computed):
         definition = """
         ->master
         ---
-        sha1 :              longblob
-        branch :            longblob
-        commit_date :       longblob
-        committer_name :    longblob
-        committer_email :   longblob
-        origin_url :        longblob
+        info :              longblob
         """
 
 
@@ -282,9 +277,10 @@ class TrainedModel(dj.Computed):
 
     def make(self, key):
 
-        commits_info = [check_repo_commit(repo) for repo in config['repos']]
+        commits_info = {name: info for name, info in [check_repo_commit(repo) for repo in config['repos']]}
         assert len(commits_info) == len(config['repos'])
-        if all(commits_info):
+
+        if all(commits_info.values()):
 
             # by default try to lookup the architect corresponding to the current DJ user
             architect_name = Fabrikant.get_current_user()
@@ -311,5 +307,5 @@ class TrainedModel(dj.Computed):
 
                 # add the git info to the part table
                 if commits_info:
-                    key['sha1'], key['branch'], key['commit_date'], key['committer_name'], key['committer_email'], key['origin_url'] = list(zip(*commits_info))
+                    key['info'] = commits_info
                     self.GitLog().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
