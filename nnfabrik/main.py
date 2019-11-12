@@ -298,7 +298,7 @@ class TrainedModel(dj.Computed):
             dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
 
             # model training
-            score, output, model_state = trainer(model, seed=seed, **dataloaders)
+            score, output, model_state = trainer(model, seed, **dataloaders)
 
             with tempfile.TemporaryDirectory() as trained_models:
                 filename = make_hash(key) + '.pth.tar'
