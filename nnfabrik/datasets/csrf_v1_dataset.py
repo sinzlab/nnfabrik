@@ -34,13 +34,14 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
     """
 
     # initialize dataloaders as empty dict
-    dataloaders = {'train_loader': {}, 'val_loader': {}, 'test_loader': {}}
+    dataloaders = {'train': {}, 'val': {}, 'test': {}}
 
     if imagepath:
         with open(imagepath, "rb") as pkl:
             image_data = pickle.load(pkl)
 
     # images = image_data["something"]
+    # use toydata for trainer_testing
     images = np.random.randn(24076,20,20,1)
     _, h, w = images.shape[:3]
     img_mean = np.mean(images)
@@ -87,9 +88,9 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
         val_loader = get_loader_csrf_v1(images_val, responses_val, batch_size=batch_size)
         test_loader = get_loader_csrf_v1(images_test, responses_test, batch_size=batch_size, shuffle=False)
 
-        dataloaders["train_loader"][data_key] = train_loader
-        dataloaders["val_loader"][data_key] = val_loader
-        dataloaders["test_loader"][data_key] = test_loader
+        dataloaders["train"][data_key] = train_loader
+        dataloaders["val"][data_key] = val_loader
+        dataloaders["test"][data_key] = test_loader
 
     return dataloaders
 
@@ -114,7 +115,7 @@ def get_validation_split(responses_train, train_frac=0.8, seed=None):
     val_idx = np.arange(n_images)[np.logical_not(np.isin(np.arange(n_images), train_idx))]
 
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
-    assert sum((len(train_idx), len(val_idx))) == n_images, "not all images were used for train/val split"
+    assert sum((len(train_idx), len(val_idx))) == n_images, "not all training images were used for train/val split"
     return train_idx, val_idx
 
 
