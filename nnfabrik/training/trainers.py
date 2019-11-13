@@ -12,7 +12,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
                        maximize=True, tolerance=1e-5, device='cuda', restore_best=True,
                        lr_init=0.003, lr_decay_factor=0.5, lr_decay_patience=5, lr_decay_threshold=0.001,
-                       min_lr=0.0001, train_loader=None, val_loader=None, test_loader=None):
+                       min_lr=0.0001, optim_batch_step = True, train_loader=train, val_loader=val, test_loader=test):
     """"
     Args:
         model: PyTorch nn module
@@ -55,12 +55,11 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         target, output = np.array([]), np.array([])
 
         # loop over loaders
-        for k, loader in val_loader.items():
+        for data_key, loader in val_loader.items():
             for images, responses in loader:
-                output = np.append(output,(model(images, data_key=k).detach().cpu().numpy()))
+                output = np.append(output,(model(images, data_key).detach().cpu().numpy()))
                 target = np.append(target,responses.detach().cpu().numpy())
             target, output = map(np.vstack, (target, output))
-        print(k)
         return target, output
 
     # all early stopping conditions
@@ -115,39 +114,34 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         Args:
             inputs: i.e. images
             targets: neuronal responses that the model should predict
-            weights: can either be a mask that selects for which output neurons
-                there was a valid input. Or can be used as normalization during training.
 
         Returns: training loss of the model
         """
-
-        return criterion(model(inputs, data_key, **kwargs), targets) + model.regularizer(data_key)
+        return criterion(model(inputs.to(device), data_key, **kwargs), targets.to(device)) \
+                + model.regularizer(data_key)
 
     def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
-            restore_best, tracker):
+            restore_best, tracker, optim_batch_step):
 
         for epoch, val_obj in early_stopping(model, stop_closure,
                                              interval=interval, patience=patience,
                                              start=epoch, max_iter=max_iter, maximize=maximize,
                                              tolerance=tolerance, restore_best=restore_best,
                                              tracker=tracker):
+            optimizer.zero_grad()
             scheduler.step(val_obj)
-
+            optim_step_count = len(train_loader.keys()) if optim_batch_step else 1
 
             for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train_loader)),
                                                       desc='Epoch {}'.format(epoch)):
 
                 loss = full_objective(model, data_key, **data)
-                #
-                if (batch_no+1) % len(train_loader.keys()) == 0:
+                if (batch_no+1) % optim_step_count == 0:
                     optimizer.step()
                     optimizer.zero_grad()
                 loss.backward()
-
             print('Training loss: {}'.format(loss))
-
-            optimizer.zero_grad()
 
         return model, epoch
 
@@ -159,13 +153,13 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     model.train()
     criterion = eval(loss_function)()
     # get stopping criterion from helper functions based on keyword
-    stop_closure = corr_stop
+    stop_closure = eval(stop_function)
+
 
     tracker = MultipleObjectiveTracker(poisson=partial(poisson_stop, model),
                                        gamma=partial(gamma_stop, model),
                                        correlation=partial(corr_stop, model),
-                                       exponential=partial(exp_stop, model),
-                                       )
+                                       exponential=partial(exp_stop, model))
 
     # reduce on plateau feature from pytorch 1.2
     optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
@@ -192,7 +186,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        tolerance=tolerance,
                        restore_best=restore_best,
                        tracker=tracker,
-                       )
+                       optim_batch_step=optim_batch_step)
 
     model.eval()
     tracker.finalize()
