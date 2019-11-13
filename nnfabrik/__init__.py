@@ -13,3 +13,4 @@ dj.config['stores'] = {
         'secret_key': os.environ['MINIO_SECRET_KEY']
     }
 }
+
