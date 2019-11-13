@@ -24,10 +24,10 @@ class PointPooled2dReadout(nn.ModuleDict):
 
         self.gamma_reaodut = gamma_readout
 
-    def forward(self, *args, key=None, **kwargs):
-        if key is None and len(self) == 1:
-            key = list(self.keys())[0]
-        return self[key](*args, **kwargs)
+    def forward(self, *args, data_key=None, **kwargs):
+        if data_key is None and len(self) == 1:
+            data_key = list(self.keys())[0]
+        return self[data_key](*args, **kwargs)
 
 
     def regularizer(self, data_key):
@@ -48,7 +48,6 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
     input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
     assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
-    print("input channels: ", input_channels[0])
 
     class Encoder(nn.Module):
 
@@ -92,15 +91,11 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                    init_range=init_range,
                                    gamma_readout=gamma_readout)
 
+    # initializing readout bias to mean response
+    for k in dataloaders:
+        readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
 
-    # to do: cycle through datasets and initialize the bias
-
-    _, train_responses, weights = dataloaders["train_loader"].dataset[:]
-    # initialize readout bias by avg firing rate, scaled by how many images the neuron has seen.
-    avg_responses = train_responses.mean(0) / weights.mean(0)
 
     model = Encoder(core, readout)
-    model.core.initialize()
-    model.readout.bias.data = avg_responses
     return model
 

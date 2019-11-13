@@ -6,11 +6,11 @@ from scipy import stats
 from tqdm import tqdm
 import warnings
 from ..utility.nn_helpers import set_random_seed
-
+import numpy as np
 
 def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
-                       maximize=True, tolerance=1e-5, device='cuda', restore_best=True, tracker=None,
+                       maximize=True, tolerance=1e-5, device='cuda', restore_best=True,
                        lr_init=0.003, lr_decay_factor=0.5, lr_decay_patience=5, lr_decay_threshold=0.001,
                        min_lr=0.0001, train_loader=None, val_loader=None, test_loader=None):
     """"
@@ -45,19 +45,22 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     # --- begin of helper function definitions
 
-    def model_predictions(loader, model):
+    def model_predictions(val_loader, model):
         """
         computes model predictions for a given dataloader and a model
         Returns:
             target: ground truth, i.e. neuronal firing rates of the neurons
             output: responses as predicted by the network
         """
-        target, output = [], []
-        for images, responses, *weights in loader:
-            weights = weights[0] if weights else 1
-            output.append(model(images).detach().cpu().numpy() * weights.detach().cpu().numpy())
-            target.append(responses.detach().cpu().numpy() * weights.detach().cpu().numpy())
-        target, output = map(np.vstack, (target, output))
+        target, output = np.array([]), np.array([])
+
+        # loop over loaders
+        for k, loader in val_loader.items():
+            for images, responses in loader:
+                output = np.append(output,(model(images, data_key=k).detach().cpu().numpy()))
+                target = np.append(target,responses.detach().cpu().numpy())
+            target, output = map(np.vstack, (target, output))
+        print(k)
         return target, output
 
     # all early stopping conditions
@@ -130,13 +133,18 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                                              tolerance=tolerance, restore_best=restore_best,
                                              tracker=tracker):
             scheduler.step(val_obj)
-            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(trainloaders)),
+
+
+            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train_loader)),
                                                       desc='Epoch {}'.format(epoch)):
 
                 loss = full_objective(model, data_key, **data)
-
+                #
+                if (batch_no+1) % len(train_loader.keys()) == 0:
+                    optimizer.step()
+                    optimizer.zero_grad()
                 loss.backward()
-                optimizer.step()
+
             print('Training loss: {}'.format(loss))
 
             optimizer.zero_grad()
@@ -151,7 +159,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     model.train()
     criterion = eval(loss_function)()
     # get stopping criterion from helper functions based on keyword
-    stop_closure = partial(eval(stop_function), model)
+    stop_closure = corr_stop
 
     tracker = MultipleObjectiveTracker(poisson=partial(poisson_stop, model),
                                        gamma=partial(gamma_stop, model),
