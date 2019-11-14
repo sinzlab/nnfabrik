@@ -54,8 +54,8 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         """
         target, output = torch.empty(0), torch.empty(0)
         for images, responses in loader[data_key]:
-            output = torch.cat((output, (model(images.to(device)).detach().cpu().numpy, data_key)), dim=0)
-            target = torch.cat((target, responses.detach().cpu().numpy), dim=0)
+            output = torch.cat((output, (model(images.to(device), data_key).detach().cpu().numpy())), dim=0)
+            target = torch.cat((target, responses.detach().cpu().numpy()), dim=0)
 
         return target, output
 
