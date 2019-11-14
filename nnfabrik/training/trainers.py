@@ -1,7 +1,7 @@
 import torch
 from functools import partial
 from mlutils.measures import *
-from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state
+from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state, cycle_datasets
 from scipy import stats
 from tqdm import tqdm
 import warnings
@@ -12,7 +12,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
                        maximize=True, tolerance=1e-5, device='cuda', restore_best=True,
                        lr_init=0.003, lr_decay_factor=0.5, lr_decay_patience=5, lr_decay_threshold=0.001,
-                       min_lr=0.0001, optim_batch_step = True, train_loader=train, val_loader=val, test_loader=test):
+                       min_lr=0.0001, optim_batch_step=True, train=None, val=None, test=None):
     """"
     Args:
         model: PyTorch nn module
@@ -31,9 +31,9 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                     'GammaLoss'
             device: Device that the model resides on. Expects arguments such as torch.device('')
                 Examples: 'cpu', 'cuda:2' (0-indexed gpu)
-        train_loader: PyTorch DtaLoader -- training data
-        val_loader: validation data loader
-        test_loader: test data loader -- not used during training
+        train: PyTorch DtaLoader -- training data
+        val: validation data loader
+        test: test data loader -- not used during training
 
     Returns:
         loss: training loss after each epoch
@@ -45,39 +45,51 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     # --- begin of helper function definitions
 
-    def model_predictions(val_loader, model):
+    def model_predictions(loader, model, data_key):
         """
         computes model predictions for a given dataloader and a model
         Returns:
             target: ground truth, i.e. neuronal firing rates of the neurons
             output: responses as predicted by the network
         """
-        target, output = np.array([]), np.array([])
+        target, output = torch.empty(0), torch.empty(0)
+        for images, responses in loader[data_key]:
+            output = torch.cat((output, model(images, data_key)), dim=0)
+            target = torch.cat((target, responses), dim=0)
 
-        # loop over loaders
-        for data_key, loader in val_loader.items():
-            for images, responses in loader:
-                output = np.append(output,(model(images, data_key).detach().cpu().numpy()))
-                target = np.append(target,responses.detach().cpu().numpy())
-            target, output = map(np.vstack, (target, output))
-        return target, output
+        return target.detach().cpu().numpy(), output.detach().cpu().numpy()
 
     # all early stopping conditions
-    def corr_stop(model):
-        with eval_state(model):
-            target, output = model_predictions(val_loader, model)
+    def corr_stop(model, loader=None, avg=True):
 
-        ret = corr(target, output, axis=0)
+        loader = val if loader is None else loader
+        correlations = np.zeros((len(loader.keys()), 1))
+        n_neurons = np.zeros((1, len(loader.keys())))
+        if not avg:
+            all_correlations = np.array([])
 
-        if np.any(np.isnan(ret)):
-            warnings.warn('{}% NaNs '.format(np.isnan(ret).mean() * 100))
-        ret[np.isnan(ret)] = 0
+        for i, data_key, in enumerate(loader):
+            with eval_state(model):
+                target, output = model_predictions(loader, model, data_key)
 
-        return ret.mean()
+            ret = corr(target, output, axis=0)
+
+            if np.any(np.isnan(ret)):
+                warnings.warn('{}% NaNs '.format(np.isnan(ret).mean() * 100))
+            ret[np.isnan(ret)] = 0
+
+            if not avg:
+                all_correlations = np.append(all_correlations, ret)
+            else:
+                n_neurons[0,i] = output.shape[1]
+                correlations[i,0] = ret.mean()
+
+        corr_ret = ((n_neurons@correlations) / n_neurons.sum()).item() if avg else all_correlations
+        return corr_ret
 
     def gamma_stop(model):
         with eval_state(model):
-            target, output = model_predictions(val_loader, model)
+            target, output = model_predictions(val, model)
 
         ret = -stats.gamma.logpdf(target + 1e-7, output + 0.5).mean(axis=1) / np.log(2)
         if np.any(np.isnan(ret)):
@@ -87,7 +99,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     def exp_stop(model, bias=1e-12, target_bias=1e-7):
         with eval_state(model):
-            target, output = model_predictions(val_loader, model)
+            target, output = model_predictions(val, model)
         target = target + target_bias
         output = output + bias
         ret = (target / output + np.log(output)).mean(axis=1) / np.log(2)
@@ -99,7 +111,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     def poisson_stop(model):
         with eval_state(model):
-            target, output = model_predictions(val_loader, model)
+            target, output = model_predictions(val, model)
 
         ret = (output - target * np.log(output + 1e-12))
         if np.any(np.isnan(ret)):
@@ -117,12 +129,12 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
         Returns: training loss of the model
         """
-        return criterion(model(inputs.to(device), data_key, **kwargs), targets.to(device)) \
+        return criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)) \
                 + model.regularizer(data_key)
 
-    def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
+    def run(model, full_objective, optimizer, scheduler, stop_closure, train,
             epoch, interval, patience, max_iter, maximize, tolerance,
-            restore_best, tracker, optim_batch_step):
+            restore_best, tracker, optim_step_count):
 
         for epoch, val_obj in early_stopping(model, stop_closure,
                                              interval=interval, patience=patience,
@@ -131,12 +143,11 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                                              tracker=tracker):
             optimizer.zero_grad()
             scheduler.step(val_obj)
-            optim_step_count = len(train_loader.keys()) if optim_batch_step else 1
 
-            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train_loader)),
+            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train)),
                                                       desc='Epoch {}'.format(epoch)):
 
-                loss = full_objective(model, data_key, **data)
+                loss = full_objective(model, data_key, *data)
                 if (batch_no+1) % optim_step_count == 0:
                     optimizer.step()
                     optimizer.zero_grad()
@@ -155,15 +166,17 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     # get stopping criterion from helper functions based on keyword
     stop_closure = eval(stop_function)
 
+    # full tracker init
+    # tracker = MultipleObjectiveTracker(poisson=partial(poisson_stop, model),
+    #                                    gamma=partial(gamma_stop, model),
+    #                                    correlation=partial(corr_stop, model),
+    #                                    exponential=partial(exp_stop, model))
 
-    tracker = MultipleObjectiveTracker(poisson=partial(poisson_stop, model),
-                                       gamma=partial(gamma_stop, model),
-                                       correlation=partial(corr_stop, model),
-                                       exponential=partial(exp_stop, model))
+    # minimal tracker init
+    tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model))
 
     # reduce on plateau feature from pytorch 1.2
     optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
-
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                            mode='max',
                                                            factor=lr_decay_factor,
@@ -171,13 +184,14 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                                                            threshold=lr_decay_threshold,
                                                            min_lr=min_lr,
                                                            )
+    optim_step_count = len(train.keys()) if optim_batch_step else 1
 
     model, epoch = run(model=model,
                        full_objective=full_objective,
                        optimizer=optimizer,
                        scheduler=scheduler,
                        stop_closure=stop_closure,
-                       train_loader=train_loader,
+                       train=train,
                        epoch=epoch,
                        interval=interval,
                        patience=patience,
@@ -186,7 +200,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        tolerance=tolerance,
                        restore_best=restore_best,
                        tracker=tracker,
-                       optim_batch_step=optim_batch_step)
+                       optim_step_count=optim_step_count)
 
     model.eval()
     tracker.finalize()
@@ -194,8 +208,6 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     val_output = tracker.log["correlation"]
 
     # compute average test correlations as the score
-    y, y_hat = model_predictions(test_loader, model)
-    AvgCorr = corr(y, y_hat, axis=0)
-
-    return np.mean(AvgCorr), val_output, model.state_dict()
+    avg_corr = corr_stop(model, test, avg=False)
+    return avg_corr, val_output, model.state_dict()
 

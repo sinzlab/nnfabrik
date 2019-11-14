@@ -22,7 +22,7 @@ class PointPooled2dReadout(nn.ModuleDict):
                             init_range=init_range)
                             )
 
-        self.gamma_reaodut = gamma_readout
+        self.gamma_readout = gamma_readout
 
     def forward(self, *args, data_key=None, **kwargs):
         if data_key is None and len(self) == 1:

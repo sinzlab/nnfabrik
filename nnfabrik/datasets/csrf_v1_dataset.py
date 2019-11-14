@@ -38,19 +38,16 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
 
     if imagepath:
         with open(imagepath, "rb") as pkl:
-            image_data = pickle.load(pkl)
+            images = pickle.load(pkl)
 
-    # images = image_data["something"]
-    # use toydata for trainer_testing
-    images = np.random.randn(24076,20,20,1)
+    images = images[:,:,:,None]
     _, h, w = images.shape[:3]
     img_mean = np.mean(images)
     img_std = np.std(images)
-
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(datafiles):
-
-        data_key = "test_key"+str(i)
+        # print("loading dataset ", i)
+        data_key = 'test_key{:d}'.format(i)
 
         with open(datapath, "rb") as pkl:
             raw_data = pickle.load(pkl)
@@ -70,7 +67,6 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
 
         images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
         images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
-
         images_train = (images_train - img_mean) / img_std
         images_test = (images_test - img_mean) / img_std
 
