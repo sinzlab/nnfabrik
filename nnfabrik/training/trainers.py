@@ -52,12 +52,12 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             target: ground truth, i.e. neuronal firing rates of the neurons
             output: responses as predicted by the network
         """
-        target, output = torch.empty(0).to(device), torch.empty(0).to(device)
+        target, output = torch.empty(0), torch.empty(0)
         for images, responses in loader[data_key]:
-            output = torch.cat((output, model(images.to(device), data_key)), dim=0)
-            target = torch.cat((target, responses.to(device)), dim=0)
+            output = torch.cat((output, (model(images.to(device)).detach().cpu().numpy, data_key)), dim=0)
+            target = torch.cat((target, responses.detach().cpu().numpy), dim=0)
 
-        return target.detach().cpu().numpy(), output.detach().cpu().numpy()
+        return target, output
 
     # all early stopping conditions
     def corr_stop(model, loader=None, avg=True):
