@@ -9,9 +9,9 @@ from ..utility.nn_helpers import set_random_seed
 import numpy as np
 
 def early_stop_trainer(model, seed, stop_function='corr_stop',
-                       loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=50,
+                       loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=75,
                        maximize=True, tolerance=1e-5, device='cuda', restore_best=True,
-                       lr_init=0.003, lr_decay_factor=0.5, lr_decay_patience=5, lr_decay_threshold=0.001,
+                       lr_init=0.005, lr_decay_factor=0.3, lr_decay_patience=5, lr_decay_threshold=0.001,
                        min_lr=0.0001, optim_batch_step=True, train=None, val=None, test=None):
     """"
     Args:
@@ -31,15 +31,15 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                     'GammaLoss'
             device: Device that the model resides on. Expects arguments such as torch.device('')
                 Examples: 'cpu', 'cuda:2' (0-indexed gpu)
-        train: PyTorch DtaLoader -- training data
-        val: validation data loader
-        test: test data loader -- not used during training
+
+        Pytorch Dataloaders are expanded into dictionary of individual loaders
+            train: PyTorch DtaLoader -- training data
+            val: validation data loader
+            test: test data loader -- not used during training
 
     Returns:
-        loss: training loss after each epoch
-            Expected format: ndarray or dict
-        output: user specified output of the training procedure.
-            Expected format: ndarray or dict
+        score: performance score of the model
+        output: user specified validation object based on the 'stop function'
         model_state: the full state_dict() of the trained model
     """
 
@@ -54,14 +54,17 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         """
         target, output = torch.empty(0), torch.empty(0)
         for images, responses in loader[data_key]:
-            output = torch.cat((output, (model(images.to(device), data_key).detach().cpu().numpy())), dim=0)
-            target = torch.cat((target, responses.detach().cpu().numpy()), dim=0)
+            output = torch.cat((output, (model(images.to(device), data_key).detach().cpu())), dim=0)
+            target = torch.cat((target, responses.detach().cpu()), dim=0)
 
-        return target, output
+        return target.numpy(), output.numpy()
 
     # all early stopping conditions
     def corr_stop(model, loader=None, avg=True):
-
+        """
+        Returns either the average correlation of all neurons or the the correlations per neuron.
+            Gets called by early stopping and the model performance evaluation
+        """
         loader = val if loader is None else loader
         correlations = np.zeros((len(loader.keys()), 1))
         n_neurons = np.zeros((1, len(loader.keys())))
@@ -144,21 +147,18 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             optimizer.zero_grad()
             scheduler.step(val_obj)
 
+            # Beginning of main training loop
             for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train)),
                                                       desc='Epoch {}'.format(epoch)):
-
                 loss = full_objective(model, data_key, *data)
                 if (batch_no+1) % optim_step_count == 0:
                     optimizer.step()
                     optimizer.zero_grad()
                 loss.backward()
             print('Training loss: {}'.format(loss))
-
         return model, epoch
 
-    # --- end of helper function definitions
-
-    # set up the model and the loss/early_stopping functions
+    # model setup
     set_random_seed(seed)
     model.to(device)
     model.train()
