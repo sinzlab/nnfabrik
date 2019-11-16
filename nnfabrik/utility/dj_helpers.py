@@ -31,6 +31,7 @@ def need_to_commite(repo):
             for f in changed_files:
                 print("Changed: \t" + f)
         print("\nPlease commit the changes before running populate.\n")
+        raise RuntimeError('Commit the uncommited changes.')
 
     return has_uncommited
 
