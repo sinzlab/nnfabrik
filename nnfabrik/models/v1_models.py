@@ -22,7 +22,7 @@ class PointPooled2dReadout(nn.ModuleDict):
                             init_range=init_range)
                             )
 
-        self.gamma_reaodut = gamma_readout
+        self.gamma_readout = gamma_readout
 
     def forward(self, *args, data_key=None, **kwargs):
         if data_key is None and len(self) == 1:
@@ -34,13 +34,12 @@ class PointPooled2dReadout(nn.ModuleDict):
         return self[data_key].feature_l1() * self.gamma_readout
 
 
-
-def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_kern=15,
-                                 hidden_kern=7, layers=3, gamma_hidden=0, gamma_input=0.1,
+def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_kern=13,
+                                 hidden_kern=3, layers=3, gamma_hidden=0, gamma_input=0.1,
                                  skip=0, final_nonlinearity=True, core_bias=False, momentum=0.9,
-                                 pad_input=True, batch_norm=True, hidden_dilation=1,
+                                 pad_input=False, batch_norm=True, hidden_dilation=1,
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,
-                                 gamma_readout=0.5, laplace_padding=None):
+                                 gamma_readout=0.1, laplace_padding=None):
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
 
