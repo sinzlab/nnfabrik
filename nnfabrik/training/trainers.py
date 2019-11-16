@@ -54,7 +54,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         """
         target, output = torch.empty(0), torch.empty(0)
         for images, responses in loader[data_key]:
-            output = torch.cat((output, (model(images.to(device), data_key).detach().cpu())), dim=0)
+            output = torch.cat((output, (model(images.to(device), data_key=data_key).detach().cpu())), dim=0)
             target = torch.cat((target, responses.detach().cpu()), dim=0)
 
         return target.numpy(), output.numpy()
@@ -155,7 +155,6 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                     optimizer.step()
                     optimizer.zero_grad()
                 loss.backward()
-            print('Training loss: {}'.format(loss))
         return model, epoch
 
     # model setup
@@ -208,6 +207,12 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     val_output = tracker.log["correlation"]
 
     # compute average test correlations as the score
-    avg_corr = corr_stop(model, test, avg=False)
-    return avg_corr, val_output, model.state_dict()
+    avg_corr = corr_stop(model, test, avg=True)
+
+    ### Include oracle performance as the output
+
+
+
+    oracles = np.array([0])
+    return avg_corr, oracles, model.state_dict()
 
