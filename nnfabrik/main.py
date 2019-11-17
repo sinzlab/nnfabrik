@@ -280,7 +280,13 @@ class TrainedModel(dj.Computed):
         commits_info = {name: info for name, info in [check_repo_commit(repo) for repo in config['repos']]}
         assert len(commits_info) == len(config['repos'])
 
-        if all(commits_info.values()):
+        if any(['error_msg' in name for name in commits_info.keys()]):
+            err_msgs = ["You have uncommited changes."]
+            err_msgs.extend([info for name, info in commits_info.items() if 'error_msg' in name])
+            err_msgs.append("\nPlease commit the changes before running populate.\n")
+            raise RuntimeError('\n'.join(err_msgs))
+
+        else:
 
             # by default try to lookup the architect corresponding to the current DJ user
             architect_name = Fabrikant.get_current_user()

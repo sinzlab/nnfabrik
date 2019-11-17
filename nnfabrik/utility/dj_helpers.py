@@ -18,22 +18,23 @@ def make_hash(config):
     return hashed.hexdigest()
 
 
-def need_to_commite(repo):
+def need_to_commite(repo, repo_name=""):
     changed_files = [item.a_path for item in repo.index.diff(None)]
     has_uncommited = bool(changed_files) or bool(repo.untracked_files)
 
+    err_msg = []
     if has_uncommited:
-        print("You have uncommited changes:\n")
+        err_msg.append("\n{}".format(repo_name))
         if repo.untracked_files:
             for f in repo.untracked_files:
-                print("Untracked: \t" + f)
+                err_msg.append("Untracked: \t" + f)
         if changed_files:
             for f in changed_files:
-                print("Changed: \t" + f)
-        print("\nPlease commit the changes before running populate.\n")
-        raise RuntimeError('Commit the uncommited changes.')
+                err_msg.append("Changed: \t" + f)
+        # err_msg.append("\nPlease commit the changes before running populate.\n")
+        # raise RuntimeError('Commit the uncommited changes.')
 
-    return has_uncommited
+    return "\n".join(err_msg)
 
 
 def get_origin_url(g):
@@ -48,20 +49,22 @@ def get_origin_url(g):
 def check_repo_commit(repo_path):
     repo = Repo(path=repo_path)
     g = cmd.Git(repo_path)
-    can_populate = not need_to_commite(repo)
-    if can_populate:
+    origin_url = get_origin_url(g)
+    repo_name = origin_url.split("/")[-1].split(".")[0]
+    err_msg = need_to_commite(repo, repo_name=repo_name)
+
+    if err_msg:
+        return '{}_error_msg'.format(repo_name), err_msg
+
+    else:
         sha1, branch = repo.head.commit.name_rev.split()
         commit_date = datetime.fromtimestamp(repo.head.commit.authored_date).strftime("%A %d. %B %Y %H:%M:%S")
         committer_name = repo.head.commit.committer.name
         committer_email = repo.head.commit.committer.email
-        origin_url = get_origin_url(g)
-        repo_name = origin_url.split("/")[-1].split(".")[0]
 
         return repo_name, {"sha1": sha1, "branch": branch, "commit_date": commit_date,
                           "committer_name": committer_name, "committer_email": committer_email,
                           "origin_url": origin_url}
-    else:
-        return None, None
 
 
 # def gitlog(cls):
