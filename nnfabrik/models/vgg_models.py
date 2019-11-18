@@ -11,35 +11,6 @@ from torch import nn
 import torchvision
 from torchvision.models import vgg16, alexnet, vgg19
 
-# class Core:
-#     def initialize(self):
-#         raise NotImplementedError('Not initializing')
-#
-#     def __repr__(self):
-#         s = super().__repr__()
-#         s += ' [{} regularizers: '.format(self.__class__.__name__)
-#         ret = []
-#         for attr in filter(lambda x: 'gamma' in x or 'skip' in x, dir(self)):
-#             ret.append('{} = {}'.format(attr, getattr(self, attr)))
-#         return s + '|'.join(ret) + ']\n'
-#
-#
-# class Core2d(Core):
-#     def initialize(self, cuda=False):
-#         self.apply(self.init_conv)
-#         self.put_to_cuda(cuda=cuda)
-#
-#     def put_to_cuda(self, cuda):
-#         if cuda:
-#             self = self.cuda()
-#
-#     @staticmethod
-#     def init_conv(m):
-#         if isinstance(m, nn.Conv2d):
-#             nn.init.xavier_normal_(m.weight.data)
-#             if m.bias is not None:
-#                 m.bias.fill_(0)
-
 
 class TransferLearningCore(Core2d, nn.Module):
     'Core feed forward Transfer Learning Model'
@@ -115,7 +86,7 @@ class PointPooled2dReadout(nn.ModuleDict):
 
 def vgg_core_point_readout(dataloaders, seed, pool_steps=1,
                            pool_kern=7, readout_bias=True, init_range=0.1,
-                           gamma_readout=0.1):
+                           gamma_readout=0.002):
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
 
@@ -134,7 +105,7 @@ def vgg_core_point_readout(dataloaders, seed, pool_steps=1,
         def forward(self, x, data_key=None, **kwargs):
             x = self.core(x)
             x = self.readout(x, data_key=data_key)
-            return F.elu(x) + 1
+            return F.elu(x-1) + 1
 
         # core regularizer is omitted because it's pretrained
         def regularizer(self, data_key):
