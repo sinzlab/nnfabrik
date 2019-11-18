@@ -12,7 +12,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=75,
                        maximize=True, tolerance=1e-5, device='cuda', restore_best=True,
                        lr_init=0.005, lr_decay_factor=0.3, lr_decay_patience=5, lr_decay_threshold=0.001,
-                       min_lr=0.0001, optim_batch_step=True, train=None, val=None, test=None):
+                       min_lr=0.0001, optim_batch_step=True, pretrained_core=False, train=None, val=None, test=None):
     """"
     Args:
         model: PyTorch nn module
@@ -44,7 +44,6 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     """
 
     # --- begin of helper function definitions
-
     def model_predictions(loader, model, data_key):
         """
         computes model predictions for a given dataloader and a model
@@ -66,8 +65,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             Gets called by early stopping and the model performance evaluation
         """
         loader = val if loader is None else loader
-        correlations = np.zeros((len(loader.keys()), 1))
-        n_neurons = np.zeros((1, len(loader.keys())))
+        n_neurons, correlations_sum = 0, 0
         if not avg:
             all_correlations = np.array([])
 
@@ -84,10 +82,10 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             if not avg:
                 all_correlations = np.append(all_correlations, ret)
             else:
-                n_neurons[0,i] = output.shape[1]
-                correlations[i,0] = ret.mean()
+                n_neurons += output.shape[1]
+                correlations_sum += ret.sum()
 
-        corr_ret = ((n_neurons@correlations) / n_neurons.sum()).item() if avg else all_correlations
+        corr_ret = correlations_sum / n_neurons if avg else all_correlations
         return corr_ret
 
     def gamma_stop(model):
@@ -135,7 +133,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         return criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)) \
                 + model.regularizer(data_key)
 
-    def run(model, full_objective, optimizer, scheduler, stop_closure, train,
+    def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
             restore_best, tracker, optim_step_count):
 
@@ -148,7 +146,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             scheduler.step(val_obj)
 
             # Beginning of main training loop
-            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train)),
+            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train_loader)),
                                                       desc='Epoch {}'.format(epoch)):
                 loss = full_objective(model, data_key, *data)
                 if (batch_no+1) % optim_step_count == 0:
@@ -174,8 +172,12 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     # minimal tracker init
     tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model))
 
-    # reduce on plateau feature from pytorch 1.2
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
+    if pretrained_core:
+        trainable_params = [p for p in list(model.parameters()) if p.requires_grad]
+        optimizer = torch.optim.Adam(trainable_params, lr=lr_init)
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
+
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                            mode='max',
                                                            factor=lr_decay_factor,
@@ -190,7 +192,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        optimizer=optimizer,
                        scheduler=scheduler,
                        stop_closure=stop_closure,
-                       train=train,
+                       train_loader=train,
                        epoch=epoch,
                        interval=interval,
                        patience=patience,
@@ -209,10 +211,5 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     # compute average test correlations as the score
     avg_corr = corr_stop(model, test, avg=True)
 
-    ### Include oracle performance as the output
-
-
-
-    oracles = np.array([0])
-    return avg_corr, oracles, model.state_dict()
+    return avg_corr, val_output, model.state_dict()
 
