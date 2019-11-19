@@ -4,7 +4,7 @@ from torch import nn as nn
 from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 from torch.nn import functional as F
 import numpy as np
-
+from .pretrained_models import TransferLearningCore
 
 class PointPooled2dReadout(nn.ModuleDict):
     def __init__(self, core, in_shape_dict, n_neurons_dict, pool_steps, pool_kern, bias, init_range, gamma_readout):
@@ -98,3 +98,51 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     model = Encoder(core, readout)
     return model
 
+
+def vgg_core_point_readout(dataloaders, seed, pool_steps=1,
+                           pool_kern=7, readout_bias=True, init_range=0.1,
+                           gamma_readout=0.002):
+
+    session_shape_dict = get_dims_for_loader_dict(dataloaders)
+
+    n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
+    in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
+    input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
+    assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
+
+    class Encoder(nn.Module):
+
+        def __init__(self, core, readout):
+            super().__init__()
+            self.core = core
+            self.readout = readout
+
+        def forward(self, x, data_key=None, **kwargs):
+            x = self.core(x)
+            x = self.readout(x, data_key=data_key)
+            return F.elu(x-1) + 1
+
+        # core regularizer is omitted because it's pretrained
+        def regularizer(self, data_key):
+            return self.readout.regularizer(data_key=data_key)
+
+    set_random_seed(seed)
+
+    core = TransferLearningCore(input_channels=1, tr_model_fn='vgg16',
+                                model_layer=11, momentum=0.1, final_batchnorm=True,
+                                final_nonlinearity=True, bias=False)
+
+    readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
+                                   n_neurons_dict=n_neurons_dict,
+                                   pool_steps=pool_steps,
+                                   pool_kern=pool_kern,
+                                   bias=readout_bias,
+                                   init_range=init_range,
+                                   gamma_readout=gamma_readout)
+
+    # initializing readout bias to mean response
+    for k in dataloaders:
+        readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
+
+    model = Encoder(core, readout)
+    return model
