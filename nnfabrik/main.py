@@ -75,7 +75,6 @@ class Model(dj.Manual):
                    model_architect=model_architect, model_comment=model_comment)
         self.insert1(key)
 
-
     def build_model(self, dataloader, seed=None, key=None):
         print('Loading model...')
         if key is None:
@@ -187,7 +186,6 @@ class Trainer(dj.Manual):
             return
 
         training_config_hash = make_hash(training_config)
-
 
         if trainer_architect is None:
             trainer_architect = Fabrikant.get_current_user()
