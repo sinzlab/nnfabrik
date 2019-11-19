@@ -12,7 +12,8 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=75,
                        maximize=True, tolerance=1e-5, device='cuda', restore_best=True,
                        lr_init=0.005, lr_decay_factor=0.3, lr_decay_patience=5, lr_decay_threshold=0.001,
-                       min_lr=0.0001, optim_batch_step=True, pretrained_core=False, train=None, val=None, test=None):
+                       min_lr=0.0001, optim_batch_step=True, pretrained_core=False, verbose=True,
+                       train=None, val=None, test=None):
     """"
     Args:
         model: PyTorch nn module
@@ -69,7 +70,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         if not avg:
             all_correlations = np.array([])
 
-        for i, data_key, in enumerate(loader):
+        for data_key in loader:
             with eval_state(model):
                 target, output = model_predictions(loader, model, data_key)
 
@@ -88,38 +89,61 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         corr_ret = correlations_sum / n_neurons if avg else all_correlations
         return corr_ret
 
-    def gamma_stop(model):
+    # gamma_stop and exp_stop are currently deprecated and wont be used by the tracker
+    # def gamma_stop(model):
+    #     with eval_state(model):
+    #         target, output = model_predictions(val, model)
+    #
+    #     ret = -stats.gamma.logpdf(target + 1e-7, output + 0.5).mean(axis=1) / np.log(2)
+    #     if np.any(np.isnan(ret)):
+    #         warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
+    #     ret[np.isnan(ret)] = 0
+    #     return ret.mean()
+    #
+    # def exp_stop(model, bias=1e-12, target_bias=1e-7):
+    #     with eval_state(model):
+    #         target, output = model_predictions(val, model)
+    #     target = target + target_bias
+    #     output = output + bias
+    #     ret = (target / output + np.log(output)).mean(axis=1) / np.log(2)
+    #     if np.any(np.isnan(ret)):
+    #         warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
+    #     ret[np.isnan(ret)] = 0
+    #     # -- average if requested
+    #     return ret.mean()
+
+    def poisson_stop(model, loader=None, avg=False):
+        poisson_losses = np.array([])
+        loader = val if loader is None else loader
+        n_neurons = 0
+        for data_key in loader:
+            with eval_state(model):
+                target, output = model_predictions(loader, model, data_key)
+
+            ret = output - target * np.log(output + 1e-12)
+            if np.any(np.isnan(ret)):
+                warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
+
+            poisson_losses = np.append(poisson_losses, np.nanmean(ret, 0))
+            n_neurons += output.shape[1]
+
+        return poisson_losses.sum()/n_neurons if avg else poisson_losses.sum()
+
+    def readout_regularizer_stop(model):
+        ret = 0
         with eval_state(model):
-            target, output = model_predictions(val, model)
+            for data_key in val:
+                ret += model.readout.regularizer(data_key).detach().cpu().numpy()
+        return ret
 
-        ret = -stats.gamma.logpdf(target + 1e-7, output + 0.5).mean(axis=1) / np.log(2)
-        if np.any(np.isnan(ret)):
-            warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
-        ret[np.isnan(ret)] = 0
-        return ret.mean()
-
-    def exp_stop(model, bias=1e-12, target_bias=1e-7):
+    def core_regularizer_stop(model):
         with eval_state(model):
-            target, output = model_predictions(val, model)
-        target = target + target_bias
-        output = output + bias
-        ret = (target / output + np.log(output)).mean(axis=1) / np.log(2)
-        if np.any(np.isnan(ret)):
-            warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
-        ret[np.isnan(ret)] = 0
-        # -- average if requested
-        return ret.mean()
+            if model.core.regularizer():
+                return model.core.regularizer().detach().cpu().numpy()
+            else:
+                return 0
 
-    def poisson_stop(model):
-        with eval_state(model):
-            target, output = model_predictions(val, model)
 
-        ret = (output - target * np.log(output + 1e-12))
-        if np.any(np.isnan(ret)):
-            warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
-        ret[np.isnan(ret)] = 0
-        # -- average if requested
-        return ret.mean()
 
     def full_objective(model, data_key, inputs, targets, **kwargs):
         """
@@ -128,10 +152,11 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             inputs: i.e. images
             targets: neuronal responses that the model should predict
 
-        Returns: training loss of the model
+        Returns: training loss summed over all neurons
         """
-        return criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)) \
-                + model.regularizer(data_key)
+        return criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)).sum() \
+               + model.regularizer(data_key)
+
 
     def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
@@ -145,21 +170,28 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             optimizer.zero_grad()
             scheduler.step(val_obj)
 
+            if verbose:
+                for key in tracker.log.keys():
+                    print(key, tracker.log[key][-1])
+
             # Beginning of main training loop
             for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train_loader)),
                                                       desc='Epoch {}'.format(epoch)):
+
                 loss = full_objective(model, data_key, *data)
                 if (batch_no+1) % optim_step_count == 0:
                     optimizer.step()
                     optimizer.zero_grad()
                 loss.backward()
+
+        # End of training
         return model, epoch
 
     # model setup
     set_random_seed(seed)
     model.to(device)
     model.train()
-    criterion = eval(loss_function)()
+    criterion = eval(loss_function)(per_neuron=True)
     # get stopping criterion from helper functions based on keyword
     stop_closure = eval(stop_function)
 
@@ -170,7 +202,10 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     #                                    exponential=partial(exp_stop, model))
 
     # minimal tracker init
-    tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model))
+    tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model),
+                                       poisson_loss=partial(poisson_stop, model),
+                                       readout_l1=partial(readout_regularizer_stop, model),
+                                       core_regularizer=partial(core_regularizer_stop, model))
 
     if pretrained_core:
         trainable_params = [p for p in list(model.parameters()) if p.requires_grad]
@@ -184,7 +219,9 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                                                            patience=lr_decay_patience,
                                                            threshold=lr_decay_threshold,
                                                            min_lr=min_lr,
+                                                           verbose=verbose,
                                                            )
+
     optim_step_count = len(train.keys()) if optim_batch_step else 1
 
     model, epoch = run(model=model,
@@ -206,10 +243,10 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     model.eval()
     tracker.finalize()
 
-    val_output = tracker.log["correlation"]
-
     # compute average test correlations as the score
     avg_corr = corr_stop(model, test, avg=True)
 
-    return avg_corr, val_output, model.state_dict()
+    #return the whole tracker output as a dict
+    output = {k:v for k,v in tracker.log.items()}
+    return avg_corr, output, model.state_dict()
 
