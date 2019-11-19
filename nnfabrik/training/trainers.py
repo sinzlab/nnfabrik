@@ -169,6 +169,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             optimizer.zero_grad()
             scheduler.step(val_obj)
 
+            # reports the entry of the current epoch for all tracked objectives
             if verbose:
                 for key in tracker.log.keys():
                     print(key, tracker.log[key][-1])
@@ -191,16 +192,10 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     model.to(device)
     model.train()
     criterion = eval(loss_function)(per_neuron=True)
+
     # get stopping criterion from helper functions based on keyword
     stop_closure = eval(stop_function)
 
-    # full tracker init
-    # tracker = MultipleObjectiveTracker(poisson=partial(poisson_stop, model),
-    #                                    gamma=partial(gamma_stop, model),
-    #                                    correlation=partial(corr_stop, model),
-    #                                    exponential=partial(exp_stop, model))
-
-    # minimal tracker init
     tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model),
                                        poisson_loss=partial(poisson_stop, model),
                                        readout_l1=partial(readout_regularizer_stop, model),
@@ -243,6 +238,6 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     avg_corr = corr_stop(model, test, avg=True)
 
     #return the whole tracker output as a dict
-    output = {k:v for k,v in tracker.log.items()}
+    output = {k: v for k, v in tracker.log.items()}
     return avg_corr, output, model.state_dict()
 
