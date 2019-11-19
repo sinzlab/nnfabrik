@@ -88,7 +88,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
         def forward(self, x, data_key=None, **kwargs):
             x = self.core(x)
             x = self.readout(x, data_key=data_key)
-            return F.elu(x + offset) + 1
+            return F.elu(x + self.offset) + 1
 
         def regularizer(self, data_key):
             return self.core.regularizer() + self.readout.regularizer(data_key=data_key)

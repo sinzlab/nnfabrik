@@ -60,7 +60,7 @@ class TransferLearningCore(Core2d, nn.Module):
 
     def forward(self, x):
         if self.input_channels == 1:
-            x = x.repeat(1, 3, 1, 1)
+            x = x.expand(-1, 3, -1, -1)
         return self.features(x)
 
     def regularizer(self):
