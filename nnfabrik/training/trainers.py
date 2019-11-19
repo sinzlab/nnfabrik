@@ -89,28 +89,27 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         corr_ret = correlations_sum / n_neurons if avg else all_correlations
         return corr_ret
 
-    # gamma_stop and exp_stop are currently deprecated and wont be used by the tracker
-    # def gamma_stop(model):
-    #     with eval_state(model):
-    #         target, output = model_predictions(val, model)
-    #
-    #     ret = -stats.gamma.logpdf(target + 1e-7, output + 0.5).mean(axis=1) / np.log(2)
-    #     if np.any(np.isnan(ret)):
-    #         warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
-    #     ret[np.isnan(ret)] = 0
-    #     return ret.mean()
-    #
-    # def exp_stop(model, bias=1e-12, target_bias=1e-7):
-    #     with eval_state(model):
-    #         target, output = model_predictions(val, model)
-    #     target = target + target_bias
-    #     output = output + bias
-    #     ret = (target / output + np.log(output)).mean(axis=1) / np.log(2)
-    #     if np.any(np.isnan(ret)):
-    #         warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
-    #     ret[np.isnan(ret)] = 0
-    #     # -- average if requested
-    #     return ret.mean()
+    def gamma_stop(model):
+        with eval_state(model):
+            target, output = model_predictions(val, model)
+
+        ret = -stats.gamma.logpdf(target + 1e-7, output + 0.5).mean(axis=1) / np.log(2)
+        if np.any(np.isnan(ret)):
+            warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
+        ret[np.isnan(ret)] = 0
+        return ret.mean()
+
+    def exp_stop(model, bias=1e-12, target_bias=1e-7):
+        with eval_state(model):
+            target, output = model_predictions(val, model)
+        target = target + target_bias
+        output = output + bias
+        ret = (target / output + np.log(output)).mean(axis=1) / np.log(2)
+        if np.any(np.isnan(ret)):
+            warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
+        ret[np.isnan(ret)] = 0
+        # -- average if requested
+        return ret.mean()
 
     def poisson_stop(model, loader=None, avg=False):
         poisson_losses = np.array([])
@@ -207,11 +206,8 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                                        readout_l1=partial(readout_regularizer_stop, model),
                                        core_regularizer=partial(core_regularizer_stop, model))
 
-    if pretrained_core:
-        trainable_params = [p for p in list(model.parameters()) if p.requires_grad]
-        optimizer = torch.optim.Adam(trainable_params, lr=lr_init)
-    else:
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
+    trainable_params = [p for p in list(model.parameters()) if p.requires_grad]
+    optimizer = torch.optim.Adam(trainable_params, lr=lr_init)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                            mode='max',

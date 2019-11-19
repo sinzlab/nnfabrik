@@ -40,6 +40,35 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,
                                  gamma_readout=0.1, laplace_padding=None):
+    """
+    Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
+
+    Args:
+        dataloaders: a dictionary of train-dataloaders, one loader per session
+            in the format {'data_key': dataloader object, .. }
+        seed: random seed
+        hidden_channels: ..
+        input_kern:
+        hidden_kern:
+        layers:
+        gamma_hidden:
+        gamma_input:
+        skip:
+        final_nonlinearity:
+        core_bias:
+        momentum:
+        pad_input:
+        batch_norm:
+        hidden_dilation:
+        pool_steps:
+        pool_kern:
+        readout_bias:
+        init_range:
+        gamma_readout:
+        laplace_padding:
+
+    Returns:
+    """
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
 
@@ -94,14 +123,33 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     for k in dataloaders:
         readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
 
-
     model = Encoder(core, readout)
+
     return model
 
 
-def vgg_core_point_readout(dataloaders, seed, pool_steps=1,
-                           pool_kern=7, readout_bias=True, init_range=0.1,
-                           gamma_readout=0.002):
+def vgg_core_point_readout(dataloaders, seed,
+                           input_channels=1, tr_model_fn='vgg16', # begin of core args
+                           model_layer=11, momentum=0.1, final_batchnorm=True,
+                           final_nonlinearity=True, bias=False,
+                           pool_steps=1, pool_kern=7, readout_bias=True, # begin or readout args
+                           init_range=0.1, gamma_readout=0.002):
+    """
+    A Model class of a predefined core (using models from torchvision.models). Can be initialized pretrained or random.
+    Can also be set to be trainable or not, independent of initialization.
+
+    Args:
+        dataloaders: a dictionary of train-dataloaders, one loader per session
+            in the format {'data_key': dataloader object, .. }
+        seed: ..
+        pool_steps:
+        pool_kern:
+        readout_bias:
+        init_range:
+        gamma_readout:
+
+    Returns:
+    """
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
 
@@ -111,7 +159,9 @@ def vgg_core_point_readout(dataloaders, seed, pool_steps=1,
     assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
 
     class Encoder(nn.Module):
-
+        """
+        helper nn class that combines the core and readout into the final model
+        """
         def __init__(self, core, readout):
             super().__init__()
             self.core = core
@@ -122,15 +172,18 @@ def vgg_core_point_readout(dataloaders, seed, pool_steps=1,
             x = self.readout(x, data_key=data_key)
             return F.elu(x-1) + 1
 
-        # core regularizer is omitted because it's pretrained
         def regularizer(self, data_key):
-            return self.readout.regularizer(data_key=data_key)
+            return self.readout.regularizer(data_key=data_key) + self.core.regularizer()
 
     set_random_seed(seed)
 
-    core = TransferLearningCore(input_channels=1, tr_model_fn='vgg16',
-                                model_layer=11, momentum=0.1, final_batchnorm=True,
-                                final_nonlinearity=True, bias=False)
+    core = TransferLearningCore(input_channels=input_channels[0],
+                                tr_model_fn=tr_model_fn,
+                                model_layer=model_layer,
+                                momentum=momentum,
+                                final_batchnorm=final_batchnorm,
+                                final_nonlinearity=final_nonlinearity,
+                                bias=bias)
 
     readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
                                    n_neurons_dict=n_neurons_dict,
@@ -142,7 +195,8 @@ def vgg_core_point_readout(dataloaders, seed, pool_steps=1,
 
     # initializing readout bias to mean response
     for k in dataloaders:
-        readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
+        readout[k].bias.data = dataloaders[k].dataset[:].targets.mean(0)
 
     model = Encoder(core, readout)
+
     return model
