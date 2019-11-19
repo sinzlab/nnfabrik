@@ -39,7 +39,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  skip=0, final_nonlinearity=True, core_bias=False, momentum=0.9,
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,
-                                 gamma_readout=0.1, laplace_padding=None):
+                                 gamma_readout=0.1, laplace_padding=None, elu_offset=0):
     """
     Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
 
@@ -79,15 +79,16 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
     class Encoder(nn.Module):
 
-        def __init__(self, core, readout):
+        def __init__(self, core, readout, elu_offset):
             super().__init__()
             self.core = core
             self.readout = readout
+            self.offset = elu_offset
 
         def forward(self, x, data_key=None, **kwargs):
             x = self.core(x)
             x = self.readout(x, data_key=data_key)
-            return F.elu(x) + 1
+            return F.elu(x + offset) + 1
 
         def regularizer(self, data_key):
             return self.core.regularizer() + self.readout.regularizer(data_key=data_key)
@@ -123,7 +124,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     for k in dataloaders:
         readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
 
-    model = Encoder(core, readout)
+    model = Encoder(core, readout, elu_offset)
 
     return model
 
@@ -133,7 +134,7 @@ def vgg_core_point_readout(dataloaders, seed,
                            model_layer=11, momentum=0.1, final_batchnorm=True,
                            final_nonlinearity=True, bias=False,
                            pool_steps=1, pool_kern=7, readout_bias=True, # begin or readout args
-                           init_range=0.1, gamma_readout=0.002):
+                           init_range=0.1, gamma_readout=0.002, elu_offset=-1):
     """
     A Model class of a predefined core (using models from torchvision.models). Can be initialized pretrained or random.
     Can also be set to be trainable or not, independent of initialization.
@@ -162,15 +163,16 @@ def vgg_core_point_readout(dataloaders, seed,
         """
         helper nn class that combines the core and readout into the final model
         """
-        def __init__(self, core, readout):
+        def __init__(self, core, readout, elu_offset):
             super().__init__()
             self.core = core
             self.readout = readout
+            self.offset = elu_offset
 
         def forward(self, x, data_key=None, **kwargs):
             x = self.core(x)
             x = self.readout(x, data_key=data_key)
-            return F.elu(x-1) + 1
+            return F.elu(x + self.offset) + 1
 
         def regularizer(self, data_key):
             return self.readout.regularizer(data_key=data_key) + self.core.regularizer()
@@ -197,6 +199,6 @@ def vgg_core_point_readout(dataloaders, seed,
     for k in dataloaders:
         readout[k].bias.data = dataloaders[k].dataset[:].targets.mean(0)
 
-    model = Encoder(core, readout)
+    model = Encoder(core, readout, elu_offset)
 
     return model
