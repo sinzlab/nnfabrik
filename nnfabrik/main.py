@@ -1,10 +1,26 @@
-import datajoint as dj
 import torch
-import os
 import tempfile
 import warnings
+import os
 
 from . import config
+from . import utility
+from . import datasets
+from . import training
+from . import models
+
+import datajoint as dj
+dj.config['stores'] = {
+    'minio': {    #  store in s3
+        'protocol': 's3',
+        'endpoint': 'cantor.mvl6.uni-tuebingen.de:9000',
+        'bucket': 'nnfabrik',
+        'location': 'dj-store',
+        'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
+        'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
+    }
+}
+
 from .builder import get_data, get_trainer, get_model, get_all_parts
 
 from .utility.dj_helpers import make_hash, check_repo_commit

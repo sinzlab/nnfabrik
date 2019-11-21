@@ -4,7 +4,7 @@ from torch import nn as nn
 from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 from torch.nn import functional as F
 import numpy as np
-
+from .pretrained_models import TransferLearningCore
 
 class PointPooled2dReadout(nn.ModuleDict):
     def __init__(self, core, in_shape_dict, n_neurons_dict, pool_steps, pool_kern, bias, init_range, gamma_readout):
@@ -39,7 +39,36 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  skip=0, final_nonlinearity=True, core_bias=False, momentum=0.9,
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,
-                                 gamma_readout=0.1, laplace_padding=None):
+                                 gamma_readout=0.1, laplace_padding=None, elu_offset=0):
+    """
+    Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
+
+    Args:
+        dataloaders: a dictionary of train-dataloaders, one loader per session
+            in the format {'data_key': dataloader object, .. }
+        seed: random seed
+        hidden_channels: ..
+        input_kern:
+        hidden_kern:
+        layers:
+        gamma_hidden:
+        gamma_input:
+        skip:
+        final_nonlinearity:
+        core_bias:
+        momentum:
+        pad_input:
+        batch_norm:
+        hidden_dilation:
+        pool_steps:
+        pool_kern:
+        readout_bias:
+        init_range:
+        gamma_readout:
+        laplace_padding:
+
+    Returns:
+    """
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
 
@@ -50,15 +79,16 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
     class Encoder(nn.Module):
 
-        def __init__(self, core, readout):
+        def __init__(self, core, readout, elu_offset):
             super().__init__()
             self.core = core
             self.readout = readout
+            self.offset = elu_offset
 
         def forward(self, x, data_key=None, **kwargs):
             x = self.core(x)
             x = self.readout(x, data_key=data_key)
-            return F.elu(x) + 1
+            return F.elu(x + self.offset) + 1
 
         def regularizer(self, data_key):
             return self.core.regularizer() + self.readout.regularizer(data_key=data_key)
@@ -94,7 +124,81 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     for k in dataloaders:
         readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
 
+    model = Encoder(core, readout, elu_offset)
 
-    model = Encoder(core, readout)
     return model
 
+
+def vgg_core_point_readout(dataloaders, seed,
+                           input_channels=1, tr_model_fn='vgg16', # begin of core args
+                           model_layer=11, momentum=0.1, final_batchnorm=True,
+                           final_nonlinearity=True, bias=False,
+                           pool_steps=1, pool_kern=7, readout_bias=True, # begin or readout args
+                           init_range=0.1, gamma_readout=0.002, elu_offset=-1):
+    """
+    A Model class of a predefined core (using models from torchvision.models). Can be initialized pretrained or random.
+    Can also be set to be trainable or not, independent of initialization.
+
+    Args:
+        dataloaders: a dictionary of train-dataloaders, one loader per session
+            in the format {'data_key': dataloader object, .. }
+        seed: ..
+        pool_steps:
+        pool_kern:
+        readout_bias:
+        init_range:
+        gamma_readout:
+
+    Returns:
+    """
+
+    session_shape_dict = get_dims_for_loader_dict(dataloaders)
+
+    n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
+    in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
+    input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
+    assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
+
+    class Encoder(nn.Module):
+        """
+        helper nn class that combines the core and readout into the final model
+        """
+        def __init__(self, core, readout, elu_offset):
+            super().__init__()
+            self.core = core
+            self.readout = readout
+            self.offset = elu_offset
+
+        def forward(self, x, data_key=None, **kwargs):
+            x = self.core(x)
+            x = self.readout(x, data_key=data_key)
+            return F.elu(x + self.offset) + 1
+
+        def regularizer(self, data_key):
+            return self.readout.regularizer(data_key=data_key) + self.core.regularizer()
+
+    set_random_seed(seed)
+
+    core = TransferLearningCore(input_channels=input_channels[0],
+                                tr_model_fn=tr_model_fn,
+                                model_layer=model_layer,
+                                momentum=momentum,
+                                final_batchnorm=final_batchnorm,
+                                final_nonlinearity=final_nonlinearity,
+                                bias=bias)
+
+    readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
+                                   n_neurons_dict=n_neurons_dict,
+                                   pool_steps=pool_steps,
+                                   pool_kern=pool_kern,
+                                   bias=readout_bias,
+                                   init_range=init_range,
+                                   gamma_readout=gamma_readout)
+
+    # initializing readout bias to mean response
+    for k in dataloaders:
+        readout[k].bias.data = dataloaders[k].dataset[:].targets.mean(0)
+
+    model = Encoder(core, readout, elu_offset)
+
+    return model

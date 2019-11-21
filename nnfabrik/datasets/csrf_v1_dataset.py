@@ -46,8 +46,9 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
     img_std = np.std(images)
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(datafiles):
-        # print("loading dataset ", i)
-        data_key = 'test_key{:d}'.format(i)
+
+        #Extract Session ID from the pickle filename
+        data_key = datapath[-20:-7]
 
         with open(datapath, "rb") as pkl:
             raw_data = pickle.load(pkl)
