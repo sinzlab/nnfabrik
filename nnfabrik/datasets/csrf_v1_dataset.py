@@ -7,7 +7,8 @@ from collections import namedtuple
 
 
 def csrf_v1(datafiles, imagepath, batch_size, seed,
-            train_frac=0.8, subsample=1, crop=65, time_bins_sum=tuple(range(12))):
+            train_frac=0.8, subsample=1, crop=65,
+            time_bins_sum=tuple(range(12)), avg=False):
     """
     creates a nested dictionary of dataloaders in the format
             {'train' : dict_of_loaders,
@@ -72,8 +73,12 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
         images_test = (images_test - img_mean) / img_std
 
         if time_bins_sum is not None:  # then average over given time bins
-            responses_train = np.sum(responses_train[:, :, time_bins_sum], axis=-1)
-            responses_test = np.sum(responses_test[:, :, time_bins_sum], axis=-1)
+            if avg:
+                responses_train = np.mean(responses_train[:, :, time_bins_sum], axis=-1)
+                responses_test = np.mean(responses_test[:, :, time_bins_sum], axis=-1)
+            else:
+                responses_train = np.sum(responses_train[:, :, time_bins_sum], axis=-1)
+                responses_test = np.sum(responses_test[:, :, time_bins_sum], axis=-1)
 
         train_idx, val_idx = get_validation_split(responses_train, train_frac=train_frac, seed=seed)
         images_val = images_train[val_idx]

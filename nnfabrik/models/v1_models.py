@@ -34,12 +34,14 @@ class PointPooled2dReadout(nn.ModuleDict):
         return self[data_key].feature_l1() * self.gamma_readout
 
 
-def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_kern=13,
+def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_kern=13,          # core args
                                  hidden_kern=3, layers=3, gamma_hidden=0, gamma_input=0.1,
                                  skip=0, final_nonlinearity=True, core_bias=False, momentum=0.9,
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
-                                 pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,
-                                 gamma_readout=0.1, laplace_padding=None, elu_offset=0):
+                                 laplace_padding=None, normalize_laplace_regularizer=True,
+                                 pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,  # readout args,
+                                 gamma_readout=0.1,  elu_offset=0,
+                                 ):
     """
     Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
 
@@ -47,27 +49,12 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
         dataloaders: a dictionary of train-dataloaders, one loader per session
             in the format {'data_key': dataloader object, .. }
         seed: random seed
-        hidden_channels: ..
-        input_kern:
-        hidden_kern:
-        layers:
-        gamma_hidden:
-        gamma_input:
-        skip:
-        final_nonlinearity:
-        core_bias:
-        momentum:
-        pad_input:
-        batch_norm:
-        hidden_dilation:
-        pool_steps:
-        pool_kern:
-        readout_bias:
-        init_range:
-        gamma_readout:
-        laplace_padding:
+        elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
 
-    Returns:
+        all other args: See Documentation of Stacked2dCore in mlutils.layers.cores and
+            PointPooled2D in mlutils.layers.readouts
+
+    Returns: An initialized model which consists of model.core and model.readout
     """
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
@@ -110,7 +97,8 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          pad_input=pad_input,
                          batch_norm=batch_norm,
                          hidden_dilation=hidden_dilation,
-                         laplace_padding=laplace_padding)
+                         laplace_padding=laplace_padding,
+                         normalize_laplace_regularizer=normalize_laplace_regularizer)
 
     readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
                                    n_neurons_dict=n_neurons_dict,
