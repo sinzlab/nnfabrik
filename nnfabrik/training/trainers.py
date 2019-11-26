@@ -122,7 +122,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             if np.any(np.isnan(ret)):
                 warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
 
-            poisson_losses = np.append(poisson_losses, np.nanmean(ret, 0))
+            poisson_losses = np.append(poisson_losses, np.nansum(ret, 0))
             n_neurons += output.shape[1]
         return poisson_losses.sum()/n_neurons if avg else poisson_losses.sum()
 
@@ -144,16 +144,22 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     def full_objective(model, data_key, inputs, targets, **kwargs):
         """
-        Computes the training loss for the model and prespecified criterion
+        Computes the training loss for the model and prespecified criterion.
+            Default: PoissonLoss, summed over Neurons and Batches, scaled by dataset
+                        size and batch size to account for batch noise.
+
         Args:
             inputs: i.e. images
             targets: neuronal responses that the model should predict
 
-        Returns: training loss summed over all neurons
-        """
-        return criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)).sum() \
-               + model.regularizer(data_key)
+        Returns: training loss summed over all neurons. Summed over batches and Neurons
 
+        """
+        m = train[data_key].dataset[:].inputs.shape[0]
+        k = inputs.shape[0]
+        
+        return np.sqrt(m / k) * criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)).sum() \
+               + model.regularizer(data_key)
 
     def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
@@ -190,7 +196,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     model.train()
 
     # current criterium is supposed to be poisson loss. Only for that loss, the additional arguments are defined
-    criterion = eval(loss_function)(per_neuron=True)
+    criterion = eval(loss_function)(per_neuron=True, avg=False)
 
     # get stopping criterion from helper functions based on keyword
     stop_closure = eval(stop_function)
@@ -237,7 +243,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     # compute average test correlations as the score
     avg_corr = corr_stop(model, test, avg=True)
 
-    #return the whole tracker output as a dict
+    # return the whole tracker output as a dict
     output = {k: v for k, v in tracker.log.items()}
     return avg_corr, output, model.state_dict()
 

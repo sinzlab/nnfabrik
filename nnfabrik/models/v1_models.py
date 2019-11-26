@@ -31,7 +31,7 @@ class PointPooled2dReadout(nn.ModuleDict):
 
 
     def regularizer(self, data_key):
-        return self[data_key].feature_l1() * self.gamma_readout
+        return self[data_key].feature_l1(average=False) * self.gamma_readout
 
 
 def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_kern=13,          # core args
