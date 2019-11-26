@@ -18,7 +18,7 @@ def make_hash(config):
     return hashed.hexdigest()
 
 
-def need_to_commite(repo, repo_name=""):
+def need_to_commit(repo, repo_name=""):
     changed_files = [item.a_path for item in repo.index.diff(None)]
     has_uncommited = bool(changed_files) or bool(repo.untracked_files)
 
@@ -31,8 +31,6 @@ def need_to_commite(repo, repo_name=""):
         if changed_files:
             for f in changed_files:
                 err_msg.append("Changed: \t" + f)
-        # err_msg.append("\nPlease commit the changes before running populate.\n")
-        # raise RuntimeError('Commit the uncommited changes.')
 
     return "\n".join(err_msg)
 
@@ -51,7 +49,7 @@ def check_repo_commit(repo_path):
     g = cmd.Git(repo_path)
     origin_url = get_origin_url(g)
     repo_name = origin_url.split("/")[-1].split(".")[0]
-    err_msg = need_to_commite(repo, repo_name=repo_name)
+    err_msg = need_to_commit(repo, repo_name=repo_name)
 
     if err_msg:
         return '{}_error_msg'.format(repo_name), err_msg
@@ -65,46 +63,3 @@ def check_repo_commit(repo_path):
         return repo_name, {"sha1": sha1, "branch": branch, "commit_date": commit_date,
                           "committer_name": committer_name, "committer_email": committer_email,
                           "origin_url": origin_url}
-
-
-# def gitlog(cls):
-#     """
-#     Decorator that equips a datajoint class with an additional datajoint.Part table that stores the current sha1,
-#     the branch, the date of the head commit,and whether the code was modified since the last commit,
-#     for the class representing the master table. Use the instantiated version of the decorator.
-#     Here is an example:
-#     .. code-block:: python
-#        :linenos:
-#         import datajoint as dj
-#         from djaddon import gitlog
-#         schema = dj.schema('mydb',locals())
-#         @schema
-#         @gitlog
-#         class MyRelation(dj.Computed):
-#             definition = ...
-#     """
-#
-#     class GitKey(dj.Part):
-#         definition = """
-#         ->master
-#         ---
-#         sha1 :             varchar(40)
-#         branch :           varchar(50)
-#         commit_date :      datetime
-#         commiter_name :    varchar(50)
-#         commit_email :     varchar(50)
-#         origin_url :       varchar(100)
-#         """
-#
-#     def log_key(self, key):
-#         key = dict(key)
-#         out = check_repo_commit(repo_path)
-#         if out:
-#             key['sha1'], key['branch'], key['commit_date'], key['commiter_name'], key['commiter_email'], key['original_url']
-#             self.GitKey().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
-#             return key
-#
-#     cls.GitKey = GitKey
-#     cls.log_git = log_key
-#
-#     return cls
