@@ -3,6 +3,7 @@ import tempfile
 import warnings
 import os
 
+from . import config
 from . import utility
 from . import datasets
 from . import training
@@ -22,7 +23,7 @@ dj.config['stores'] = {
 
 from .builder import get_data, get_trainer, get_model, get_all_parts
 
-from .utility.dj_helpers import make_hash, gitlog
+from .utility.dj_helpers import make_hash, check_repo_commit
 from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy_scalar
 
 # check if schema_name defined, otherwise default to nnfabrik_core
@@ -272,35 +273,59 @@ class TrainedModel(dj.Computed):
         # Contains the paths to the stored models
         -> master
         ---
-        model_state:            attach@minio   
+        model_state:            attach@minio
         """
+
+
+    class GitLog(dj.Part):
+        definition = """
+        ->master
+        ---
+        info :              longblob
+        """
+
 
     def get_entry(self, key):
         (Dataset & key).fetch()
 
 
     def make(self, key):
-        # by default try to lookup the architect corresponding to the current DJ user
-        architect_name = Fabrikant.get_current_user()
-        seed = (Seed & key).fetch1('seed')
 
-        config_dict = self.get_full_config(key)
+        commits_info = {name: info for name, info in [check_repo_commit(repo) for repo in config['repos']]}
+        assert len(commits_info) == len(config['repos'])
 
-        dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
+        if any(['error_msg' in name for name in commits_info.keys()]):
+            err_msgs = ["You have uncommited changes."]
+            err_msgs.extend([info for name, info in commits_info.items() if 'error_msg' in name])
+            err_msgs.append("\nPlease commit the changes before running populate.\n")
+            raise RuntimeError('\n'.join(err_msgs))
 
+        else:
 
-        # model training
-        score, output, model_state = trainer(model, seed=seed, **dataloaders)
+            # by default try to lookup the architect corresponding to the current DJ user
+            architect_name = Fabrikant.get_current_user()
+            seed = (Seed & key).fetch1('seed')
 
-        with tempfile.TemporaryDirectory() as trained_models:
-            filename = make_hash(key) + '.pth.tar'
-            filepath = os.path.join(trained_models, filename)
-            torch.save(model_state, filepath)
+            config_dict = self.get_full_config(key)
+            dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
 
-            key['score'] = score
-            key['output'] = output
-            key['architect_name'] = architect_name
-            self.insert1(key)
+            # model training
+            score, output, model_state = trainer(model, seed, **dataloaders)
 
-            key['model_state'] = filepath
-            self.ModelStorage.insert1(key, ignore_extra_fields=True)
+            with tempfile.TemporaryDirectory() as trained_models:
+                filename = make_hash(key) + '.pth.tar'
+                filepath = os.path.join(trained_models, filename)
+                torch.save(model_state, filepath)
+
+                key['score'] = score
+                key['output'] = output
+                key['architect_name'] = architect_name
+                self.insert1(key)
+
+                key['model_state'] = filepath
+                self.ModelStorage.insert1(key, ignore_extra_fields=True)
+
+                # add the git info to the part table
+                if commits_info:
+                    key['info'] = commits_info
+                    self.GitLog().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
