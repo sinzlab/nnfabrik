@@ -38,7 +38,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  hidden_kern=3, layers=3, gamma_hidden=0, gamma_input=0.1,
                                  skip=0, final_nonlinearity=True, core_bias=False, momentum=0.9,
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
-                                 laplace_padding=None, normalize_laplace_regularizer=True,
+                                 laplace_padding=None, input_regularizer=None,
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,  # readout args,
                                  gamma_readout=0.1,  elu_offset=0,
                                  ):
@@ -98,7 +98,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          batch_norm=batch_norm,
                          hidden_dilation=hidden_dilation,
                          laplace_padding=laplace_padding,
-                         normalize_laplace_regularizer=normalize_laplace_regularizer)
+                         input_regularizer=input_regularizer)
 
     readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
                                    n_neurons_dict=n_neurons_dict,
