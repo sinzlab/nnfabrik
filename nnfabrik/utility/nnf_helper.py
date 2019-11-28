@@ -13,9 +13,10 @@ def cleanup_numpy_scalar(data):
     elif isinstance(data, dict):
         for k, v in data.items():
             data[k] = cleanup_numpy_scalar(v)
-    elif isinstance(data, (list, tuple)):
+    elif isinstance(data, (list, tuple, np.ndarray)):
         data = [cleanup_numpy_scalar(e) for e in data]
     return data
+
 
 def split_module_name(abs_class_name):
     abs_module_path = '.'.join(abs_class_name.split('.')[:-1])
@@ -27,5 +28,3 @@ def dynamic_import(abs_module_path, class_name):
     module_object = import_module(abs_module_path)
     target_class = getattr(module_object, class_name)
     return target_class
-
-
