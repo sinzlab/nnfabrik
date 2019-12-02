@@ -13,7 +13,7 @@ def cleanup_numpy_scalar(data):
     elif isinstance(data, dict):
         for k, v in data.items():
             data[k] = cleanup_numpy_scalar(v)
-    elif isinstance(data, (list, tuple, np.ndarray)):
+    elif isinstance(data, (list, tuple)):
         data = [cleanup_numpy_scalar(e) for e in data]
     return data
 
