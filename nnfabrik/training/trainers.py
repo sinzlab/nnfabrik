@@ -10,10 +10,9 @@ import numpy as np
 
 def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=75,
-                       maximize=True, tolerance=1e-5, device='cuda', restore_best=True,
-                       lr_init=0.005, lr_decay_factor=0.3, lr_decay_patience=5, lr_decay_threshold=0.001,
-                       min_lr=0.0001, optim_batch_step=True, pretrained_core=False, verbose=True,
-                       train=None, val=None, test=None):
+                       maximize=True, tolerance=0.001, device='cuda', restore_best=True,
+                       lr_init=0.005, lr_decay_factor=0.3, min_lr=0.0001, optim_batch_step=True,
+                       verbose=True, lr_decay_steps=3, train=None, val=None, test=None):
     """"
     Args:
         model: PyTorch nn module
@@ -123,9 +122,8 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             if np.any(np.isnan(ret)):
                 warnings.warn(' {}% NaNs '.format(np.isnan(ret).mean() * 100))
 
-            poisson_losses = np.append(poisson_losses, np.nanmean(ret, 0))
+            poisson_losses = np.append(poisson_losses, np.nansum(ret, 0))
             n_neurons += output.shape[1]
-
         return poisson_losses.sum()/n_neurons if avg else poisson_losses.sum()
 
     def readout_regularizer_stop(model):
@@ -146,28 +144,33 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     def full_objective(model, data_key, inputs, targets, **kwargs):
         """
-        Computes the training loss for the model and prespecified criterion
+        Computes the training loss for the model and prespecified criterion.
+            Default: PoissonLoss, summed over Neurons and Batches, scaled by dataset
+                        size and batch size to account for batch noise.
+
         Args:
             inputs: i.e. images
             targets: neuronal responses that the model should predict
 
-        Returns: training loss summed over all neurons
-        """
-        return criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)).sum() \
-               + model.regularizer(data_key)
+        Returns: training loss summed over all neurons. Summed over batches and Neurons
 
+        """
+        m = train[data_key].dataset[:].inputs.shape[0]
+        k = inputs.shape[0]
+        
+        return np.sqrt(m / k) * criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)).sum() \
+               + model.regularizer(data_key)
 
     def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
-            restore_best, tracker, optim_step_count):
+            restore_best, tracker, optim_step_count, lr_decay_steps):
 
         for epoch, val_obj in early_stopping(model, stop_closure,
                                              interval=interval, patience=patience,
                                              start=epoch, max_iter=max_iter, maximize=maximize,
                                              tolerance=tolerance, restore_best=restore_best,
-                                             tracker=tracker):
+                                             tracker=tracker, scheduler=scheduler, lr_decay_steps=lr_decay_steps):
             optimizer.zero_grad()
-            scheduler.step(val_obj)
 
             # reports the entry of the current epoch for all tracked objectives
             if verbose:
@@ -191,7 +194,9 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     set_random_seed(seed)
     model.to(device)
     model.train()
-    criterion = eval(loss_function)(per_neuron=True)
+
+    # current criterium is supposed to be poisson loss. Only for that loss, the additional arguments are defined
+    criterion = eval(loss_function)(per_neuron=True, avg=False)
 
     # get stopping criterion from helper functions based on keyword
     stop_closure = eval(stop_function)
@@ -203,14 +208,14 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     trainable_params = [p for p in list(model.parameters()) if p.requires_grad]
     optimizer = torch.optim.Adam(trainable_params, lr=lr_init)
-
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                           mode='max',
+                                                           mode='max' if maximize else 'min',
                                                            factor=lr_decay_factor,
-                                                           patience=lr_decay_patience,
-                                                           threshold=lr_decay_threshold,
+                                                           patience=patience,
+                                                           threshold=tolerance,
                                                            min_lr=min_lr,
                                                            verbose=verbose,
+                                                           threshold_mode='abs',
                                                            )
 
     optim_step_count = len(train.keys()) if optim_batch_step else 1
@@ -225,6 +230,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        interval=interval,
                        patience=patience,
                        max_iter=max_iter,
+                       lr_decay_steps=lr_decay_steps,
                        maximize=maximize,
                        tolerance=tolerance,
                        restore_best=restore_best,
@@ -237,7 +243,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     # compute average test correlations as the score
     avg_corr = corr_stop(model, test, avg=True)
 
-    #return the whole tracker output as a dict
+    # return the whole tracker output as a dict
     output = {k: v for k, v in tracker.log.items()}
     return avg_corr, output, model.state_dict()
 
