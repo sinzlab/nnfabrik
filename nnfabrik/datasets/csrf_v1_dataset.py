@@ -73,8 +73,8 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
         images_test = (images_test - img_mean) / img_std
 
         if time_bins_sum is not None:  # then average over given time bins
-            responses_train = {True: np.mean, False: np.sum}[avg](responses_train[:, :, time_bins_sum], axis=-1)
-            responses_test = {True: np.mean, False: np.sum}[avg](responses_test[:, :, time_bins_sum], axis=-1)
+            responses_train = (np.mean if avg else np.sum)(responses_train[:, :, time_bins_sum], axis=-1)
+            responses_test = (np.mean if avg else np.sum)(responses_test[:, :, time_bins_sum], axis=-1)
 
         train_idx, val_idx = get_validation_split(responses_train, train_frac=train_frac, seed=seed)
         images_val = images_train[val_idx]
