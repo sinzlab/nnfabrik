@@ -1,7 +1,7 @@
 import torch
 from functools import partial
 from mlutils.measures import *
-from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state, cycle_datasets
+from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state, cycle_datasets, Exhauster, LongCycler
 from scipy import stats
 from tqdm import tqdm
 import warnings
@@ -140,8 +140,6 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
             else:
                 return 0
 
-
-
     def full_objective(model, data_key, inputs, targets, **kwargs):
         """
         Computes the training loss for the model and prespecified criterion.
@@ -178,7 +176,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                     print(key, tracker.log[key][-1])
 
             # Beginning of main training loop
-            for batch_no, (data_key, data) in tqdm(enumerate(cycle_datasets(train_loader)),
+            for batch_no, (data_key, data) in tqdm(enumerate(LongCycler(train_loader)),
                                                       desc='Epoch {}'.format(epoch)):
 
                 loss = full_objective(model, data_key, *data)

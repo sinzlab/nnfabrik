@@ -45,18 +45,22 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
     _, h, w = images.shape[:3]
     img_mean = np.mean(images)
     img_std = np.std(images)
+
+    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0],
+                                                                train_frac=train_frac,
+                                                                seed=seed)
+
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(datafiles):
 
         #Extract Session ID from the pickle filename
-        data_key = datapath[-20:-7]
 
         with open(datapath, "rb") as pkl:
             raw_data = pickle.load(pkl)
 
         # additional information related to session and animal. Has to find its way into datajoint
         subject_ids = raw_data["subject_id"]
-        session_ids = raw_data["session_id"]
+        data_key = str(raw_data["session_id"])
         repetitions_test = raw_data["testing_repetitions"]
 
         responses_train = raw_data["training_responses"].astype(np.float32)
@@ -76,7 +80,9 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
             responses_train = (np.mean if avg else np.sum)(responses_train[:, :, time_bins_sum], axis=-1)
             responses_test = (np.mean if avg else np.sum)(responses_test[:, :, time_bins_sum], axis=-1)
 
-        train_idx, val_idx = get_validation_split(responses_train, train_frac=train_frac, seed=seed)
+        train_idx = np.isin(training_image_ids, all_train_ids)
+        val_idx = np.isin(training_image_ids, all_validation_ids)
+
         images_val = images_train[val_idx]
         images_train = images_train[train_idx]
         responses_val = responses_train[val_idx]
@@ -93,29 +99,24 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
     return dataloaders
 
 
-def get_validation_split(responses_train, train_frac=0.8, seed=None):
+def get_validation_split(n_images, train_frac, seed):
     """
-    gets indices to split the full training set into train and validation data
+    Splits the total number of images into train and test set.
+    This ensures that in every session, the same train and validation images are being used.
 
-    :param responses_train:
-    :param train_fac:
-    :param seed:
-    :return: indeces of the training_set and validation_set
+    Args:
+        n_images: Total number of images. These will be plit into train and validation set
+        train_frac: fraction of images used for the training set
+        seed: random seed
+
+    Returns: Two arrays, containing image IDs of the whole imageset, split into train and validation
+
     """
-
-    if seed:
-        np.random.seed(seed)
-
-    n_images = responses_train.shape[0]
-    n_train = int(np.round(n_images * train_frac))
-
-    train_idx = np.random.choice(np.arange(n_images), n_train, replace=False)
-    val_idx = np.arange(n_images)[np.logical_not(np.isin(np.arange(n_images), train_idx))]
-
+    if seed: np.random.seed(seed)
+    train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images*train_frac)])
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
-    assert sum((len(train_idx), len(val_idx))) == n_images, "not all training images were used for train/val split"
-    return train_idx, val_idx
 
+    return train_idx, val_idx
 
 def get_loader_csrf_v1(images, responses, batch_size, shuffle=True, retina_warp=False):
     """
