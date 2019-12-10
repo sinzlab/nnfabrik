@@ -1,6 +1,10 @@
 # helper functions that the datajoint tables are requiring
+
+import warnings
+from datetime import datetime
 import hashlib
 import datajoint as dj
+from git import Repo, cmd
 
 def make_hash(config):
     """"
@@ -14,54 +18,48 @@ def make_hash(config):
     return hashed.hexdigest()
 
 
-def gitlog(cls):
-    """
-    Decorator that equips a datajoint class with an additional datajoint.Part table that stores the current sha1,
-    the branch, the date of the head commit,and whether the code was modified since the last commit,
-    for the class representing the master table. Use the instantiated version of the decorator.
-    Here is an example:
-    .. code-block:: python
-       :linenos:
-        import datajoint as dj
-        from djaddon import gitlog
-        schema = dj.schema('mydb',locals())
-        @schema
-        @gitlog
-        class MyRelation(dj.Computed):
-            definition = ...
-    """
+def need_to_commit(repo, repo_name=""):
+    changed_files = [item.a_path for item in repo.index.diff(None)]
+    has_uncommited = bool(changed_files) or bool(repo.untracked_files)
 
-    class GitKey(dj.Part):
-        definition = """
-        ->master
-        ---
-        sha1        : varchar(40)
-        branch      : varchar(50)
-        modified    : int   # whether there are modified files or not
-        head_date   : datetime # authored date of git head
-        """
+    err_msg = []
+    if has_uncommited:
+        err_msg.append("\n{}".format(repo_name))
+        if repo.untracked_files:
+            for f in repo.untracked_files:
+                err_msg.append("Untracked: \t" + f)
+        if changed_files:
+            for f in changed_files:
+                err_msg.append("Changed: \t" + f)
 
-    def log_key(self, key):
-        key = dict(key)  # copy key
-        path = inspect.getabsfile(cls).split('/')
-        for i in reversed(range(len(path))):
-            if os.path.exists('/'.join(path[:i]) + '/.git'):
-                repo = git.Repo('/'.join(path[:i]))
-                break
+    return "\n".join(err_msg)
+
+
+def get_origin_url(g):
+    for remote in g.remote(verbose=True).split("\n"):
+        if remote.find("origin") + 1:
+            origin_url = remote.split(" ")[0].split("origin\t")[-1]
+            return origin_url
         else:
-            raise KeyError("%s.GitKey could not find a .git directory for %s" % (cls.__name__, cls.__name__))
+            warnings.warn("The repo does not have any remote url, named origin, specified.")
+
+
+def check_repo_commit(repo_path):
+    repo = Repo(path=repo_path)
+    g = cmd.Git(repo_path)
+    origin_url = get_origin_url(g)
+    repo_name = origin_url.split("/")[-1].split(".")[0]
+    err_msg = need_to_commit(repo, repo_name=repo_name)
+
+    if err_msg:
+        return '{}_error_msg'.format(repo_name), err_msg
+
+    else:
         sha1, branch = repo.head.commit.name_rev.split()
-        modified = (repo.git.status().find("modified") > 0) * 1
-        if modified:
-            warnings.warn('You have uncommited changes. Consider committing the changes before running populate.')
-        key['sha1'] = sha1
-        key['branch'] = branch
-        key['modified'] = modified
-        key['head_date'] = datetime.datetime.fromtimestamp(repo.head.commit.authored_date)
-        self.GitKey().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
-        return key
+        commit_date = datetime.fromtimestamp(repo.head.commit.authored_date).strftime("%A %d. %B %Y %H:%M:%S")
+        committer_name = repo.head.commit.committer.name
+        committer_email = repo.head.commit.committer.email
 
-    cls.GitKey = GitKey
-    cls.log_git = log_key
-
-    return cls
+        return repo_name, {"sha1": sha1, "branch": branch, "commit_date": commit_date,
+                          "committer_name": committer_name, "committer_email": committer_email,
+                          "origin_url": origin_url}

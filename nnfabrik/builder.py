@@ -68,6 +68,7 @@ def get_trainer(trainer_fn, trainer_config=None):
     Returns:
         Resolved trainer function
     """
+
     if isinstance(trainer_fn, str):
         module_path, class_name = split_module_name(trainer_fn)
         trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + trainer_fn)
@@ -88,4 +89,3 @@ def get_all_parts(dataset_fn, dataset_config, model_fn, model_config, seed=None,
         return dataloaders, model, trainer
     else:
         return dataloaders, model
-
