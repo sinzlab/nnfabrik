@@ -71,9 +71,6 @@ def sysident_v1(datafiles, imagepath, batch_size, seed,
         training_image_ids = raw_data["training_image_ids"] - 1
         testing_image_ids = raw_data["testing_image_ids"] - 1
 
-        #responses_test = responses_test.transpose((2, 0, 1))
-        #responses_train = responses_train.transpose((2, 0, 1))
-
         images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
         images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
         images_train = (images_train - img_mean) / img_std
@@ -115,42 +112,7 @@ def get_validation_split(n_images, train_frac, seed):
     train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images*train_frac)])
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
 
-    return train_idx, val_idx
-
-#
-# def get_validation_split(responses_train, train_frac=0.8, seed=None):
-#     n_images = responses_train.shape[0]
-#     if seed:
-#         np.random.seed(seed)
-#     perm = np.random.permutation(n_images)
-#     train_idx = np.sort(perm[:round(n_images * train_frac)])
-#     self.train_idx = np.hstack([train_idx + i * self.num_train_images for i in range(num_reps)])
-#     val_idx = np.sort(perm[round(self.num_train_images * train_frac):])
-#     self.val_idx = np.hstack([val_idx + i * self.num_train_images for i in range(num_reps)])
-#
-#
-# def get_validation_split(responses_train, train_frac=0.8, seed=None):
-#     """
-#     gets indices to split the full training set into train and validation data
-#
-#     :param responses_train:
-#     :param train_fac:
-#     :param seed:
-#     :return: indeces of the training_set and validation_set
-#     """
-#
-#     if seed:
-#         np.random.seed(seed)
-#
-#     n_images = responses_train.shape[0]
-#     n_train = int(np.round(n_images * train_frac))
-#
-#     train_idx = np.random.choice(np.arange(n_images), n_train, replace=False)
-#     val_idx = np.arange(n_images)[np.logical_not(np.isin(np.arange(n_images), train_idx))]
-#
-#     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
-#     assert sum((len(train_idx), len(val_idx))) == n_images, "not all training images were used for train/val split"
-#     return train_idx, val_idx
+    return train_idx, val_id
 
 
 def get_loader_csrf_v1(images, responses, batch_size, shuffle=True, retina_warp=False):
