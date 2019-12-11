@@ -112,7 +112,7 @@ def get_validation_split(n_images, train_frac, seed):
     train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images*train_frac)])
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
 
-    return train_idx, val_id
+    return train_idx, val_idx
 
 
 def get_loader_csrf_v1(images, responses, batch_size, shuffle=True, retina_warp=False):
