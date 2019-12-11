@@ -1,4 +1,4 @@
-def toy_trainer(model, seed, train_loader, val_loader, test_loader, param1=0):
+def toy_trainer(model, seed, train, validation, test, param1=0):
     """
     a toy training function that with toy trained model outputs
     """
