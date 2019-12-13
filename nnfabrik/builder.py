@@ -7,7 +7,7 @@ from functools import partial
 from .utility.nnf_helper import split_module_name, dynamic_import
 
 
-def get_model(model_fn, model_config, dataloader, seed=None, state_dict=None, strict=True):
+def get_model(model_fn, model_config, dataloaders, seed=None, state_dict=None, strict=True):
     """
     Resolves `model_fn` and invokes the resolved function with `model_config` keyword arguments as well as the `dataloader` and `seed`.
     Note that the resolved `model_fn` is expected to accept the `dataloader` as the first positional argument and `seed` as a keyword argument.
@@ -16,7 +16,7 @@ def get_model(model_fn, model_config, dataloader, seed=None, state_dict=None, st
     Args:
         model_fn: string name of the model builder function path to be resolved. Alternatively, you can pass in a callable object and no name resolution will be performed.
         model_config: a dictionary containing keyword arguments to be passed into the resolved `model_fn`
-        dataloader: (a dictionary of) dataloaders to be passed into the resolved `model_fn` as the first positional argument
+        dataloaders: (a dictionary of) dataloaders to be passed into the resolved `model_fn` as the first positional argument
         seed: randomization seed to be passed in to as a keyword argument into the resolved `model_fn`
         state_dict: If provided, the resulting nn.Module object will be loaded with the state_dict before being returned
         strict: Controls the `strict` mode of nn.Module.load_state_dict
@@ -29,7 +29,7 @@ def get_model(model_fn, model_config, dataloader, seed=None, state_dict=None, st
         module_path, class_name = split_module_name(model_fn)
         model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + model_fn)
 
-    net = model_fn(dataloader, seed=seed, **model_config)
+    net = model_fn(dataloaders, seed=seed, **model_config)
 
     if state_dict is not None:
         net.load_state_dict(state_dict, strict=strict)
@@ -80,6 +80,10 @@ def get_trainer(trainer_fn, trainer_config=None):
 
 
 def get_all_parts(dataset_fn, dataset_config, model_fn, model_config, seed=None, dl_key='train', state_dict=None, strict=True, trainer_fn=None, trainer_config=None):
+
+    if seed is not None:
+        dataset_config['seed'] = seed  # override the seed if passed in
+
     dataloaders = get_data(dataset_fn, dataset_config)
 
     model = get_model(model_fn, model_config, dataloaders[dl_key], seed=seed, state_dict=state_dict, strict=strict)

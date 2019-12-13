@@ -40,13 +40,13 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
                                  laplace_padding=None, input_regularizer='LaplaceL2norm',
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,  # readout args,
-                                 gamma_readout=0.1,  elu_offset=0,
+                                 gamma_readout=0.1,  elu_offset=0, stack=None,
                                  ):
     """
     Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
 
     Args:
-        dataloaders: a dictionary of train-dataloaders, one loader per session
+        dataloaders: a dictionary of dataloaders, one loader per session
             in the format {'data_key': dataloader object, .. }
         seed: random seed
         elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
@@ -57,8 +57,10 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     Returns: An initialized model which consists of model.core and model.readout
     """
 
-    session_shape_dict = get_dims_for_loader_dict(dataloaders)
+    if "train" in dataloaders.keys():
+        dataloaders = dataloaders["train"]
 
+    session_shape_dict = get_dims_for_loader_dict(dataloaders)
     n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
     in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
     input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
@@ -98,7 +100,8 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          batch_norm=batch_norm,
                          hidden_dilation=hidden_dilation,
                          laplace_padding=laplace_padding,
-                         input_regularizer=input_regularizer)
+                         input_regularizer=input_regularizer,
+                         stack=stack)
 
     readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
                                    n_neurons_dict=n_neurons_dict,
@@ -110,7 +113,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
     # initializing readout bias to mean response
     for k in dataloaders:
-        readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
+        readout[k].bias.data = dataloaders[k].dataset[:].targets.mean(0)
 
     model = Encoder(core, readout, elu_offset)
 
@@ -140,8 +143,10 @@ def vgg_core_point_readout(dataloaders, seed,
     Returns:
     """
 
-    session_shape_dict = get_dims_for_loader_dict(dataloaders)
+    if "train" in dataloaders.keys():
+        dataloaders = dataloaders["train"]
 
+    session_shape_dict = get_dims_for_loader_dict(dataloaders)
     n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
     in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
     input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
