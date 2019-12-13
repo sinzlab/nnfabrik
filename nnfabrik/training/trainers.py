@@ -12,7 +12,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=75,
                        maximize=True, tolerance=0.001, device='cuda', restore_best=True,
                        lr_init=0.005, lr_decay_factor=0.3, min_lr=0.0001, optim_batch_step=True,
-                       verbose=True, lr_decay_steps=3, train=None, val=None, test=None):
+                       verbose=True, lr_decay_steps=3, dataloaders=None, **kwargs):
     """"
     Args:
         model: PyTorch nn module
@@ -42,6 +42,10 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         output: user specified validation object based on the 'stop function'
         model_state: the full state_dict() of the trained model
     """
+
+    train = dataloaders["train"] if dataloaders else kwargs["train"]
+    val = dataloaders["val"] if dataloaders else kwargs["val"]
+    test = dataloaders["test"] if dataloaders else kwargs["test"]
 
     # --- begin of helper function definitions
     def model_predictions(loader, model, data_key):
@@ -201,6 +205,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
 
     tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model),
                                        poisson_loss=partial(poisson_stop, model),
+                                       poisson_loss_val=partial(poisson_stop, model, val),
                                        readout_l1=partial(readout_regularizer_stop, model),
                                        core_regularizer=partial(core_regularizer_stop, model))
 

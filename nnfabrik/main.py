@@ -52,7 +52,6 @@ class Fabrikant(dj.Manual):
             return entry.fetch1('architect_name')
 
 
-
 @schema
 class Model(dj.Manual):
     definition = """
@@ -91,14 +90,13 @@ class Model(dj.Manual):
                    model_architect=model_architect, model_comment=model_comment)
         self.insert1(key)
 
-    def build_model(self, dataloader, seed=None, key=None):
+    def build_model(self, dataloaders, seed=None, key=None):
         print('Loading model...')
         if key is None:
             key = {}
         configurator, config_object = (self & key).fn_config
 
-        return get_model(configurator, config_object, dataloader, seed=seed)
-
+        return get_model(configurator, config_object, dataloaders, seed=seed)
 
 
 @schema
@@ -267,7 +265,6 @@ class TrainedModel(dj.Computed):
 
         return ret
 
-
     class ModelStorage(dj.Part):
         definition = """
         # Contains the paths to the stored models
@@ -276,7 +273,6 @@ class TrainedModel(dj.Computed):
         model_state:            attach@minio
         """
 
-
     class GitLog(dj.Part):
         definition = """
         ->master
@@ -284,10 +280,8 @@ class TrainedModel(dj.Computed):
         info :              longblob
         """
 
-
     def get_entry(self, key):
         (Dataset & key).fetch()
-
 
     def make(self, key):
 
@@ -310,7 +304,7 @@ class TrainedModel(dj.Computed):
             dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
 
             # model training
-            score, output, model_state = trainer(model, seed, **dataloaders)
+            score, output, model_state = trainer(model, seed, dataloaders)
 
             with tempfile.TemporaryDirectory() as trained_models:
                 filename = make_hash(key) + '.pth.tar'
