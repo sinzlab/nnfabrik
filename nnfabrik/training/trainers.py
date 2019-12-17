@@ -274,7 +274,6 @@ def standard_early_stop_trainer(model, trainloaders, valloaders, testloaders,
     criterion = getattr(measures, loss_function)(per_neuron=False, avg=True)
     stop_closure = partial(getattr(metrics, stop_function), model, valloaders, device=device)
 
-    tracker = None
     n_iterations = len(LongCycler(trainloaders))
     
     print("Training with learning rate {}".format(init_lr))
