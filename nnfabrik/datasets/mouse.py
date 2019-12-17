@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from itertools import zip_longest
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -82,15 +83,17 @@ def mouse_static_loaders(paths, batch_size, img_seed=None, area='V1', layer='L2/
         dict: dictionary of dictionaries where the first level keys are 'train', 'validation', and 'test', and second level keys are data_keys.
     """ 
     
+    neuron_ids = neuron_ids if neuron_ids is None else []
+
     dls = OrderedDict({})
     keys = [tier] if tier else ['train', 'validation', 'test']
     for key in keys:
         dls[key] = OrderedDict({})
 
-    for ind, path in enumerate(paths):
+    for path, neuron_id in zip_longest(paths, neuron_ids, fillvalue=None):
         data_key, loaders = mouse_static_loader(path, batch_size, img_seed=img_seed, 
                                                 area=area, layer=layer, cuda=cuda,
-                                                tier=tier, get_key=True, neuron_ids=neuron_ids[ind] if neuron_ids else None)
+                                                tier=tier, get_key=True, neuron_ids=neuron_id)
         for k in dls:
             dls[k][data_key] = loaders[k]
             
