@@ -120,7 +120,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
     # initializing readout bias to mean response
     for k in dataloaders:
-        readout[k].bias.data = dataloaders[k].dataset[:].targets.mean(0)
+        readout[k].bias.data = dataloaders[k].dataset[:]._asdict()[out_name].mean(0)
 
     model = Encoder(core, readout, elu_offset)
 
