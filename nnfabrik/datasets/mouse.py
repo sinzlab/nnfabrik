@@ -3,10 +3,11 @@ from itertools import zip_longest
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler, SubsetSequentialSampler
+from torch.utils.data.sampler import SubsetRandomSampler
 
 from mlutils.data.datasets import StaticImageSet
 from mlutils.data.transforms import Subsample, ToTensor
+from mlutils.data.samplers import SubsetSequentialSampler
 
 from ..utility.nn_helpers import set_random_seed
 
