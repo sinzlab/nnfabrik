@@ -1,12 +1,18 @@
-import torch
+import warnings
 from functools import partial
-from mlutils.measures import *
-from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state, cycle_datasets, Exhauster, LongCycler
+
+import numpy as np
+import torch
 from scipy import stats
 from tqdm import tqdm
-import warnings
+
+from mlutils import measures
+from mlutils.measures import *
+from mlutils.training import early_stopping, MultipleObjectiveTracker, eval_state, cycle_datasets, Exhauster, LongCycler
 from ..utility.nn_helpers import set_random_seed
-import numpy as np
+
+from ..utility import metrics
+from ..utility.metrics import corr_stop, poisson_stop
 
 def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=75,
@@ -250,3 +256,61 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     output = {k: v for k, v in tracker.log.items()}
     return avg_corr, output, model.state_dict()
 
+
+def standard_early_stop_trainer(model, trainloaders, valloaders, testloaders,
+                                loss_function='PoissonLoss', stop_function='corr_stop', 
+                                maximize=True, init_lr=0.005, device='cuda'):
+    
+    def full_objective(model, data_key, inputs, targets):
+        m = trainloaders[data_key].dataset.images.shape[0]
+        k = inputs.shape[0]
+        
+#         return np.sqrt(m / k) * criterion(model(inputs, data_key), targets).sum() + model.regularizer(data_key)
+        return criterion(model(inputs, data_key), targets) + model.regularizer(data_key)
+    
+    ##### This is where everything happens ################################################################################
+    model.train()
+    
+    criterion = getattr(measures, loss_function)(per_neuron=False, avg=True)
+    stop_closure = partial(getattr(metrics, stop_function), model, valloaders, device=device)
+
+    tracker = None
+    n_iterations = len(LongCycler(trainloaders))
+    
+    print("Training with learning rate {}".format(init_lr))
+    optimizer = torch.optim.Adam(model.parameters(), lr=init_lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if maximize else 'min', factor=0.3,
+                                                           patience=5, threshold=0.001, min_lr=0.0001, verbose=True, threshold_mode='abs')
+    
+    # set the number of iterations over which you would like to accummulate gradients
+    optim_step_count = len(trainloaders.keys())
+    
+    # define some trackers
+    tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model, valloaders, device=device),
+                                       poisson_loss=partial(poisson_stop, model, valloaders, device=device))
+    
+    # train over epochs
+    for epoch, val_obj in early_stopping(model, stop_closure, interval=1, patience=5, 
+                                         start=0, max_iter=100, maximize=True, 
+                                         tolerance=1e-6, restore_best=True, tracker=tracker, 
+                                         scheduler=scheduler, lr_decay_steps=3):
+        optimizer.zero_grad()
+        
+        # train over batches
+        for batch_no, (data_key, data) in tqdm(enumerate(LongCycler(trainloaders)), total=n_iterations, desc="Epoch {}".format(epoch), disable=False):               
+
+            loss = full_objective(model, data_key, *data)
+            loss.backward()
+            if (batch_no+1) % optim_step_count == 0:
+                    optimizer.step()
+                    optimizer.zero_grad()
+        print(loss.item())
+        
+    ########################################################################################################################
+    # Compute avg validation and test correlation
+    avg_val_corr = corr_stop(model, valloaders, device=device)
+    avg_test_corr = corr_stop(model, testloaders, device=device)
+
+    # return the whole tracker output as a dict
+    output = {k: v for k, v in tracker.log.items()}
+    return avg_test_corr, output, model.state_dict()
