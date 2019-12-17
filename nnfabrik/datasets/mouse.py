@@ -2,7 +2,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data.sampler import SubsetRandomSampler, SubsetSequentialSampler
 
 from mlutils.data.datasets import StaticImageSet
 from mlutils.data.transforms import Subsample, ToTensor
@@ -51,7 +51,7 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
 
         # sample images
         subset_idx = np.where(dat.tiers == tier)[0]
-        sampler = SubsetRandomSampler(subset_idx)
+        sampler = SubsetRandomSampler(subset_idx) if tier == 'train' else SubsetSequentialSampler(subset_idx)
             
         dataloaders[tier] = DataLoader(dat, sampler=sampler, batch_size=batch_size)
     
