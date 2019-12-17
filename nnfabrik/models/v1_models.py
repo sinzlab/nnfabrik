@@ -59,15 +59,16 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
     """
     
 
-    if "train" in dataloaders.keys():
-        dataloaders = dataloaders["train"]
+    # make sure trainloader is being used
+    dataloaders = dataloaders.get("train", dataloaders)
 
+    # Obtain the named tuple fields from the first entry of the first dataloader in the dictionary
     in_name, out_name = next(iter(list(dataloaders.values())[0]))._fields
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
     n_neurons_dict = {k: v[out_name][1] for k, v in session_shape_dict.items()}
     in_shapes_dict = {k: v[in_name] for k, v in session_shape_dict.items()}
-    input_channels = [v[in_name][1] for _, v in session_shape_dict.items()]
+    input_channels = [v[in_name][1] for v in session_shape_dict.values()]
     
     assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
 
