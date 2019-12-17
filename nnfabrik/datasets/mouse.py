@@ -84,7 +84,7 @@ def mouse_static_loaders(paths, batch_size, img_seed=None, area='V1', layer='L2/
         dict: dictionary of dictionaries where the first level keys are 'train', 'validation', and 'test', and second level keys are data_keys.
     """ 
     
-    neuron_ids = neuron_ids if neuron_ids is None else []
+    neuron_ids = neuron_ids if neuron_ids is not None else []
 
     dls = OrderedDict({})
     keys = [tier] if tier else ['train', 'validation', 'test']
