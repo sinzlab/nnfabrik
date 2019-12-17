@@ -41,7 +41,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
                                  laplace_padding=None, input_regularizer='LaplaceL2norm',
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,  # readout args,
-                                 gamma_readout=0.1,  elu_offset=0, stack=None, readout_reg_avg=True
+                                 gamma_readout=0.1,  elu_offset=0, stack=None, readout_reg_avg=False,
                                  ):
     """
     Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
@@ -57,14 +57,18 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
     Returns: An initialized model which consists of model.core and model.readout
     """
+    
 
     if "train" in dataloaders.keys():
         dataloaders = dataloaders["train"]
 
-    n_neurons_dict = {k: v['responses'][1] for k, v in session_shape_dict.items()}
-    in_shapes_dict = {k: v['images'] for k, v in session_shape_dict.items()}
-    input_channels = [v['images'][1] for _, v in session_shape_dict.items()]
+    in_name, out_name = next(iter(list(dataloaders.values())[0]))._fields
 
+    session_shape_dict = get_dims_for_loader_dict(dataloaders)
+    n_neurons_dict = {k: v[out_name][1] for k, v in session_shape_dict.items()}
+    in_shapes_dict = {k: v[in_name] for k, v in session_shape_dict.items()}
+    input_channels = [v[in_name][1] for _, v in session_shape_dict.items()]
+    
     assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
 
     class Encoder(nn.Module):
@@ -104,7 +108,8 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          input_regularizer=input_regularizer,
                          stack=stack)
 
-    readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
+    readout = PointPooled2dReadout(core, 
+                                   in_shape_dict=in_shapes_dict,
                                    n_neurons_dict=n_neurons_dict,
                                    pool_steps=pool_steps,
                                    pool_kern=pool_kern,
