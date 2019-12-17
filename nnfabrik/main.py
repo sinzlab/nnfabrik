@@ -96,9 +96,7 @@ class Model(dj.Manual):
             key = {}
         model_fn, model_config = (self & key).fn_config
 
-        return get_model(model_fn, model_config, dataloader, seed=seed)
-
-
+        return get_model(model_fn, model_config, dataloaders, seed=seed)
 
 
 @schema
