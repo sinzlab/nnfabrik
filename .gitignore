@@ -7,3 +7,4 @@ ml-utils/
 .env
 .ipynb_checkpoints/
 Untitled*.ipynb
+.vscode/settings.json

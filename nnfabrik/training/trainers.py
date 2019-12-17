@@ -157,11 +157,11 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
         Returns: training loss summed over all neurons. Summed over batches and Neurons
 
         """
-        m = train[data_key].dataset[:].inputs.shape[0]
+        m = train[data_key].dataset[:][0].shape[0]
         k = inputs.shape[0]
+            
+        return criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)) + model.regularizer(data_key)
         
-        return np.sqrt(m / k) * criterion(model(inputs.to(device), data_key=data_key, **kwargs), targets.to(device)).sum() \
-               + model.regularizer(data_key)
 
     def run(model, full_objective, optimizer, scheduler, stop_closure, train_loader,
             epoch, interval, patience, max_iter, maximize, tolerance,
@@ -198,7 +198,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     model.train()
 
     # current criterium is supposed to be poisson loss. Only for that loss, the additional arguments are defined
-    criterion = eval(loss_function)(per_neuron=True, avg=False)
+    criterion = eval(loss_function)(per_neuron=False, avg=True)
 
     # get stopping criterion from helper functions based on keyword
     stop_closure = eval(stop_function)
