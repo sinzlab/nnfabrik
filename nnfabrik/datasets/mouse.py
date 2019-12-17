@@ -35,7 +35,7 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
     dat = StaticImageSet(path, 'images', 'responses')
 #     dat = StaticImageSet(path, 'inputs', 'targets')
 
-    # specify condition(s) for samping neurons. If you want to sample specific neurons define conditions that would effect idx
+    # specify condition(s) for sampling neurons. If you want to sample specific neurons define conditions that would effect idx
     neuron_ids = neuron_ids if neuron_ids else dat.neurons.unit_ids
     conds = ((dat.neurons.area == area) & 
              (dat.neurons.layer == layer) &
