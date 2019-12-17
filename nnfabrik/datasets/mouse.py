@@ -7,6 +7,8 @@ from torch.utils.data.sampler import SubsetRandomSampler, SubsetSequentialSample
 from mlutils.data.datasets import StaticImageSet
 from mlutils.data.transforms import Subsample, ToTensor
 
+from ..utility.nn_helpers import set_random_seed
+
 
 def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3', tier=None, neuron_ids=None, get_key=False, cuda=True):
     """
@@ -47,7 +49,8 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
     for tier in keys:
         
         if img_seed is not None:
-            torch.manual_seed(img_seed)
+            set_random_seed(img_seed)
+            # torch.manual_seed(img_seed)
 
         # sample images
         subset_idx = np.where(dat.tiers == tier)[0]
