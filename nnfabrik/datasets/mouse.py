@@ -21,13 +21,13 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
         area (str, optional): the visual area. Defaults to 'V1'.
         layer (str, optional): the layer from visual area. Defaults to 'L2/3'.
         tier (str, optional): tier is a placeholder to specify which set of images to pick for train, val, and test loader. Defaults to None.
-        neuron_ids ([type], optional): select neurons by their ids. Defaults to None.
+        neuron_ids (list, optional): select neurons by their ids. neuron_ids and path should be of same length. Defaults to None.
         get_key (bool, optional): whether to retun the data key, along with the dataloaders. Defaults to False.
         cuda (bool, optional): whether to place the data on gpu or not. Defaults to True.
 
     Returns:
         if get_key is False returns a dictionary of dataloaders for one dataset, where the keys are 'train', 'validation', and 'test'. 
-        if get_key is True it also the data_key (as the first input) followed by the dalaoder dictionary.
+        if get_key is True it also the data_key (as the first output) followed by the dalaoder dictionary.
 
     """
 
@@ -58,6 +58,7 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
             
         dataloaders[tier] = DataLoader(dat, sampler=sampler, batch_size=batch_size)
     
+    # create the data_key for a specific data path 
     data_key = path.split('static')[-1].split('.')[0].replace('preproc', '')
     
     return (data_key, dataloaders) if get_key else dataloaders
@@ -90,7 +91,7 @@ def mouse_static_loaders(paths, batch_size, img_seed=None, area='V1', layer='L2/
         data_key, loaders = mouse_static_loader(path, batch_size, img_seed=img_seed, 
                                                 area=area, layer=layer, cuda=cuda,
                                                 tier=tier, get_key=True, neuron_ids=neuron_ids[ind] if neuron_ids else None)
-        for k in dls.keys():
+        for k in dls:
             dls[k][data_key] = loaders[k]
             
     return dls
