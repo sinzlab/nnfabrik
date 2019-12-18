@@ -306,9 +306,15 @@ def standard_early_stop_trainer(model, seed, dataloaders,                       
                                          start=epoch, max_iter=max_iter, maximize=maximize, 
                                          tolerance=tolerance, restore_best=restore_best, tracker=tracker, 
                                          scheduler=scheduler, lr_decay_steps=lr_decay_steps):
-        optimizer.zero_grad()
+
+        # print the quantities from tracker
+        if verbose:
+                for key in tracker.log.keys():
+                    print(key, tracker.log[key][-1])
         
+
         # train over batches
+        optimizer.zero_grad()
         for batch_no, (data_key, data) in tqdm(enumerate(LongCycler(trainloaders)), total=n_iterations, desc="Epoch {}".format(epoch), disable=False):               
 
             loss = full_objective(model, data_key, *data)
@@ -316,7 +322,6 @@ def standard_early_stop_trainer(model, seed, dataloaders,                       
             if (batch_no+1) % optim_step_count == 0:
                     optimizer.step()
                     optimizer.zero_grad()
-        print(loss.item())
         
     ########################################################################################################################
     # Compute avg validation and test correlation
