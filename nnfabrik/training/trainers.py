@@ -14,6 +14,7 @@ from ..utility.nn_helpers import set_random_seed
 from ..utility import metrics
 from ..utility.metrics import corr_stop, poisson_stop
 
+
 def early_stop_trainer(model, seed, stop_function='corr_stop',
                        loss_function='PoissonLoss', epoch=0, interval=1, patience=10, max_iter=75,
                        maximize=True, tolerance=0.001, device='cuda', restore_best=True,
@@ -258,10 +259,21 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     return avg_corr, output, model.state_dict()
 
 
-def standard_early_stop_trainer(model, trainloaders, valloaders, testloaders,
-                                loss_function='PoissonLoss', stop_function='corr_stop', 
-                                maximize=True, init_lr=0.005, device='cuda'):
+def standard_early_stop_trainer(model, seed, dataloaders,                               # trianer args
+                                loss_function='PoissonLoss', stop_function='corr_stop',
+                                loss_accum_batch_n=None, device='cuda', verbose=True,
+                                interval=1, patience=5, epoch=0, lr_init=0.005,         # early stopping args
+                                max_iter=100, maximize=True, tolerance=1e-6,
+                                restore_best=True, lr_decay_steps=3,
+                                lr_decay_factor=0.3, min_lr=0.0001,                     # lr scheduler
+                                ):
     
+
+    trainloaders = dataloaders["train"]
+    valloaders = dataloaders["validation"]
+    testloaders = dataloaders["test"]
+
+
     def full_objective(model, data_key, inputs, targets):
         m = len(trainloaders[data_key].dataset)
         k = inputs.shape[0]
@@ -275,12 +287,12 @@ def standard_early_stop_trainer(model, trainloaders, valloaders, testloaders,
     criterion = getattr(measures, loss_function)(per_neuron=False, avg=True)
     stop_closure = partial(getattr(metrics, stop_function), model, valloaders, device=device)
 
-    n_iterations = len(LongCycler(trainloaders))
+    n_iterations = len(LongCycler(trainloaders)) if loss_accum_batch_n is None else loss_accum_batch_n
     
-    print("Training with learning rate {}".format(init_lr))
-    optimizer = torch.optim.Adam(model.parameters(), lr=init_lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if maximize else 'min', factor=0.3,
-                                                           patience=5, threshold=0.001, min_lr=0.0001, verbose=True, threshold_mode='abs')
+    print("Training with learning rate {}".format(lr_init))
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if maximize else 'min', factor=lr_decay_factor,
+                                                           patience=patience, threshold=tolerance, min_lr=min_lr, verbose=verbose, threshold_mode='abs')
     
     # set the number of iterations over which you would like to accummulate gradients
     optim_step_count = len(trainloaders.keys())
@@ -290,10 +302,10 @@ def standard_early_stop_trainer(model, trainloaders, valloaders, testloaders,
                                        poisson_loss=partial(poisson_stop, model, valloaders, device=device))
     
     # train over epochs
-    for epoch, val_obj in early_stopping(model, stop_closure, interval=1, patience=5, 
-                                         start=0, max_iter=100, maximize=True, 
-                                         tolerance=1e-6, restore_best=True, tracker=tracker, 
-                                         scheduler=scheduler, lr_decay_steps=3):
+    for epoch, val_obj in early_stopping(model, stop_closure, interval=interval, patience=patience, 
+                                         start=epoch, max_iter=max_iter, maximize=maximize, 
+                                         tolerance=tolerance, restore_best=restore_best, tracker=tracker, 
+                                         scheduler=scheduler, lr_decay_steps=lr_decay_steps):
         optimizer.zero_grad()
         
         # train over batches
