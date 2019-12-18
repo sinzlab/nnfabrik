@@ -269,17 +269,16 @@ def standard_early_stop_trainer(model, seed, dataloaders,                       
                                 ):
     
 
-    trainloaders = dataloaders["train"]
-    valloaders = dataloaders["validation"]
-    testloaders = dataloaders["test"]
-
-
     def full_objective(model, data_key, inputs, targets):
         m = len(trainloaders[data_key].dataset)
         k = inputs.shape[0]
         
         # return np.sqrt(m / k) * criterion(model(inputs, data_key), targets).sum() + model.regularizer(data_key)
         return criterion(model(inputs, data_key), targets) + model.regularizer(data_key)
+
+    trainloaders = dataloaders["train"]
+    valloaders = dataloaders["validation"]
+    testloaders = dataloaders["test"]
     
     ##### This is where everything happens ################################################################################
     model.train()
@@ -287,19 +286,21 @@ def standard_early_stop_trainer(model, seed, dataloaders,                       
     criterion = getattr(measures, loss_function)(per_neuron=False, avg=True)
     stop_closure = partial(getattr(metrics, stop_function), model, valloaders, device=device)
 
-    n_iterations = len(LongCycler(trainloaders)) if loss_accum_batch_n is None else loss_accum_batch_n
+    n_iterations = len(LongCycler(trainloaders))
     
-    print("Training with learning rate {}".format(lr_init))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if maximize else 'min', factor=lr_decay_factor,
                                                            patience=patience, threshold=tolerance, min_lr=min_lr, verbose=verbose, threshold_mode='abs')
     
     # set the number of iterations over which you would like to accummulate gradients
-    optim_step_count = len(trainloaders.keys())
+    optim_step_count = len(trainloaders.keys()) if loss_accum_batch_n is None else loss_accum_batch_n
     
     # define some trackers
-    tracker = MultipleObjectiveTracker(correlation=partial(corr_stop, model, valloaders, device=device),
-                                       poisson_loss=partial(poisson_stop, model, valloaders, device=device))
+    tracker_dict = dict(correlation=partial(corr_stop, model, valloaders, device=device),
+                        poisson_loss=partial(poisson_stop, model, valloaders, device=device), 
+                        poisson_loss_val=partial(poisson_stop, model, valloaders, device=device))
+    tracker_dict.update(model.tracked_values)
+    tracker = MultipleObjectiveTracker(**tracker_dict)
     
     # train over epochs
     for epoch, val_obj in early_stopping(model, stop_closure, interval=interval, patience=patience, 
