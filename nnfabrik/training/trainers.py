@@ -259,7 +259,7 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     return avg_corr, output, model.state_dict()
 
 
-def standard_early_stop_trainer(model, seed, dataloaders,                               # trianer args
+def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,                # trianer args
                                 loss_function='PoissonLoss', stop_function='corr_stop',
                                 loss_accum_batch_n=None, device='cuda', verbose=True,
                                 interval=1, patience=5, epoch=0, lr_init=0.005,         # early stopping args
@@ -270,11 +270,15 @@ def standard_early_stop_trainer(model, seed, dataloaders,                       
     
 
     def full_objective(model, data_key, inputs, targets):
-        m = len(trainloaders[data_key].dataset)
-        k = inputs.shape[0]
+        if avg_loss:
+            loss_scale = 1.0
+        else: 
+            m = len(trainloaders[data_key].dataset)
+            k = inputs.shape[0]
+            loss_scale = np.sqrt(m / k)
         
-        # return np.sqrt(m / k) * criterion(model(inputs, data_key), targets).sum() + model.regularizer(data_key)
-        return criterion(model(inputs, data_key), targets) + model.regularizer(data_key)
+        return loss_scale * criterion(model(inputs, data_key), targets) + model.regularizer(data_key)
+        
 
     trainloaders = dataloaders["train"]
     valloaders = dataloaders["validation"]
@@ -283,7 +287,7 @@ def standard_early_stop_trainer(model, seed, dataloaders,                       
     ##### This is where everything happens ################################################################################
     model.train()
     
-    criterion = getattr(measures, loss_function)(per_neuron=False, avg=True)
+    criterion = getattr(measures, loss_function)(avg=avg_loss)
     stop_closure = partial(getattr(metrics, stop_function), model, valloaders, device=device)
 
     n_iterations = len(LongCycler(trainloaders))
@@ -310,13 +314,13 @@ def standard_early_stop_trainer(model, seed, dataloaders,                       
 
         # print the quantities from tracker
         if verbose:
-                for key in tracker.log.keys():
-                    print(key, tracker.log[key][-1])
+            print("=======================================")
+            for key in tracker.log.keys():
+                print(key, tracker.log[key][-1], flush=True)
         
-
         # train over batches
         optimizer.zero_grad()
-        for batch_no, (data_key, data) in tqdm(enumerate(LongCycler(trainloaders)), total=n_iterations, desc="Epoch {}".format(epoch), disable=False):               
+        for batch_no, (data_key, data) in tqdm(enumerate(LongCycler(trainloaders)), total=n_iterations, desc="Epoch {}".format(epoch)):               
 
             loss = full_objective(model, data_key, *data)
             loss.backward()
