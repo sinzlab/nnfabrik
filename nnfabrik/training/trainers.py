@@ -265,7 +265,7 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
                                 interval=1, patience=5, epoch=0, lr_init=0.005,         # early stopping args
                                 max_iter=100, maximize=True, tolerance=1e-6,
                                 restore_best=True, lr_decay_steps=3,
-                                lr_decay_factor=0.3, min_lr=0.0001,                     # lr scheduler
+                                lr_decay_factor=0.3, min_lr=0.0001,                     # lr scheduler args
                                 ):
     
 
@@ -294,8 +294,9 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
     n_iterations = len(LongCycler(trainloaders))
     
     optimizer = torch.optim.Adam(model.parameters(), lr=lr_init)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if maximize else 'min', factor=lr_decay_factor,
-                                                           patience=patience, threshold=tolerance, min_lr=min_lr, verbose=verbose, threshold_mode='abs')
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if maximize else 'min', 
+                                                           factor=lr_decay_factor, patience=patience, threshold=tolerance, 
+                                                           min_lr=min_lr, verbose=verbose, threshold_mode='abs')
     
     # set the number of iterations over which you would like to accummulate gradients
     optim_step_count = len(trainloaders.keys()) if loss_accum_batch_n is None else loss_accum_batch_n
