@@ -284,7 +284,7 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
     valloaders = dataloaders["validation"]
     testloaders = dataloaders["test"]
     
-    ##### This is where everything happens ################################################################################
+    ##### Model training ####################################################################################################
     set_random_seed(seed)
     model.train()
     
@@ -330,11 +330,15 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
                     optimizer.step()
                     optimizer.zero_grad()
         
-    ########################################################################################################################
+    ##### Model evaluation ####################################################################################################
+    model.eval()
+    tracker.finalize()
+    
     # Compute avg validation and test correlation
-    avg_val_corr = corr_stop(model, valloaders, device=device)
-    avg_test_corr = corr_stop(model, testloaders, device=device)
+    avg_val_corr = corr_stop(model, valloaders, avg=True, device=device)
+    avg_test_corr = corr_stop(model, testloaders, avg=True, device=device)
 
     # return the whole tracker output as a dict
     output = {k: v for k, v in tracker.log.items()}
+    
     return avg_test_corr, output, model.state_dict()
