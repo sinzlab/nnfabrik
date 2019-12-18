@@ -285,6 +285,7 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
     testloaders = dataloaders["test"]
     
     ##### This is where everything happens ################################################################################
+    set_random_seed(seed)
     model.train()
     
     criterion = getattr(measures, loss_function)(avg=avg_loss)
