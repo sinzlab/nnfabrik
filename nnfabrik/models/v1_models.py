@@ -197,6 +197,18 @@ def vgg_core_point_readout(dataloaders, seed,
         def regularizer(self, data_key):
             return self.readout.regularizer(data_key=data_key) + self.core.regularizer()
 
+        def _readout_regularizer_val(self):
+            ret = 0
+            with eval_state(model):
+                for data_key in model.readout:
+                    ret += self.readout.regularizer(data_key).detach().cpu().numpy()
+            return ret
+
+        @property
+        def tracked_values(self):
+            return dict(readout_l1=self._readout_regularizer_val)
+            
+
     set_random_seed(seed)
 
     core = TransferLearningCore(input_channels=input_channels[0],
