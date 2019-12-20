@@ -152,7 +152,7 @@ def vgg_core_point_readout(dataloaders, seed,
                            model_layer=11, momentum=0.1, final_batchnorm=True,
                            final_nonlinearity=True, bias=False,
                            pool_steps=1, pool_kern=7, readout_bias=True, # begin or readout args
-                           init_range=0.1, gamma_readout=0.002, elu_offset=-1):
+                           init_range=0.1, gamma_readout=0.002, elu_offset=-1, readout_reg_avg=False):
     """
     A Model class of a predefined core (using models from torchvision.models). Can be initialized pretrained or random.
     Can also be set to be trainable or not, independent of initialization.
@@ -213,7 +213,8 @@ def vgg_core_point_readout(dataloaders, seed,
                                    pool_kern=pool_kern,
                                    bias=readout_bias,
                                    init_range=init_range,
-                                   gamma_readout=gamma_readout)
+                                   gamma_readout=gamma_readout,
+                                   readout_reg_avg=readout_reg_avg)
 
     # initializing readout bias to mean response
     for k in dataloaders:
