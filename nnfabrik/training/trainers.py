@@ -259,23 +259,22 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     return avg_corr, output, model.state_dict()
 
 
-def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,                # trianer args
+def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True, scale_loss=True,   #trianer args
                                 loss_function='PoissonLoss', stop_function='corr_stop',
                                 loss_accum_batch_n=None, device='cuda', verbose=True,
-                                interval=1, patience=5, epoch=0, lr_init=0.005,         # early stopping args
+                                interval=1, patience=5, epoch=0, lr_init=0.005,             # early stopping args
                                 max_iter=100, maximize=True, tolerance=1e-6,
                                 restore_best=True, lr_decay_steps=3,
-                                lr_decay_factor=0.3, min_lr=0.0001,                     # lr scheduler args
+                                lr_decay_factor=0.3, min_lr=0.0001,                         # lr scheduler args
                                 ):
 
-
     def full_objective(model, data_key, inputs, targets):
-        if avg_loss:
-            loss_scale = 1.0
-        else: 
+        if scale_loss:
             m = len(trainloaders[data_key].dataset)
             k = inputs.shape[0]
             loss_scale = np.sqrt(m / k)
+        else: 
+            loss_scale = 1.0
         
         return loss_scale * criterion(model(inputs, data_key), targets) + model.regularizer(data_key)
         
