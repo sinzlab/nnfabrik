@@ -1,10 +1,13 @@
+import numpy as np
+from torch import nn as nn
+from torch.nn import functional as F
+
 from mlutils.layers.readouts import PointPooled2d
 from mlutils.layers.cores import Stacked2dCore
-from torch import nn as nn
-from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
-from torch.nn import functional as F
-import numpy as np
+from mlutils.training import eval_state
+
 from .pretrained_models import TransferLearningCore
+from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 
 class PointPooled2dReadout(nn.ModuleDict):
     def __init__(self, core, in_shape_dict, n_neurons_dict, pool_steps, pool_kern, bias, init_range, gamma_readout, readout_reg_avg):
@@ -88,6 +91,22 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
         def regularizer(self, data_key):
             return self.core.regularizer() + self.readout.regularizer(data_key=data_key)
 
+        def _readout_regularizer_val(self):
+            ret = 0
+            with eval_state(model):
+                for data_key in model.readout:
+                    ret += self.readout.regularizer(data_key).detach().cpu().numpy()
+            return ret
+
+        def _core_regularizer_val(self):
+            with eval_state(model):
+                return self.core.regularizer().detach().cpu().numpy() if model.core.regularizer() else 0
+
+        @property
+        def tracked_values(self):
+            return dict(readout_l1=self._readout_regularizer_val, 
+                        core_reg=self._core_regularizer_val)
+
     set_random_seed(seed)
 
     # get a stacked2D core from mlutils
@@ -133,7 +152,7 @@ def vgg_core_point_readout(dataloaders, seed,
                            model_layer=11, momentum=0.1, final_batchnorm=True,
                            final_nonlinearity=True, bias=False,
                            pool_steps=1, pool_kern=7, readout_bias=True, # begin or readout args
-                           init_range=0.1, gamma_readout=0.002, elu_offset=-1):
+                           init_range=0.1, gamma_readout=0.002, elu_offset=-1, readout_reg_avg=False):
     """
     A Model class of a predefined core (using models from torchvision.models). Can be initialized pretrained or random.
     Can also be set to be trainable or not, independent of initialization.
@@ -178,6 +197,18 @@ def vgg_core_point_readout(dataloaders, seed,
         def regularizer(self, data_key):
             return self.readout.regularizer(data_key=data_key) + self.core.regularizer()
 
+        def _readout_regularizer_val(self):
+            ret = 0
+            with eval_state(model):
+                for data_key in model.readout:
+                    ret += self.readout.regularizer(data_key).detach().cpu().numpy()
+            return ret
+
+        @property
+        def tracked_values(self):
+            return dict(readout_l1=self._readout_regularizer_val)
+            
+
     set_random_seed(seed)
 
     core = TransferLearningCore(input_channels=input_channels[0],
@@ -194,7 +225,8 @@ def vgg_core_point_readout(dataloaders, seed,
                                    pool_kern=pool_kern,
                                    bias=readout_bias,
                                    init_range=init_range,
-                                   gamma_readout=gamma_readout)
+                                   gamma_readout=gamma_readout,
+                                   readout_reg_avg=readout_reg_avg)
 
     # initializing readout bias to mean response
     for k in dataloaders:
