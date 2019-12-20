@@ -267,7 +267,7 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
                                 restore_best=True, lr_decay_steps=3,
                                 lr_decay_factor=0.3, min_lr=0.0001,                     # lr scheduler args
                                 ):
-    
+
 
     def full_objective(model, data_key, inputs, targets):
         if avg_loss:
@@ -305,7 +305,10 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
     tracker_dict = dict(correlation=partial(corr_stop, model, valloaders, device=device),
                         poisson_loss=partial(poisson_stop, model, valloaders, device=device), 
                         poisson_loss_val=partial(poisson_stop, model, valloaders, device=device))
-    tracker_dict.update(model.tracked_values)
+    
+    if hasattr(model, 'tracked_values'):
+        tracker_dict.update(model.tracked_values)
+    
     tracker = MultipleObjectiveTracker(**tracker_dict)
     
     # train over epochs
@@ -315,7 +318,7 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True,        
                                          scheduler=scheduler, lr_decay_steps=lr_decay_steps):
 
         # print the quantities from tracker
-        if verbose:
+        if verbose and tracker is not None:
             print("=======================================")
             for key in tracker.log.keys():
                 print(key, tracker.log[key][-1], flush=True)
