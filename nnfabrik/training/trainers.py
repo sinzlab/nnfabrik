@@ -276,14 +276,14 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True, scale_l
         else: 
             loss_scale = 1.0
         
-        return loss_scale * criterion(model(inputs, data_key), targets) + model.regularizer(data_key)
-        
+        return loss_scale * criterion(model(inputs.to(device), data_key), targets.to(device)) + model.regularizer(data_key)
 
     trainloaders = dataloaders["train"]
     valloaders = dataloaders["validation"]
     testloaders = dataloaders["test"]
     
     ##### Model training ####################################################################################################
+    model.to(device)
     set_random_seed(seed)
     model.train()
     
