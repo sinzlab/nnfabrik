@@ -7,6 +7,36 @@ from functools import partial
 from .utility.nnf_helper import split_module_name, dynamic_import
 
 
+
+def resolve_fn(fn_name, default_base):
+    """
+    Given a string `fn_name`, resolves the name into a callable object. If the name has multiple `.` separated parts, treat all but the last
+    as module names to trace down to the final name. If just the name is given, tries to resolve the name in the `default_base` module name context
+    with direct eval of `{default_base}.{fn_name}` in this function's context.
+
+    Raises `NameError` if no object matching the name is found and `TypeError` if the resolved object is not callabe.
+
+    When successful, returns the resolved, callable object.
+    """
+    module_path, class_name = split_module_name(fn_name)
+    
+    try:
+        fn_obj = dynamic_import(module_path, class_name) if module_path else eval('{}.{}'.format(default_base, class_name))
+    except NameError:
+        raise NameError("Function `{}` does not exist".format(class_name))
+
+    if not callable(fn_obj):
+        raise TypeError("The object named {} is not callable.".format(class_name))
+    
+    return fn_obj
+        
+
+# provide convenience alias for resolving model, dataset, and trainer
+resolve_model = partial(resolve_fn, default_base='models')
+resolve_data = partial(resolve_fn, default_base='datasets')
+resolve_trainer = partial(resolve_fn, default_base'training')
+
+
 def get_model(model_fn, model_config, dataloaders, seed=None, state_dict=None, strict=True):
     """
     Resolves `model_fn` and invokes the resolved function with `model_config` keyword arguments as well as the `dataloader` and `seed`.
@@ -26,8 +56,7 @@ def get_model(model_fn, model_config, dataloaders, seed=None, state_dict=None, s
     """
 
     if isinstance(model_fn, str):
-        module_path, class_name = split_module_name(model_fn)
-        model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + model_fn)
+        model_fn = resolve_model(model_fn)
 
     net = model_fn(dataloaders, seed=seed, **model_config)
 
@@ -50,8 +79,7 @@ def get_data(dataset_fn, dataset_config):
         Result of invoking the resolved `dataset_fn` with `dataset_config` as keyword arguments.
     """
     if isinstance(dataset_fn, str):
-        module_path, class_name = split_module_name(dataset_fn)
-        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_fn)
+        dataset_fn = resolve_data(dataset_fn)
 
     return dataset_fn(**dataset_config)
 
@@ -63,15 +91,14 @@ def get_trainer(trainer_fn, trainer_config=None):
 
     Args:
         trainer_fn: string name of the function path to be resolved. Alternatively, you can pass in a callable object and no name resolution will be performed.
-        trainer_config: If passed in, a partial function will be creating expanding `trainer_config` as the keyword arguments into the resolved trainer_fn
+        trainer_config: If passed in, a partial function will be created expanding `trainer_config` as the keyword arguments into the resolved trainer_fn
 
     Returns:
         Resolved trainer function
     """
 
     if isinstance(trainer_fn, str):
-        module_path, class_name = split_module_name(trainer_fn)
-        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + trainer_fn)
+        trainer_fn = resolve_trainer(trainer_fn)
 
     if trainer_config is not None:
         trainer_fn = partial(trainer_fn, **trainer_config)

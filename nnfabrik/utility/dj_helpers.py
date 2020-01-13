@@ -1,4 +1,4 @@
-# helper functions that the datajoint tables are requiring
+# helper functions for use with DataJoint tables
 
 import warnings
 from datetime import datetime
