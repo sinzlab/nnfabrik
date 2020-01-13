@@ -1,4 +1,4 @@
-# helper functions that the datajoint tables are requiring
+# helper functions for use with DataJoint tables
 
 import warnings
 from datetime import datetime
@@ -63,3 +63,73 @@ def check_repo_commit(repo_path):
         return repo_name, {"sha1": sha1, "branch": branch, "commit_date": commit_date,
                           "committer_name": committer_name, "committer_email": committer_email,
                           "origin_url": origin_url}
+
+
+def gitlog(repos=()):
+    """
+    A decorator on computed/imported tables.
+    Monitors a list of repositories as pointed out by `repos` containing a list of paths to Git repositories. If any of these repositories 
+    contained uncommitted changes, the `populate` is interrupted.
+    Otherwise, the state of commits associated with all repositoreis are summarized and stored in the associated entry in the GitLog part table.
+
+    Example:
+    
+    @schema
+    @gitlog(['/path/to/repo1', '/path/to/repo2'])
+    class MyComputedTable(dj.Computed):
+        ...
+    
+    """
+    def gitlog_wrapper(cls):
+        # if repos list is empty, skip the modification alltogether
+        if len(repos) == 0:
+            return cls
+            
+        class GitLog(dj.Part):
+            definition = """
+            ->master
+            ---
+            info :              longblob
+            """
+
+        def check_git(self):
+            commits_info = {name: info for name, info in [check_repo_commit(repo) for repo in repos]}
+            assert len(commits_info) == len(repos)
+
+            if any(['error_msg' in name for name in commits_info.keys()]):
+                err_msgs = ["You have uncommited changes."]
+                err_msgs.extend([info for name, info in commits_info.items() if 'error_msg' in name])
+                err_msgs.append("\nPlease commit the changes before running populate.\n")
+                raise RuntimeError('\n'.join(err_msgs))
+                
+            return commits_info
+        
+        cls._base_populate = cls.populate
+        cls._base_make = cls.make
+        cls.check_git = check_git
+        cls.GitLog = GitLog
+        cls._commits_info = None
+        
+        def alt_populate(self, *args, **kwargs):
+            # the commits info must be attached to the class
+            # as table instance is NOT shared between populate and
+            # make calls
+            self.__class__._commits_info = self.check_git()
+            ret = self._base_populate(*args, **kwargs)
+            self.__class__._commits_info = None
+            return ret
+
+        def alt_make(self, key):
+            ret = self._base_make(key)
+            if self._commits_info is not None:
+                # if there was some Git commit info
+                entry = dict(key, info=self._commits_info)
+                self.GitLog().insert1(entry)
+            return ret
+
+        cls.populate = alt_populate
+        cls.make = alt_make
+
+        return cls
+        
+    return gitlog_wrapper
