@@ -5,7 +5,7 @@ import os
 import datajoint as dj
 
 from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
-from .utility.dj_helpers import make_hash, check_repo_commit
+from .utility.dj_helpers import make_hash, check_repo_commit, gitlog
 from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy_scalar
 
 
@@ -227,9 +227,10 @@ class Seed(dj.Manual):
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
 
+    
 
 @schema
-# @gitlog
+@gitlog(config['repos'])
 class TrainedModel(dj.Computed):
     definition = """
     -> Model
@@ -249,13 +250,6 @@ class TrainedModel(dj.Computed):
         -> master
         ---
         model_state:            attach@minio
-        """
-
-    class GitLog(dj.Part):
-        definition = """
-        ->master
-        ---
-        info :              longblob
         """
 
     
@@ -297,41 +291,25 @@ class TrainedModel(dj.Computed):
 
 
     def make(self, key):
+        # lookup the fabrikant corresponding to the current DJ user
+        fabrikant_name = Fabrikant.get_current_user()
+        seed = (Seed & key).fetch1('seed')
 
-        commits_info = {name: info for name, info in [check_repo_commit(repo) for repo in config['repos']]}
-        assert len(commits_info) == len(config['repos'])
+        config_dict = self.get_full_config(key, include_state_dict=False)
+        dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
 
-        if any(['error_msg' in name for name in commits_info.keys()]):
-            err_msgs = ["You have uncommited changes."]
-            err_msgs.extend([info for name, info in commits_info.items() if 'error_msg' in name])
-            err_msgs.append("\nPlease commit the changes before running populate.\n")
-            raise RuntimeError('\n'.join(err_msgs))
-        else:
+        # model training
+        score, output, model_state = trainer(model, seed, dataloaders)
 
-            # lookup the fabrikant corresponding to the current DJ user
-            fabrikant_name = Fabrikant.get_current_user()
-            seed = (Seed & key).fetch1('seed')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = make_hash(key) + '.pth.tar'
+            filepath = os.path.join(temp_dir, filename)
+            torch.save(model_state, filepath)
 
-            config_dict = self.get_full_config(key, include_state_dict=False)
-            dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
+            key['score'] = score
+            key['output'] = output
+            key['fabrikant_name'] = fabrikant_name
+            self.insert1(key)
 
-            # model training
-            score, output, model_state = trainer(model, seed, dataloaders)
-
-            with tempfile.TemporaryDirectory() as temp_dir:
-                filename = make_hash(key) + '.pth.tar'
-                filepath = os.path.join(temp_dir, filename)
-                torch.save(model_state, filepath)
-
-                key['score'] = score
-                key['output'] = output
-                key['fabrikant_name'] = fabrikant_name
-                self.insert1(key)
-
-                key['model_state'] = filepath
-                self.ModelStorage.insert1(key, ignore_extra_fields=True)
-
-                # add the git info to the part table
-                if commits_info:
-                    key['info'] = commits_info
-                    self.GitLog().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
+            key['model_state'] = filepath
+            self.ModelStorage.insert1(key, ignore_extra_fields=True)
