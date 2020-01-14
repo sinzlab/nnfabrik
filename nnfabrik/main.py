@@ -77,7 +77,7 @@ class Model(dj.Manual):
         """
         try:
             resolve_model(model_fn)
-        except NameError, TypeError as e:
+        except (NameError, TypeError) as e:
             warnings.warn(str(e) + '\nTable entry rejected')
             return
 
@@ -125,7 +125,7 @@ class Dataset(dj.Manual):
 
         try:
             resolve_data(dataset_fn)
-        except NameError, TypeError as e:
+        except (NameError, TypeError) as e:
             warnings.warn(str(e) + '\nTable entry rejected')
             return
 
@@ -191,7 +191,7 @@ class Trainer(dj.Manual):
         """
         try:
             resolve_trainer(trainer_fn)
-        except NameError, TypeError as e:
+        except (NameError, TypeError) as e:
             warnings.warn(str(e) + '\nTable entry rejected')
             return
 
