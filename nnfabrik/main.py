@@ -13,7 +13,7 @@ from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy
 dj.config['stores'] = {
     'minio': {    #  store in s3
         'protocol': 's3',
-        'endpoint': os.environ.get('MINIO_ENDPOINT'),
+        'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
         'bucket': 'nnfabrik',
         'location': 'dj-store',
         'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
