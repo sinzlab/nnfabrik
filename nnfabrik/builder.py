@@ -34,7 +34,7 @@ def resolve_fn(fn_name, default_base):
 # provide convenience alias for resolving model, dataset, and trainer
 resolve_model = partial(resolve_fn, default_base='models')
 resolve_data = partial(resolve_fn, default_base='datasets')
-resolve_trainer = partial(resolve_fn, default_base'training')
+resolve_trainer = partial(resolve_fn, default_base='training')
 
 
 def get_model(model_fn, model_config, dataloaders, seed=None, state_dict=None, strict=True):
