@@ -11,7 +11,7 @@ from . import config
 
 # set external store based on env vars
 dj.config['stores'] = {
-    'minio': {    #  store in s3
+    'minio': {  # store in s3
         'protocol': 's3',
         'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
         'bucket': 'nnfabrik',
@@ -56,7 +56,7 @@ class Model(dj.Manual):
     ---
     model_config:               longblob      # model configuration to be passed into the function
     -> Fabrikant.proj(model_fabrikant='fabrikant_name')
-    model_comment='' :          varchar(64)   # short description
+    model_comment='' :          varchar(256)   # short description
     model_ts=CURRENT_TIMESTAMP: timestamp     # UTZ timestamp at time of insertion
     """
 
@@ -106,7 +106,7 @@ class Dataset(dj.Manual):
     ---
     dataset_config:                 longblob       # dataset configuration object
     -> Fabrikant.proj(dataset_fabrikant='fabrikant_name')
-    dataset_comment='' :            varchar(64)    # short description
+    dataset_comment='' :            varchar(256)    # short description
     dataset_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
     """
 
@@ -160,7 +160,7 @@ class Dataset(dj.Manual):
         dataset_fn, dataset_config = (self & key).fn_config
 
         if seed is not None:
-            dataset_config['seed'] = seed # override the seed if passed in
+            dataset_config['seed'] = seed  # override the seed if passed in
 
         return get_data(dataset_fn, dataset_config)
 
@@ -173,7 +173,7 @@ class Trainer(dj.Manual):
     ---
     trainer_config:                 longblob        # training configuration object
     -> Fabrikant.proj(trainer_fabrikant='fabrikant_name')
-    trainer_comment='' :            varchar(64)     # short description
+    trainer_comment='' :            varchar(256)     # short description
     trainer_ts=CURRENT_TIMESTAMP:   timestamp       # UTZ timestamp at time of insertion
     """
 
@@ -227,7 +227,7 @@ class Seed(dj.Manual):
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
 
-    
+
 
 @schema
 @gitlog(config['repos'])
@@ -238,6 +238,7 @@ class TrainedModel(dj.Computed):
     -> Trainer
     -> Seed
     ---
+    comment='':                        varchar(768) # short description 
     score:                             float        # loss
     output:                            longblob     # trainer object's output
     ->[nullable] Fabrikant
@@ -252,14 +253,14 @@ class TrainedModel(dj.Computed):
         model_state:            attach@minio
         """
 
-    
+
     def get_full_config(self, key=None, include_state_dict=True, skip_trainer=False):
         if key is None:
             key = self.fetch1('KEY')
 
         model_fn, model_config = (Model & key).fn_config
         dataset_fn, dataset_config = (Dataset & key).fn_config
-        
+
 
         ret = dict(model_fn=model_fn, model_config=model_config,
                    dataset_fn=dataset_fn, dataset_config=dataset_config)
@@ -309,6 +310,11 @@ class TrainedModel(dj.Computed):
             key['score'] = score
             key['output'] = output
             key['fabrikant_name'] = fabrikant_name
+            comments = []
+            comments.append((Trainer & key).fetch1("trainer_comment"))
+            comments.append((Model & key).fetch1("model_comment"))
+            comments.append((Dataset & key).fetch1("dataset_comment"))
+            key['comment'] = '.'.join(comments)
             self.insert1(key)
 
             key['model_state'] = filepath
