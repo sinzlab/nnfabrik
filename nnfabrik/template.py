@@ -41,7 +41,7 @@ class TrainedModelBase(dj.Computed):
         output:                            longblob     # trainer object's output
         ->[nullable] self.user_table
         trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-        """.format(table_comment=self.table_comment, model=self.model_table, dataset=self.dataset_table, trainer=self.trainer_table, seed=self.seed_table)
+        """.format(table_comment=self.table_comment)
         return definition
 
     class ModelStorage(dj.Part):
