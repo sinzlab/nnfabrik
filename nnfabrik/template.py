@@ -95,17 +95,30 @@ class TrainedModelBase(dj.Computed):
 
         return ret
 
-    def load_model(self, key=None, include_trainer=False):
+    def load_model(self, key=None, include_trainer=False, include_state_dict=True):
         """
         Load a single entry of the model. If state_dict is available, the model will be loaded with state_dict as well.
         By default the trainer is skipped. Set `include_trainer=True` to also retrieve the trainer function
         as the third return argument.
+
+        Args:
+            key - specific key against which to retrieve the model. The key must restrict all component
+                  tables into a single entry. If None, will assume that this table is already restricted and
+                  will obtain an existing single entry.
+            include_trainer - If False (default), will not load or return the trainer.
+            include_state_dict - If True, the model is loaded with state_dict if key corresponds to a trained entry.
+
+        Returns
+            dataloaders - Loaded dictionary (train, test, validation) of dictionary (data_key) of dataloaders
+            model - Loaded model. If key corresponded to an existing entry, it would have also loaded the
+                    state_dict unless load_state_dict=False
+            trainer - Loaded trainer function. This is not returned if include_trainer=False.
         """
         if key is None:
             key = self.fetch1('KEY')
 
         seed = (self.seed_table & key).fetch1('seed')
-        config_dict = self.get_full_config(key, include_trainer=include_trainer)
+        config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
         return get_all_parts(**config_dict, seed=seed)
 
 
