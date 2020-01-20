@@ -106,14 +106,14 @@ def get_trainer(trainer_fn, trainer_config=None):
     return trainer_fn
 
 
-def get_all_parts(dataset_fn, dataset_config, model_fn, model_config, seed=None, dl_key='train', state_dict=None, strict=True, trainer_fn=None, trainer_config=None):
+def get_all_parts(dataset_fn, dataset_config, model_fn, model_config, seed=None, state_dict=None, strict=True, trainer_fn=None, trainer_config=None):
 
     if seed is not None:
         dataset_config['seed'] = seed  # override the seed if passed in
 
     dataloaders = get_data(dataset_fn, dataset_config)
 
-    model = get_model(model_fn, model_config, dataloaders[dl_key], seed=seed, state_dict=state_dict, strict=strict)
+    model = get_model(model_fn, model_config, dataloaders, seed=seed, state_dict=state_dict, strict=strict)
 
     if trainer_fn is not None:
         trainer = get_trainer(trainer_fn, trainer_config)
