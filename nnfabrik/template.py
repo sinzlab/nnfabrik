@@ -123,6 +123,10 @@ class TrainedModelBase(dj.Computed):
 
 
     def make(self, key):
+        """
+        Given key specifying configuration for dataloaders, model and trainer,
+        trains the model and saves the trained model.
+        """
         # lookup the fabrikant corresponding to the current DJ user
         fabrikant_name = Fabrikant.get_current_user()
         seed = (Seed & key).fetch1('seed')
