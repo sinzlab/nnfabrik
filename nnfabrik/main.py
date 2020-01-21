@@ -11,7 +11,7 @@ from . import config
 
 # set external store based on env vars
 dj.config['stores'] = {
-    'minio': {    #  store in s3
+    'minio': {  # store in s3
         'protocol': 's3',
         'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
         'bucket': 'nnfabrik',
@@ -56,7 +56,7 @@ class Model(dj.Manual):
     ---
     model_config:               longblob      # model configuration to be passed into the function
     -> Fabrikant.proj(model_fabrikant='fabrikant_name')
-    model_comment='' :          varchar(64)   # short description
+    model_comment='' :          varchar(256)   # short description
     model_ts=CURRENT_TIMESTAMP: timestamp     # UTZ timestamp at time of insertion
     """
 
@@ -106,7 +106,7 @@ class Dataset(dj.Manual):
     ---
     dataset_config:                 longblob       # dataset configuration object
     -> Fabrikant.proj(dataset_fabrikant='fabrikant_name')
-    dataset_comment='' :            varchar(64)    # short description
+    dataset_comment='' :            varchar(256)    # short description
     dataset_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
     """
 
@@ -160,7 +160,7 @@ class Dataset(dj.Manual):
         dataset_fn, dataset_config = (self & key).fn_config
 
         if seed is not None:
-            dataset_config['seed'] = seed # override the seed if passed in
+            dataset_config['seed'] = seed  # override the seed if passed in
 
         return get_data(dataset_fn, dataset_config)
 
@@ -173,7 +173,7 @@ class Trainer(dj.Manual):
     ---
     trainer_config:                 longblob        # training configuration object
     -> Fabrikant.proj(trainer_fabrikant='fabrikant_name')
-    trainer_comment='' :            varchar(64)     # short description
+    trainer_comment='' :            varchar(256)     # short description
     trainer_ts=CURRENT_TIMESTAMP:   timestamp       # UTZ timestamp at time of insertion
     """
 
@@ -227,89 +227,4 @@ class Seed(dj.Manual):
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
 
-    
 
-@schema
-@gitlog(config['repos'])
-class TrainedModel(dj.Computed):
-    definition = """
-    -> Model
-    -> Dataset
-    -> Trainer
-    -> Seed
-    ---
-    score:                             float        # loss
-    output:                            longblob     # trainer object's output
-    ->[nullable] Fabrikant
-    trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-    """
-
-    class ModelStorage(dj.Part):
-        definition = """
-        # Contains the paths to the stored models
-        -> master
-        ---
-        model_state:            attach@minio
-        """
-
-    
-    def get_full_config(self, key=None, include_state_dict=True, skip_trainer=False):
-        if key is None:
-            key = self.fetch1('KEY')
-
-        model_fn, model_config = (Model & key).fn_config
-        dataset_fn, dataset_config = (Dataset & key).fn_config
-        
-
-        ret = dict(model_fn=model_fn, model_config=model_config,
-                   dataset_fn=dataset_fn, dataset_config=dataset_config)
-
-        if not skip_trainer:
-            trainer_fn, trainer_config = (Trainer & key).fn_config
-            ret['trainer_fn'] = trainer_fn
-            ret['trainer_config'] = trainer_config
-
-        # if trained model exist and include_state_dict is True
-        if include_state_dict and (self.ModelStorage & key):
-            with tempfile.TemporaryDirectory() as temp_dir:
-                state_dict_path = (self.ModelStorage & key).fetch1('model_state', download_path=temp_dir)
-                ret['state_dict'] = torch.load(state_dict_path)
-
-        return ret
-
-    def load_model(self, key=None):
-        """
-        Load a single entry of the model. If state_dict is available, the model will be loaded with state_dict as well.
-        """
-        if key is None:
-            key = self.fetch1('KEY')
-
-        seed = (Seed & key).fetch1('seed')
-        config_dict = self.get_full_config(key, skip_trainer=True)
-        dataloaders, model = get_all_parts(**config_dict, seed=seed)
-        return dataloaders, model
-
-
-    def make(self, key):
-        # lookup the fabrikant corresponding to the current DJ user
-        fabrikant_name = Fabrikant.get_current_user()
-        seed = (Seed & key).fetch1('seed')
-
-        config_dict = self.get_full_config(key, include_state_dict=False)
-        dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
-
-        # model training
-        score, output, model_state = trainer(model, seed, dataloaders)
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            filename = make_hash(key) + '.pth.tar'
-            filepath = os.path.join(temp_dir, filename)
-            torch.save(model_state, filepath)
-
-            key['score'] = score
-            key['output'] = output
-            key['fabrikant_name'] = fabrikant_name
-            self.insert1(key)
-
-            key['model_state'] = filepath
-            self.ModelStorage.insert1(key, ignore_extra_fields=True)
