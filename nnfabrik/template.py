@@ -1,4 +1,5 @@
 import datajoint as dj
+import tempfile
 import torch
 import os
 from .main import Model, Dataset, Trainer, Seed, Fabrikant
