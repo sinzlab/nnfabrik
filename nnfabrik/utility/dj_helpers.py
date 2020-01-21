@@ -19,7 +19,7 @@ def make_hash(obj):
     give rise to the same hash. Exception to this rule is when an OrderedDict
     is passed, in which case difference in key order is respected. To keep
     compatible with previous versions of Python and the assumed general
-    intentions, key orderer will be ignored even in Python 3.7+ where the
+    intentions, key order will be ignored even in Python 3.7+ where the
     default dictionary is officially an ordered dictionary.
 
     Args: 
