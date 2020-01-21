@@ -82,7 +82,7 @@ class TrainedModelBase(dj.Computed):
         ret = dict(model_fn=model_fn, model_config=model_config,
                    dataset_fn=dataset_fn, dataset_config=dataset_config)
 
-        if not skip_trainer:
+        if include_trainer:
             trainer_fn, trainer_config = (self.trainer_table & key).fn_config
             ret['trainer_fn'] = trainer_fn
             ret['trainer_config'] = trainer_config
