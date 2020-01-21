@@ -3,6 +3,7 @@
 import torch
 from mlutils.training import eval_state
 import numpy as np
+import random
 
 def get_io_dims(data_loader):
     """
@@ -54,6 +55,7 @@ def set_random_seed(seed):
     Sets all random seeds
     """
     np.random.seed(seed)
+    random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)

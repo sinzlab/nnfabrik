@@ -82,7 +82,7 @@ class TrainedModelBase(dj.Computed):
         ret = dict(model_fn=model_fn, model_config=model_config,
                    dataset_fn=dataset_fn, dataset_config=dataset_config)
 
-        if not skip_trainer:
+        if include_trainer:
             trainer_fn, trainer_config = (self.trainer_table & key).fn_config
             ret['trainer_fn'] = trainer_fn
             ret['trainer_config'] = trainer_config
@@ -95,7 +95,7 @@ class TrainedModelBase(dj.Computed):
 
         return ret
 
-    def load_model(self, key=None, include_trainer=False, include_state_dict=True):
+    def load_model(self, key=None, include_trainer=False, include_state_dict=True, seed:int=None):
         """
         Load a single entry of the model. If state_dict is available, the model will be loaded with state_dict as well.
         By default the trainer is skipped. Set `include_trainer=True` to also retrieve the trainer function
@@ -107,6 +107,7 @@ class TrainedModelBase(dj.Computed):
                   will obtain an existing single entry.
             include_trainer - If False (default), will not load or return the trainer.
             include_state_dict - If True, the model is loaded with state_dict if key corresponds to a trained entry.
+            seed - Optional seed. If not given and a corresponding entry exists in self.seed_table, seed is taken from there
 
         Returns
             dataloaders - Loaded dictionary (train, test, validation) of dictionary (data_key) of dataloaders
@@ -117,7 +118,9 @@ class TrainedModelBase(dj.Computed):
         if key is None:
             key = self.fetch1('KEY')
 
-        seed = (self.seed_table & key).fetch1('seed')
+        if seed is None and len(self.seed_table & key) == 1:
+            seed = (self.seed_table & key).fetch1('seed')
+
         config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
         return get_all_parts(**config_dict, seed=seed)
 
@@ -131,11 +134,11 @@ class TrainedModelBase(dj.Computed):
         fabrikant_name = Fabrikant.get_current_user()
         seed = (Seed & key).fetch1('seed')
 
-        config_dict = self.get_full_config(key, include_state_dict=False)
-        dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
+        # load everything
+        dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
 
         # model training
-        score, output, model_state = trainer(model, seed, dataloaders)
+        score, output, model_state = trainer(model, dataloaders, seed=seed)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key) + '.pth.tar'
