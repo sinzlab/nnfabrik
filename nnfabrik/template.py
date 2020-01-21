@@ -1,9 +1,12 @@
 import datajoint as dj
 import torch
-from .utility.dj_helpers import gitlog
+import os
 from .main import Model, Dataset, Trainer, Seed, Fabrikant
-from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
+from .builder import get_all_parts
 from .utility.nnf_helper import cleanup_numpy_scalar
+from .utility.dj_helpers import make_hash
+from .utility.dj_helpers import gitlog, make_hash
+
 
 
 class TrainedModelBase(dj.Computed):
@@ -125,6 +128,9 @@ class TrainedModelBase(dj.Computed):
         return get_all_parts(**config_dict, seed=seed)
 
 
+
+
+
     def make(self, key):
         """
         Given key specifying configuration for dataloaders, model and trainer,
@@ -156,4 +162,5 @@ class TrainedModelBase(dj.Computed):
             self.insert1(key)
 
             key['model_state'] = filepath
+
             self.ModelStorage.insert1(key, ignore_extra_fields=True)

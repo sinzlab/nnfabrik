@@ -5,8 +5,7 @@ from datetime import datetime
 import hashlib
 import datajoint as dj
 from git import Repo, cmd
-from collections
-
+from collections import OrderedDict, Iterable, Mapping
 
 def make_hash(obj):
     """
@@ -31,17 +30,19 @@ def make_hash(obj):
     """
     hashed = hashlib.md5()
     
-    if isinstance(obj, OrderedDict):
+    if isinstance(obj, str):
+        hashed.update(obj.encode())
+    elif isinstance(obj, OrderedDict):
         for k, v in obj.items():
             hashed.update(str(k).encode())
-            hashed.update(nested_hash(v).encode())
+            hashed.update(make_hash(v).encode())
     elif isinstance(obj, Mapping):
         for k, v in sorted(obj.items()):
             hashed.update(str(k).encode())
-            hashed.update(nested_hash(v).encode())
+            hashed.update(make_hash(v).encode())
     elif isinstance(obj, Iterable):
         for v in obj:
-            hashed.update(nested_hash(v).encode())
+            hashed.update(make_hash(v).encode())
     else:
         hashed.update(str(obj).encode())
     
