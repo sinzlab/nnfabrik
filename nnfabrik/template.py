@@ -126,6 +126,18 @@ class TrainedModelBase(dj.Computed):
         config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
         return get_all_parts(**config_dict, seed=seed)
 
+    def call_back(self, uid, epoch, model):
+        """
+        Override this implementation to get periodic calls during the training
+        by the trainer.
+
+        Args:
+            uid - Unique identifier for the trained model entry
+            epoch - the iteration count
+            model - current model under training
+        """
+        pass
+
 
     def make(self, key):
         """
@@ -139,8 +151,13 @@ class TrainedModelBase(dj.Computed):
         # load everything
         dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
 
+        # define callback with pinging
+        def call_back(uid, epoch, model):
+            self.connection.ping()
+            self.call_back(uid, epoch, model)
+
         # model training
-        score, output, model_state = trainer(model, dataloaders, seed=seed)
+        score, output, model_state = trainer(model, dataloaders, seed=seed, uid=key, cb=call_back)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key) + '.pth.tar'
