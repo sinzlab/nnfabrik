@@ -126,7 +126,7 @@ class TrainedModelBase(dj.Computed):
         config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
         return get_all_parts(**config_dict, seed=seed)
 
-    def call_back(self, uid, epoch, model):
+    def call_back(self, uid=None, epoch=None, model=None, info=None):
         """
         Override this implementation to get periodic calls during the training
         by the trainer.
@@ -135,6 +135,7 @@ class TrainedModelBase(dj.Computed):
             uid - Unique identifier for the trained model entry
             epoch - the iteration count
             model - current model under training
+            info - Additional information provided by the trainer
         """
         pass
 
@@ -152,9 +153,9 @@ class TrainedModelBase(dj.Computed):
         dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
 
         # define callback with pinging
-        def call_back(uid, epoch, model):
+        def call_back(**kwargs):
             self.connection.ping()
-            self.call_back(uid, epoch, model)
+            self.call_back(**kwargs)
 
         # model training
         score, output, model_state = trainer(model, dataloaders, seed=seed, uid=key, cb=call_back)
