@@ -5,9 +5,7 @@ import os
 from .main import Model, Dataset, Trainer, Seed, Fabrikant
 from .builder import get_all_parts
 from .utility.nnf_helper import cleanup_numpy_scalar
-from .utility.dj_helpers import make_hash
 from .utility.dj_helpers import gitlog, make_hash
-
 
 
 class TrainedModelBase(dj.Computed):
@@ -127,9 +125,6 @@ class TrainedModelBase(dj.Computed):
 
         config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
         return get_all_parts(**config_dict, seed=seed)
-
-
-
 
 
     def make(self, key):
