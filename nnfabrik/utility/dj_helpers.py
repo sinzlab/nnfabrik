@@ -37,9 +37,9 @@ def make_hash(obj):
             hashed.update(str(k).encode())
             hashed.update(make_hash(v).encode())
     elif isinstance(obj, Mapping):
-        for k, v in sorted(obj.items()):
+        for k in sorted(obj, key=str):
             hashed.update(str(k).encode())
-            hashed.update(make_hash(v).encode())
+            hashed.update(make_hash(obj[k]).encode())
     elif isinstance(obj, Iterable):
         for v in obj:
             hashed.update(make_hash(v).encode())
