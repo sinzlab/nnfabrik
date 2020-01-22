@@ -1,13 +1,10 @@
-import torch
-import tempfile
 import warnings
 import os
 import datajoint as dj
 
 from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
-from .utility.dj_helpers import make_hash, check_repo_commit, gitlog
-from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy_scalar
-from . import config
+from .utility.dj_helpers import make_hash
+from .utility.nnf_helper import cleanup_numpy_scalar
 
 # set external store based on env vars
 dj.config['stores'] = {
