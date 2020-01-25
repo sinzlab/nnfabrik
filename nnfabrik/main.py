@@ -90,7 +90,17 @@ class Model(dj.Manual):
         model_hash = make_hash(model_config)
         key = dict(model_fn=model_fn, model_hash=model_hash, model_config=model_config,
                    model_fabrikant=model_fabrikant, model_comment=model_comment)
-        self.insert1(key, skip_duplicates=skip_duplicates)
+
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn('Corresponding entry found. Skipping...')
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError('Corresponding entry already exists')
+        else:
+            self.insert1(key)
+        
         return key
 
     def build_model(self, dataloaders, seed=None, key=None):
@@ -149,7 +159,17 @@ class Dataset(dj.Manual):
         dataset_hash = make_hash(dataset_config)
         key = dict(dataset_fn=dataset_fn, dataset_hash=dataset_hash,
                    dataset_config=dataset_config, dataset_fabrikant=dataset_fabrikant, dataset_comment=dataset_comment)
-        self.insert1(key, skip_duplicates=skip_duplicates)
+        
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn('Corresponding entry found. Skipping...')
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError('Corresponding entry already exists')
+        else:
+            self.insert1(key)
+        
         return key
 
     def get_dataloader(self, seed=None, key=None):
@@ -227,7 +247,17 @@ class Trainer(dj.Manual):
         key = dict(trainer_fn=trainer_fn, trainer_hash=trainer_hash,
                    trainer_config=trainer_config, trainer_fabrikant=trainer_fabrikant,
                    trainer_comment=trainer_comment)
-        self.insert1(key, skip_duplicates=skip_duplicates)
+
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn('Corresponding entry found. Skipping...')
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError('Corresponding entry already exists')
+        else:
+            self.insert1(key)
+        
         return key
 
     def get_trainer(self, key=None, build_partial=True):
