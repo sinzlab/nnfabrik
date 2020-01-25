@@ -63,14 +63,20 @@ class Model(dj.Manual):
         model_config = cleanup_numpy_scalar(model_config)
         return model_fn, model_config
 
-    def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment=''):
+    def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment='', skip_duplicates=False):
         """
         Add a new entry to the model.
-        model_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
-            dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
-        model_config (dict) - Python dictionary containing keyword arguments for the model_fn
-        model_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
-        model_comment - Optional comment for the entry.
+
+        Args: 
+            model_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+                dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
+            model_config (dict) - Python dictionary containing keyword arguments for the model_fn
+            model_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
+            model_comment - Optional comment for the entry.
+            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+
+        Returns:
+            key - key in the table corresponding to the entry.
         """
         try:
             resolve_model(model_fn)
@@ -84,7 +90,8 @@ class Model(dj.Manual):
         model_hash = make_hash(model_config)
         key = dict(model_fn=model_fn, model_hash=model_hash, model_config=model_config,
                    model_fabrikant=model_fabrikant, model_comment=model_comment)
-        self.insert1(key)
+        self.insert1(key, skip_duplicates=skip_duplicates)
+        return key
 
     def build_model(self, dataloaders, seed=None, key=None):
         print('Loading model...')
@@ -113,11 +120,21 @@ class Dataset(dj.Manual):
         dataset_config = cleanup_numpy_scalar(dataset_config)
         return dataset_fn, dataset_config
 
-    def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment=''):
+    def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment='', skip_duplicates=False):
         """
-        inserts one new entry into the Dataset Table
-        dataset_fn -- name of dataset function/class that's callable
-        dataset_config -- actual Python object with which the dataset function is called
+        Add a new entry to the dataset.
+
+        Args: 
+            dataset_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+                dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
+            dataset_config (dict) - Python dictionary containing keyword arguments for the dataset_fn
+            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+                on the database user name for the existing connection.
+            dataset_comment - Optional comment for the entry.
+            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+
+        Returns:
+            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
 
         try:
@@ -132,7 +149,8 @@ class Dataset(dj.Manual):
         dataset_hash = make_hash(dataset_config)
         key = dict(dataset_fn=dataset_fn, dataset_hash=dataset_hash,
                    dataset_config=dataset_config, dataset_fabrikant=dataset_fabrikant, dataset_comment=dataset_comment)
-        self.insert1(key)
+        self.insert1(key, skip_duplicates=skip_duplicates)
+        return key
 
     def get_dataloader(self, seed=None, key=None):
         """
@@ -180,11 +198,21 @@ class Trainer(dj.Manual):
         trainer_config = cleanup_numpy_scalar(trainer_config)
         return trainer_fn, trainer_config
 
-    def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment=''):
+    def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment='', skip_duplicates=False):
         """
-        inserts one new entry into the Trainer Table
-        trainer_fn -- name of trainer function/class that's callable
-        trainer_config -- actual Python object with which the trainer function is called
+        Add a new entry to the trainer.
+
+        Args: 
+            trainer_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+                dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
+            trainer_config (dict) - Python dictionary containing keyword arguments for the trainer_fn.
+            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+                on the database user name for the existing connection.
+            trainer_comment - Optional comment for the entry.
+            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+
+        Returns:
+            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
         try:
             resolve_trainer(trainer_fn)
@@ -199,7 +227,8 @@ class Trainer(dj.Manual):
         key = dict(trainer_fn=trainer_fn, trainer_hash=trainer_hash,
                    trainer_config=trainer_config, trainer_fabrikant=trainer_fabrikant,
                    trainer_comment=trainer_comment)
-        self.insert1(key)
+        self.insert1(key, skip_duplicates=skip_duplicates)
+        return key
 
     def get_trainer(self, key=None, build_partial=True):
         """
