@@ -1,13 +1,16 @@
+import numpy as np
+from torch import nn as nn
+from torch.nn import functional as F
+
 from mlutils.layers.readouts import PointPooled2d
 from mlutils.layers.cores import Stacked2dCore
-from torch import nn as nn
-from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
-from torch.nn import functional as F
-import numpy as np
+from mlutils.training import eval_state
+
 from .pretrained_models import TransferLearningCore
+from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 
 class PointPooled2dReadout(nn.ModuleDict):
-    def __init__(self, core, in_shape_dict, n_neurons_dict, pool_steps, pool_kern, bias, init_range, gamma_readout):
+    def __init__(self, core, in_shape_dict, n_neurons_dict, pool_steps, pool_kern, bias, init_range, gamma_readout, readout_reg_avg):
         # super init to get the _module attribute
         super(PointPooled2dReadout, self).__init__()
         for k in n_neurons_dict:
@@ -23,6 +26,7 @@ class PointPooled2dReadout(nn.ModuleDict):
                             )
 
         self.gamma_readout = gamma_readout
+        self.readout_reg_avg = readout_reg_avg
 
     def forward(self, *args, data_key=None, **kwargs):
         if data_key is None and len(self) == 1:
@@ -31,7 +35,7 @@ class PointPooled2dReadout(nn.ModuleDict):
 
 
     def regularizer(self, data_key):
-        return self[data_key].feature_l1(average=False) * self.gamma_readout
+        return self[data_key].feature_l1(average=self.readout_reg_avg) * self.gamma_readout
 
 
 def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_kern=13,          # core args
@@ -40,13 +44,13 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  pad_input=False, batch_norm=True, hidden_dilation=1,
                                  laplace_padding=None, input_regularizer='LaplaceL2norm',
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,  # readout args,
-                                 gamma_readout=0.1,  elu_offset=0,
+                                 gamma_readout=0.1,  elu_offset=0, stack=None, readout_reg_avg=False,
                                  ):
     """
     Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
 
     Args:
-        dataloaders: a dictionary of train-dataloaders, one loader per session
+        dataloaders: a dictionary of dataloaders, one loader per session
             in the format {'data_key': dataloader object, .. }
         seed: random seed
         elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
@@ -56,12 +60,19 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
     Returns: An initialized model which consists of model.core and model.readout
     """
+    
+
+    # make sure trainloader is being used
+    dataloaders = dataloaders.get("train", dataloaders)
+
+    # Obtain the named tuple fields from the first entry of the first dataloader in the dictionary
+    in_name, out_name = next(iter(list(dataloaders.values())[0]))._fields
 
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
-
-    n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
-    in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
-    input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
+    n_neurons_dict = {k: v[out_name][1] for k, v in session_shape_dict.items()}
+    in_shapes_dict = {k: v[in_name] for k, v in session_shape_dict.items()}
+    input_channels = [v[in_name][1] for v in session_shape_dict.values()]
+    
     assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
 
     class Encoder(nn.Module):
@@ -79,6 +90,22 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
 
         def regularizer(self, data_key):
             return self.core.regularizer() + self.readout.regularizer(data_key=data_key)
+
+        def _readout_regularizer_val(self):
+            ret = 0
+            with eval_state(model):
+                for data_key in model.readout:
+                    ret += self.readout.regularizer(data_key).detach().cpu().numpy()
+            return ret
+
+        def _core_regularizer_val(self):
+            with eval_state(model):
+                return self.core.regularizer().detach().cpu().numpy() if model.core.regularizer() else 0
+
+        @property
+        def tracked_values(self):
+            return dict(readout_l1=self._readout_regularizer_val, 
+                        core_reg=self._core_regularizer_val)
 
     set_random_seed(seed)
 
@@ -98,19 +125,22 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          batch_norm=batch_norm,
                          hidden_dilation=hidden_dilation,
                          laplace_padding=laplace_padding,
-                         input_regularizer=input_regularizer)
+                         input_regularizer=input_regularizer,
+                         stack=stack)
 
-    readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
+    readout = PointPooled2dReadout(core, 
+                                   in_shape_dict=in_shapes_dict,
                                    n_neurons_dict=n_neurons_dict,
                                    pool_steps=pool_steps,
                                    pool_kern=pool_kern,
                                    bias=readout_bias,
                                    init_range=init_range,
-                                   gamma_readout=gamma_readout)
+                                   gamma_readout=gamma_readout, 
+                                   readout_reg_avg=readout_reg_avg)
 
     # initializing readout bias to mean response
     for k in dataloaders:
-        readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
+        readout[k].bias.data = dataloaders[k].dataset[:]._asdict()[out_name].mean(0)
 
     model = Encoder(core, readout, elu_offset)
 
@@ -122,7 +152,7 @@ def vgg_core_point_readout(dataloaders, seed,
                            model_layer=11, momentum=0.1, final_batchnorm=True,
                            final_nonlinearity=True, bias=False,
                            pool_steps=1, pool_kern=7, readout_bias=True, # begin or readout args
-                           init_range=0.1, gamma_readout=0.002, elu_offset=-1):
+                           init_range=0.1, gamma_readout=0.002, elu_offset=-1, readout_reg_avg=False):
     """
     A Model class of a predefined core (using models from torchvision.models). Can be initialized pretrained or random.
     Can also be set to be trainable or not, independent of initialization.
@@ -140,8 +170,10 @@ def vgg_core_point_readout(dataloaders, seed,
     Returns:
     """
 
-    session_shape_dict = get_dims_for_loader_dict(dataloaders)
+    if "train" in dataloaders.keys():
+        dataloaders = dataloaders["train"]
 
+    session_shape_dict = get_dims_for_loader_dict(dataloaders)
     n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
     in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
     input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
@@ -165,6 +197,18 @@ def vgg_core_point_readout(dataloaders, seed,
         def regularizer(self, data_key):
             return self.readout.regularizer(data_key=data_key) + self.core.regularizer()
 
+        def _readout_regularizer_val(self):
+            ret = 0
+            with eval_state(model):
+                for data_key in model.readout:
+                    ret += self.readout.regularizer(data_key).detach().cpu().numpy()
+            return ret
+
+        @property
+        def tracked_values(self):
+            return dict(readout_l1=self._readout_regularizer_val)
+            
+
     set_random_seed(seed)
 
     core = TransferLearningCore(input_channels=input_channels[0],
@@ -181,7 +225,8 @@ def vgg_core_point_readout(dataloaders, seed,
                                    pool_kern=pool_kern,
                                    bias=readout_bias,
                                    init_range=init_range,
-                                   gamma_readout=gamma_readout)
+                                   gamma_readout=gamma_readout,
+                                   readout_reg_avg=readout_reg_avg)
 
     # initializing readout bias to mean response
     for k in dataloaders:
