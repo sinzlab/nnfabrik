@@ -259,14 +259,14 @@ def early_stop_trainer(model, seed, stop_function='corr_stop',
     return avg_corr, output, model.state_dict()
 
 
-def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True, scale_loss=True,   #trianer args
+def standard_early_stop_trainer(model, dataloaders, seed, avg_loss=True, scale_loss=True,   # trainer args
                                 loss_function='PoissonLoss', stop_function='corr_stop',
                                 loss_accum_batch_n=None, device='cuda', verbose=True,
                                 interval=1, patience=5, epoch=0, lr_init=0.005,             # early stopping args
                                 max_iter=100, maximize=True, tolerance=1e-6,
                                 restore_best=True, lr_decay_steps=3,
                                 lr_decay_factor=0.3, min_lr=0.0001,                         # lr scheduler args
-                                ):
+                                **kwargs):
 
     def full_objective(model, data_key, inputs, targets):
         if scale_loss:
@@ -321,7 +321,11 @@ def standard_early_stop_trainer(model, seed, dataloaders, avg_loss=True, scale_l
             print("=======================================")
             for key in tracker.log.keys():
                 print(key, tracker.log[key][-1], flush=True)
-        
+
+        # executes callback function if passed in keyword args
+        if "cb" in kwargs.keys():
+            kwargs["cb"]()
+
         # train over batches
         optimizer.zero_grad()
         for batch_no, (data_key, data) in tqdm(enumerate(LongCycler(trainloaders)), total=n_iterations, desc="Epoch {}".format(epoch)):               
