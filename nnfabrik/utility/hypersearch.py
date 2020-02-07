@@ -2,8 +2,8 @@ import warnings
 import numpy as np
 import torch
 from ax.service.managed_loop import optimize
-from nnfabrik.utility.dj_helpers import make_hash
-from nnfabrik.utility.nnf_helper import split_module_name, dynamic_import
+from .dj_helpers import make_hash
+from .nnf_helper import split_module_name, dynamic_import
 from nnfabrik.main import *
 
 
