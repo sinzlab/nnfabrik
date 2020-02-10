@@ -3,7 +3,7 @@ import torch.utils.data as utils
 import numpy as np
 import pickle
 #from retina.retina import warp_image
-from collections import namedtuple
+from collections import namedtuple, Iterable
 
 
 class NamedTensorDataset(utils.Dataset):
@@ -62,6 +62,10 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
 
     Returns: nested dictionary of dataloaders
     """
+
+    #
+    if not isinstance(time_bins_sum, Iterable):
+        time_bins_sum = tuple(range(time_bins_sum))
 
     # initialize dataloaders as empty dict
     dataloaders = {'train': {}, 'validation': {}, 'test': {}}
