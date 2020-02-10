@@ -45,7 +45,7 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                                  laplace_padding=None, input_regularizer='LaplaceL2norm',
                                  pool_steps=2, pool_kern=7, readout_bias=True, init_range=0.1,  # readout args,
                                  gamma_readout=0.1,  elu_offset=0, stack=None, readout_reg_avg=False,
-                                 ):
+                                 use_avg_reg=False):
     """
     Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
 
@@ -126,7 +126,8 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          hidden_dilation=hidden_dilation,
                          laplace_padding=laplace_padding,
                          input_regularizer=input_regularizer,
-                         stack=stack)
+                         stack=stack,
+                         use_avg_reg=use_avg_reg)
 
     readout = PointPooled2dReadout(core, 
                                    in_shape_dict=in_shapes_dict,

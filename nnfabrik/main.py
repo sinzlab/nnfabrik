@@ -2,7 +2,7 @@ import warnings
 import os
 import datajoint as dj
 
-from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
+from .builder import resolve_fn, resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
 from .utility.dj_helpers import make_hash
 from .utility.nnf_helper import cleanup_numpy_scalar
 
@@ -62,6 +62,10 @@ class Model(dj.Manual):
         model_fn, model_config = self.fetch1('model_fn', 'model_config')
         model_config = cleanup_numpy_scalar(model_config)
         return model_fn, model_config
+
+    @staticmethod
+    def resolve_fn(fn_name):
+        return resolve_model(fn_name)
 
     def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment='', skip_duplicates=False):
         """
@@ -129,6 +133,10 @@ class Dataset(dj.Manual):
         dataset_fn, dataset_config = self.fetch1('dataset_fn', 'dataset_config')
         dataset_config = cleanup_numpy_scalar(dataset_config)
         return dataset_fn, dataset_config
+
+    @staticmethod
+    def resolve_fn(fn_name):
+        return resolve_data(fn_name)
 
     def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment='', skip_duplicates=False):
         """
@@ -217,6 +225,10 @@ class Trainer(dj.Manual):
         trainer_fn, trainer_config = self.fetch1('trainer_fn', 'trainer_config')
         trainer_config = cleanup_numpy_scalar(trainer_config)
         return trainer_fn, trainer_config
+
+    @staticmethod
+    def resolve_fn(fn_name):
+        return resolve_trainer(fn_name)
 
     def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment='', skip_duplicates=False):
         """

@@ -158,7 +158,7 @@ class TrainedModelBase(dj.Computed):
             self.call_back(**kwargs)
 
         # model training
-        score, output, model_state = trainer(model, dataloaders, seed=seed, uid=key, cb=call_back)
+        score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key) + '.pth.tar'
