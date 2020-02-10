@@ -65,7 +65,7 @@ class Model(dj.Manual):
 
     @staticmethod
     def resolve_fn(fn_name):
-        return resolve_fn(fn_name, default_base='models')
+        return resolve_model(fn_name)
 
     def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment='', skip_duplicates=False):
         """
@@ -128,7 +128,6 @@ class Dataset(dj.Manual):
     dataset_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
     """
 
-
     @property
     def fn_config(self):
         dataset_fn, dataset_config = self.fetch1('dataset_fn', 'dataset_config')
@@ -137,7 +136,7 @@ class Dataset(dj.Manual):
 
     @staticmethod
     def resolve_fn(fn_name):
-        return resolve_fn(fn_name, default_base='datasets')
+        return resolve_data(fn_name)
 
     def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment='', skip_duplicates=False):
         """
@@ -229,7 +228,7 @@ class Trainer(dj.Manual):
 
     @staticmethod
     def resolve_fn(fn_name):
-        return resolve_fn(fn_name, default_base='training')
+        return resolve_trainer(fn_name)
 
     def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment='', skip_duplicates=False):
         """
