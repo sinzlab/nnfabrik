@@ -1,4 +1,4 @@
-FROM sinzlab/pytorch:latest
+FROM sinzlab/pytorch:v3.8-torch1.4.0-cuda10.1-dj0.12.4
     
 WORKDIR /src
 

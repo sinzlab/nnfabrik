@@ -3,6 +3,11 @@ import torch.utils.data as utils
 import numpy as np
 import pickle
 
+# These function provide compatibility with the previous data loading logic of monkey V1 Data.
+# Individual sessions are no longer identified by a session key for different readouts,
+# but all sessions will be in a single loader. This provides backwards compatibility for
+# the Divisive Normalization model of Max Burg, and allows for direct comparison to the new way of dataloading as
+# a proof of principle for these kinds of models.
 
 def csrf_v1_legacy(datapath, image_path, batch_size, seed, train_frac=0.8,
                    subsample=1, crop=65, time_bins_sum=tuple(range(12))):
