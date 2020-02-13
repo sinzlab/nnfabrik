@@ -31,7 +31,8 @@ class NamedTensorDataset(utils.Dataset):
 
 def csrf_v1(datafiles, imagepath, batch_size, seed,
             train_frac=0.8, subsample=1, crop=65,
-            time_bins_sum=tuple(range(12)), avg=False):
+            time_bins_sum=tuple(range(12)), avg=False,
+            crop_h=None, crop_w=None):
     """
     Function that returns the dataloaders for the Center Surround Visual Field V1 Experiment.
         Data recorded by George and Kelli at BCM, Houston.
@@ -76,7 +77,12 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
 
     images = images[:, :, :, None]
     _, h, w = images.shape[:3]
-    images_cropped = images[:, crop:h - crop:subsample, crop:w - crop:subsample, :]
+
+    if crop_h is None and crop_w is None:
+        images_cropped = images[:, crop:h - crop:subsample, crop:w - crop:subsample, :]
+    else:
+        images_cropped = images[:, crop_h[0]:h - crop_h[1]:subsample, crop_w[0]:w - crop_w[1]:subsample, :]
+
     img_mean = np.mean(images_cropped)
     img_std = np.std(images_cropped)
 
@@ -105,8 +111,12 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
         responses_test = responses_test.transpose((2, 0, 1))
         responses_train = responses_train.transpose((2, 0, 1))
 
-        images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
-        images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+        # images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+        # images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+
+        images_train = images_cropped[training_image_ids]
+        images_test = images_cropped[testing_image_ids]
+
         images_train = (images_train - img_mean) / img_std
         images_test = (images_test - img_mean) / img_std
 
