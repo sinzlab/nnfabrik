@@ -108,7 +108,7 @@ def get_trainer(trainer_fn, trainer_config=None):
 
 def get_all_parts(dataset_fn, dataset_config, model_fn, model_config, seed=None, state_dict=None, strict=True, trainer_fn=None, trainer_config=None):
 
-    if seed is not None:
+    if seed is not None and 'seed' not in dataset_config:
         dataset_config['seed'] = seed  # override the seed if passed in
 
     dataloaders = get_data(dataset_fn, dataset_config)
