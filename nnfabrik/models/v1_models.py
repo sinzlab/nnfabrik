@@ -9,10 +9,10 @@ from mlutils.training import eval_state
 from .pretrained_models import TransferLearningCore
 from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 
-class PointPooled2dReadout(nn.ModuleDict):
+class MultiplePointPooled2d(nn.ModuleDict):
     def __init__(self, core, in_shape_dict, n_neurons_dict, pool_steps, pool_kern, bias, init_range, gamma_readout, readout_reg_avg):
         # super init to get the _module attribute
-        super(PointPooled2dReadout, self).__init__()
+        super(MultiplePointPooled2d, self).__init__()
         for k in n_neurons_dict:
             in_shape = get_module_output(core, in_shape_dict[k])[1:]
             n_neurons = n_neurons_dict[k]
@@ -129,19 +129,20 @@ def stacked2d_core_point_readout(dataloaders, seed, hidden_channels=32, input_ke
                          stack=stack,
                          use_avg_reg=use_avg_reg)
 
-    readout = PointPooled2dReadout(core, 
-                                   in_shape_dict=in_shapes_dict,
-                                   n_neurons_dict=n_neurons_dict,
-                                   pool_steps=pool_steps,
-                                   pool_kern=pool_kern,
-                                   bias=readout_bias,
-                                   init_range=init_range,
-                                   gamma_readout=gamma_readout, 
-                                   readout_reg_avg=readout_reg_avg)
+    readout = MultiplePointPooled2d(core,
+                                    in_shape_dict=in_shapes_dict,
+                                    n_neurons_dict=n_neurons_dict,
+                                    pool_steps=pool_steps,
+                                    pool_kern=pool_kern,
+                                    bias=readout_bias,
+                                    init_range=init_range,
+                                    gamma_readout=gamma_readout,
+                                    readout_reg_avg=readout_reg_avg)
 
     # initializing readout bias to mean response
-    for k in dataloaders:
-        readout[k].bias.data = dataloaders[k].dataset[:]._asdict()[out_name].mean(0)
+    if readout_bias:
+        for k in dataloaders:
+            readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
 
     model = Encoder(core, readout, elu_offset)
 
@@ -174,11 +175,12 @@ def vgg_core_point_readout(dataloaders, seed,
     if "train" in dataloaders.keys():
         dataloaders = dataloaders["train"]
 
+    in_name, out_name = next(iter(list(dataloaders.values())[0]))._fields
+
     session_shape_dict = get_dims_for_loader_dict(dataloaders)
-    n_neurons_dict = {k: v['targets'][1] for k, v in session_shape_dict.items()}
-    in_shapes_dict = {k: v['inputs'] for k, v in session_shape_dict.items()}
-    input_channels = [v['inputs'][1] for _, v in session_shape_dict.items()]
-    assert np.unique(input_channels).size == 1, "all input channels must be of equal size"
+    n_neurons_dict = {k: v[out_name][1] for k, v in session_shape_dict.items()}
+    in_shapes_dict = {k: v[in_name] for k, v in session_shape_dict.items()}
+    input_channels = [v[in_name][1] for v in session_shape_dict.values()]
 
     class Encoder(nn.Module):
         """
@@ -220,18 +222,19 @@ def vgg_core_point_readout(dataloaders, seed,
                                 final_nonlinearity=final_nonlinearity,
                                 bias=bias)
 
-    readout = PointPooled2dReadout(core, in_shape_dict=in_shapes_dict,
-                                   n_neurons_dict=n_neurons_dict,
-                                   pool_steps=pool_steps,
-                                   pool_kern=pool_kern,
-                                   bias=readout_bias,
-                                   init_range=init_range,
-                                   gamma_readout=gamma_readout,
-                                   readout_reg_avg=readout_reg_avg)
+    readout = MultiplePointPooled2d(core, in_shape_dict=in_shapes_dict,
+                                    n_neurons_dict=n_neurons_dict,
+                                    pool_steps=pool_steps,
+                                    pool_kern=pool_kern,
+                                    bias=readout_bias,
+                                    init_range=init_range,
+                                    gamma_readout=gamma_readout,
+                                    readout_reg_avg=readout_reg_avg)
 
     # initializing readout bias to mean response
-    for k in dataloaders:
-        readout[k].bias.data = dataloaders[k].dataset[:].targets.mean(0)
+    if readout_bias:
+        for k in dataloaders:
+            readout[k].bias.data = dataloaders[k].dataset[:][1].mean(0)
 
     model = Encoder(core, readout, elu_offset)
 
