@@ -13,7 +13,7 @@ from mlutils.data.samplers import SubsetSequentialSampler
 from ..utility.nn_helpers import set_random_seed
 
 
-def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3',
+def mouse_static_loader(path, batch_size, seed=None, area='V1', layer='L2/3',
                         tier=None, neuron_ids=None, get_key=False, cuda=True, normalize=True, include_behavior=False,
                         exclude=None, select_input_channel=None, toy_data=False, **kwargs):
     """
@@ -22,7 +22,7 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
     Args:
         path (list): list of path(s) for the dataset(s)
         batch_size (int): batch size.
-        img_seed (int, optional): random seed for images. Defaults to None.
+        seed (int, optional): random seed for images. Defaults to None.
         area (str, optional): the visual area. Defaults to 'V1'.
         layer (str, optional): the layer from visual area. Defaults to 'L2/3'.
         tier (str, optional): tier is a placeholder to specify which set of images to pick for train, val, and test loader. Defaults to None.
@@ -65,8 +65,8 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
     keys = [tier] if tier else ['train', 'validation', 'test']
     for tier in keys:
         
-        if img_seed is not None:
-            set_random_seed(img_seed)
+        if seed is not None:
+            set_random_seed(seed)
             # torch.manual_seed(img_seed)
 
         # sample images
@@ -77,13 +77,10 @@ def mouse_static_loader(path, batch_size, img_seed=None, area='V1', layer='L2/3'
     
     # create the data_key for a specific data path 
     data_key = path.split('static')[-1].split('.')[0].replace('preproc', '')
-    if toy_data:
-        data_key = path.split('toy_')[-1][:13]
-
     return (data_key, dataloaders) if get_key else dataloaders
 
 
-def mouse_static_loaders(paths, batch_size, img_seed=None, area='V1', layer='L2/3', tier=None,
+def mouse_static_loaders(paths, batch_size, seed=None, area='V1', layer='L2/3', tier=None,
                          neuron_ids=None, cuda=True, normalize=False, include_behavior=False,
                          exclude=None, select_input_channel=None, toy_data=False, **kwargs):
     """
@@ -92,7 +89,7 @@ def mouse_static_loaders(paths, batch_size, img_seed=None, area='V1', layer='L2/
     Args:
         paths (list): list of path(s) for the dataset(s)
         batch_size (int): batch size.
-        img_seed (int, optional): random seed for images. Defaults to None.
+        seed (int, optional): random seed for images. Defaults to None.
         area (str, optional): the visual area. Defaults to 'V1'.
         layer (str, optional): the layer from visual area. Defaults to 'L2/3'.
         tier (str, optional): tier is a placeholder to specify which set of images to pick for train, val, and test loader. Defaults to None.
@@ -111,7 +108,7 @@ def mouse_static_loaders(paths, batch_size, img_seed=None, area='V1', layer='L2/
         dls[key] = OrderedDict({})
 
     for path, neuron_id in zip_longest(paths, neuron_ids, fillvalue=None):
-        data_key, loaders = mouse_static_loader(path, batch_size, img_seed=img_seed,
+        data_key, loaders = mouse_static_loader(path, batch_size, seed=seed,
                                                 area=area, layer=layer, cuda=cuda,
                                                 tier=tier, get_key=True, neuron_ids=neuron_id,
                                                 normalize=normalize, include_behavior=include_behavior,
