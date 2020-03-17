@@ -33,7 +33,7 @@ class ImageCache:
         return key in self.cache
 
     def update(self, key):
-        filename = self.path + str(key).zfill(self.leading_zeros) + '.npy'
+        filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
         image = np.load(filename)
         transformed_image = self._transform_image(image)
         self.cache[key] = transformed_image
