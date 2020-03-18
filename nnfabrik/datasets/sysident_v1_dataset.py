@@ -11,7 +11,7 @@ class ImageCache:
     A simple cache which loads images into memory given a path to the directory where the images are stored.
     Images need to be present as 2D .npy arrays
     """
-    def __init__(self, path=None, subsample=1, crop=0, img_mean=None, img_std=None, leading_zeros=6):
+    def __init__(self, path=None, subsample=1, crop=0, img_mean=None, img_std=None, filename_precision=6):
         """
 
         :param path: str - pointing to the directory, where the individual .npy files are present
@@ -19,7 +19,7 @@ class ImageCache:
         :param crop: int - crops the specified amount of pixles symmetrically from all sides
         :param img_mean: - mean luminance across all images
         :param img_std: - std of the luminance across all images
-        :param leading_zeros: - amount leading zeros of the files in the specified folder
+        :param filename_precision: - amount leading zeros of the files in the specified folder
         """
         self.cache = {}
         self.path = path
@@ -27,7 +27,7 @@ class ImageCache:
         self.crop = crop
         self.img_mean = img_mean
         self.img_std = img_std
-        self.leading_zeros = leading_zeros
+        self.leading_zeros = filename_precision
 
     def __contains__(self, key):
         return key in self.cache
