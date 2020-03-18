@@ -32,6 +32,12 @@ class ImageCache:
     def __contains__(self, key):
         return key in self.cache
 
+    def __getitem__(self, item):
+        if item not in self.cache:
+            self.update(item)
+            print("have to get an item. it's that one: ", item)
+        return self.cache[item]
+
     def update(self, key):
         filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
         image = np.load(filename)
@@ -75,9 +81,7 @@ class CachedTensorDataset(utils.Dataset):
             the cache is updated to load the corresponding image into memory.
         """
         key = self.tensors[0][index].item()
-        if key not in self.image_cache:
-            self.image_cache.update(key)
-        return self.DataPoint(*[self.image_cache.cache[key], *[tensor[index] for tensor in self.tensors[1:]]])
+        return self.DataPoint(*[self.image_cache[key], *[tensor[index] for tensor in self.tensors[1:]]])
 
     def __len__(self):
         return self.tensors[0].size(0)
@@ -85,22 +89,23 @@ class CachedTensorDataset(utils.Dataset):
 
 def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cache=None):
     """
+
     Args:
-        images: Numpy Array of Images, Dimensions: N x C x W x H
+        image_ids: an array of image IDs
         responses: Numpy Array, Dimensions: N_images x Neurons
         batch_size: int - batch size for the dataloader
         shuffle: Boolean, shuffles image in the dataloader if True
+        image_cache: a cache object which stores the images
 
     Returns: a PyTorch DataLoader object
-
     """
 
     # Expected Dimension of the Image Tensor is Images x Channels x size_x x size_y
     # In some CSRF files, Channels are at Dim4, the image tensor is thus reshaped accordingly
-    image_ids = torch.tensor(image_ids)
+    image_ids = torch.tensor(image_ids.astype(np.int32))
     responses = torch.tensor(responses).to(torch.float)
 
-    dataset = NamedTensorDataset(image_ids, responses, image_cache=image_cache)
+    dataset = CachedTensorDataset(image_ids, responses, image_cache=image_cache)
     data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
     return data_loader
@@ -194,9 +199,13 @@ def monkey_csrf(datafiles, imagepath, batch_size, seed,
         responses_val = responses_train[val_idx]
         responses_train = responses_train[train_idx]
 
-        train_loader = get_cached_loader(np.array(train_idx, dtype=np.int16), responses_train, batch_size=batch_size, image_cache=Cache)
-        val_loader = get_cached_loader(np.array(val_idx, dtype=np.int16), responses_val, batch_size=batch_size, image_cache=Cache)
-        test_loader = get_cached_loader(np.array(testing_image_ids, dtype=np.int16), responses_test, batch_size=batch_size, shuffle=False, image_cache=Cache)
+        validation_image_ids = training_image_ids[val_idx]
+        training_image_ids = training_image_ids[train_idx]
+
+        train_loader = get_cached_loader(training_image_ids, responses_train, batch_size=batch_size, image_cache=Cache)
+        val_loader = get_cached_loader(validation_image_ids, responses_val, batch_size=batch_size, image_cache=Cache)
+        test_loader = get_cached_loader(testing_image_ids, responses_test, batch_size=batch_size, shuffle=False,
+                                        image_cache=Cache)
 
         dataloaders["train"][data_key] = train_loader
         dataloaders["validation"][data_key] = val_loader
