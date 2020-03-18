@@ -67,11 +67,12 @@ class CachedTensorDataset(utils.Dataset):
     Arguments:
         *tensors (Tensor): tensors that have the same size of the first dimension.
     """
-    def __init__(self, *tensors, names=('inputs','targets'), image_cache=None):
+
+    def __init__(self, *tensors, names=('inputs', 'targets'), image_cache=None):
         assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
         assert len(tensors) == len(names)
         self.tensors = tensors
-        self.inputs_position = names.index("inputs")
+        self.input_position = names.index("inputs")
         self.DataPoint = namedtuple('DataPoint', names)
         self.image_cache = image_cache
 
@@ -81,7 +82,9 @@ class CachedTensorDataset(utils.Dataset):
             the cache is updated to load the corresponding image into memory.
         """
         key = self.tensors[0][index].item()
-        return self.DataPoint(*[self.image_cache[key], *[tensor[index] for tensor in self.tensors[1:]]])
+        tensors_expanded = [tensor[index] for pos, tensor in enumerate(self.tensors) if pos != self.input_position]
+        tensors_expanded.insert(self.input_position, self.image_cache[key])
+        return self.DataPoint(*tensors_expanded)
 
     def __len__(self):
         return self.tensors[0].size(0)
