@@ -72,6 +72,7 @@ class CachedTensorDataset(utils.Dataset):
         assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
         assert len(tensors) == len(names)
         self.tensors = tensors
+        self.inputs_position = names.index("inputs")
         self.DataPoint = namedtuple('DataPoint', names)
         self.image_cache = image_cache
 
