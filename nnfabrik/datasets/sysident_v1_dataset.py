@@ -35,7 +35,6 @@ class ImageCache:
     def __getitem__(self, item):
         if item not in self.cache:
             self.update(item)
-            print("have to get an item. it's that one: ", item)
         return self.cache[item]
 
     def update(self, key):
