@@ -32,6 +32,9 @@ class ImageCache:
         self.img_std = img_std
         self.leading_zeros = filename_precision
 
+    def __len__(self):
+        return len([file for file in os.listdir(self.path) if file.endswith('.npy')])
+
     def __contains__(self, key):
         return key in self.cache
 
