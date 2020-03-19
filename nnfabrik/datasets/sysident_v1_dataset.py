@@ -39,7 +39,16 @@ class ImageCache:
         return key in self.cache
 
     def __getitem__(self, item):
-        return [self[i] for i in item] if isinstance(item, Iterable) else self.cache.get(item, self.update(item))
+        if isinstance(item, Iterable):
+            for i in item:
+                if i not in self.cache:
+                    self.update(i)
+            return [self.cache[i] for i in item]
+
+        else:
+            if item not in self.cache:
+                self.update(item)
+            return self.cache[item]
 
     def update(self, key):
         filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
@@ -93,6 +102,10 @@ class CachedTensorDataset(utils.Dataset):
 
         tensors_expanded = [tensor[index] for pos, tensor in enumerate(self.tensors) if pos != self.input_position]
         tensors_expanded.insert(self.input_position, torch.stack(list(self.image_cache[key])))
+
+        #tensors_expanded = [tensor[index] if pos != self.input_position else torch.stack(list(self.image_cache[key]))
+        #                    for pos, tensor in enumerate(self.tensors)]
+
         return self.DataPoint(*tensors_expanded)
 
     def __len__(self):
@@ -114,11 +127,9 @@ def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cach
 
     image_ids = torch.tensor(image_ids.astype(np.int32))
     responses = torch.tensor(responses).to(torch.float)
-
     dataset = CachedTensorDataset(image_ids, responses, image_cache=image_cache)
-    data_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
-    return data_loader
+    return utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 
 def monkey_static_loader(dataset,
