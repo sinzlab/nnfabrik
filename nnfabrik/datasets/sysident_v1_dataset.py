@@ -38,17 +38,6 @@ class ImageCache:
     def __getitem__(self, item):
         return [self[i] for i in item] if isinstance(item, Iterable) else self.cache.get(item, self.update(item))
 
-        if isinstance(item, Iterable):
-            for i in item:
-                if i not in self.cache:
-                    self.update(i)
-            return [self.cache[i] for i in item]
-
-        else:
-            if item not in self.cache:
-                self.update(item)
-            return self.cache[item]
-
     def update(self, key):
         filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
         image = np.load(filename)
