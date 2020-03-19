@@ -39,23 +39,17 @@ class ImageCache:
         return key in self.cache
 
     def __getitem__(self, item):
-        if isinstance(item, Iterable):
-            for i in item:
-                if i not in self.cache:
-                    self.update(i)
-            return [self.cache[i] for i in item]
-
-        else:
-            if item not in self.cache:
-                self.update(item)
-            return self.cache[item]
+        return [self[i] for i in item] if isinstance(item, Iterable) else self.update(item)
 
     def update(self, key):
-        filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
-        image = np.load(filename)
-        transformed_image = self.transform_image(image)
-        self.cache[key] = transformed_image
-        return transformed_image
+        if key in self.cache:
+            return self.cache[key]
+        else:
+            filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
+            image = np.load(filename)
+            transformed_image = self.transform_image(image)
+            self.cache[key] = transformed_image
+            return transformed_image
 
     def transform_image(self, image):
         """
