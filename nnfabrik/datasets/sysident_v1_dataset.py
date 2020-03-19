@@ -83,8 +83,11 @@ class CachedTensorDataset(utils.Dataset):
     """
 
     def __init__(self, *tensors, names=('inputs', 'targets'), image_cache=None):
-        assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
-        assert len(tensors) == len(names)
+        if not all(tensors[0].size(0) == tensor.size(0) for tensor in tensors):
+            raise ValueError('The tensors of the dataset have unequal lenghts. The first dim of all tensors has to match exactly.')
+        if not len(tensors) == len(names):
+            raise ValueError('Number of tensors and names provided have to match.  If there are more than two tensors,'
+                             'names have to be passed to the TensorDataset')
         self.tensors = tensors
         self.input_position = names.index("inputs")
         self.DataPoint = namedtuple('DataPoint', names)
@@ -100,11 +103,8 @@ class CachedTensorDataset(utils.Dataset):
         else:
             key = self.tensors[0][index].numpy().astype(np.int32)
 
-        tensors_expanded = [tensor[index] for pos, tensor in enumerate(self.tensors) if pos != self.input_position]
-        tensors_expanded.insert(self.input_position, torch.stack(list(self.image_cache[key])))
-
-        #tensors_expanded = [tensor[index] if pos != self.input_position else torch.stack(list(self.image_cache[key]))
-        #                    for pos, tensor in enumerate(self.tensors)]
+        tensors_expanded = [tensor[index] if pos != self.input_position else torch.stack(list(self.image_cache[key]))
+                            for pos, tensor in enumerate(self.tensors)]
 
         return self.DataPoint(*tensors_expanded)
 
@@ -269,8 +269,12 @@ class NamedTensorDataset(utils.Dataset):
         *tensors (Tensor): tensors that have the same size of the first dimension.
     """
     def __init__(self, *tensors, names=('inputs','targets')):
-        assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
-        assert len(tensors) == len(names)
+        if not all(tensors[0].size(0) == tensor.size(0) for tensor in tensors):
+            raise ValueError(
+                'The tensors of the dataset have unequal lenghts. The first dim of all tensors has to match exactly.')
+        if not len(tensors) == len(names):
+            raise ValueError('Number of tensors and names provided have to match.  If there are more than two tensors,'
+                             'names have to be passed to the TensorDataset')
         self.tensors = tensors
         self.DataPoint = namedtuple('DataPoint', names)
 
