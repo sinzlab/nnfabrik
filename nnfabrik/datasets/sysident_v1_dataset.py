@@ -6,12 +6,14 @@ import pickle
 from collections import namedtuple, Iterable
 import os
 
+
 class ImageCache:
     """
     A simple cache which loads images into memory given a path to the directory where the images are stored.
     Images need to be present as 2D .npy arrays
     """
-    def __init__(self, path=None, subsample=1, crop=0, img_mean=None, img_std=None, filename_precision=6):
+
+    def __init__(self, path=None, subsample=1, crop=0, img_mean=None, img_std=None, leading_zeros=6):
         """
 
         :param path: str - pointing to the directory, where the individual .npy files are present
@@ -19,7 +21,7 @@ class ImageCache:
         :param crop: int - crops the specified amount of pixles symmetrically from all sides
         :param img_mean: - mean luminance across all images
         :param img_std: - std of the luminance across all images
-        :param filename_precision: - amount leading zeros of the files in the specified folder
+        :param leading_zeros: - amount leading zeros of the files in the specified folder
         """
         self.cache = {}
         self.path = path
@@ -27,15 +29,22 @@ class ImageCache:
         self.crop = crop
         self.img_mean = img_mean
         self.img_std = img_std
-        self.leading_zeros = filename_precision
+        self.leading_zeros = leading_zeros
 
     def __contains__(self, key):
         return key in self.cache
 
     def __getitem__(self, item):
-        if item not in self.cache:
-            self.update(item)
-        return self.cache[item]
+        if isinstance(item, Iterable):
+            for i in item:
+                if i not in self.cache:
+                    self.update(i)
+            return [self.cache[i] for i in item]
+
+        else:
+            if item not in self.cache:
+                self.update(item)
+            return self.cache[item]
 
     def update(self, key):
         filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
@@ -50,7 +59,7 @@ class ImageCache:
         h, w = image.shape
         image = image[self.crop:h - self.crop:self.subsample, self.crop:w - self.crop:self.subsample]
         image = (image - self.img_mean) / self.img_std
-        image = image[None, ]
+        image = image[None,]
         return torch.tensor(image).to(torch.float)
 
     @property
