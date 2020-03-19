@@ -16,12 +16,13 @@ class ImageCache:
     def __init__(self, path=None, subsample=1, crop=0, img_mean=None, img_std=None, leading_zeros=6):
         """
 
-        :param path: str - pointing to the directory, where the individual .npy files are present
-        :param subsample: int - amount of downsampling
-        :param crop: int - crops the specified amount of pixles symmetrically from all sides
-        :param img_mean: - mean luminance across all images
-        :param img_std: - std of the luminance across all images
-        :param leading_zeros: - amount leading zeros of the files in the specified folder
+        path: str - pointing to the directory, where the individual .npy files are present
+        subsample: int - amount of downsampling
+        crop:  the expected input is a list of tuples, the specify the exact cropping from all four sides
+                i.e. [(crop_left, crop_right), (crop_top, crop_down)]
+        img_mean: - mean luminance across all images
+        img_std: - std of the luminance across all images
+        leading_zeros: - amount leading zeros of the files in the specified folder
         """
         self.cache = {}
         self.path = path
@@ -57,7 +58,7 @@ class ImageCache:
         applies transformations to the image: downsampling and cropping, z-scoring, and dimension expansion.
         """
         h, w = image.shape
-        image = image[self.crop:h - self.crop:self.subsample, self.crop:w - self.crop:self.subsample]
+        image = image[self.crop[0][0]:h - self.crop[0][1]:self.subsample, self.crop[1][0]:w - self.crop[1][1]:self.subsample]
         image = (image - self.img_mean) / self.img_std
         image = image[None,]
         return torch.tensor(image).to(torch.float)
@@ -127,10 +128,17 @@ def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cach
     return data_loader
 
 
-def monkey_csrf(datafiles, imagepath, batch_size, seed,
-            train_frac=0.8, subsample=1, crop=65,
-            time_bins_sum=tuple(range(12)), avg=False,
-            crop_h=None, crop_w=None):
+def monkey_static_loader(dataset,
+                         neuronal_data_files,
+                         imagepath,
+                         cached_images_path,
+                         batch_size=64,
+                         seed=None,
+                         train_frac=0.8,
+                         subsample=1,
+                         crop=96,
+                         time_bins_sum=12,
+                         avg=False):
     """
     Function that returns cached dataloaders for the Center Surround Visual Field Experiments.
         Data recorded by George and Kelli at BCM, Houston.
@@ -149,13 +157,17 @@ def monkey_csrf(datafiles, imagepath, batch_size, seed,
         to a file that contains all the actually images
 
     Args:
+        dataset: a string, identifying the Dataset:
+            'V1', 'CSRF_V1', 'CSRF_V4'
         datafiles: a list paths that point to pickle files
         imagepath: a path that points to the image files
         batch_size: int - batch size of the dataloaders
         seed: int - random seed, to calculate the random split
         train_frac: ratio of train/validation images
         subsample: int - downsampling factor
-        crop: int - crops x pixels from each side. Example: Input image of 100x100, crop=10 => Resulting img = 80x80
+        crop: int or tuple - crops x pixels from each side. Example: Input image of 100x100, crop=10 => Resulting img = 80x80.
+            if crop is tuple, the expected input is a list of tuples, the specify the exact cropping from all four sides
+                i.e. [(crop_left, crop_right), (crop_top, crop_bottom)]
         time_bins_sum: sums the responses over x time bins.
         avg: Boolean - Sums oder Averages the responses across bins.
 
@@ -174,40 +186,52 @@ def monkey_csrf(datafiles, imagepath, batch_size, seed,
 
     images = images[:, :, :, None]
     _, h, w = images.shape[:3]
-    if crop_h is None and crop_w is None:
-        images_cropped = images[:, crop:h - crop:subsample, crop:w - crop:subsample, :]
-    else:
-        images_cropped = images[:, crop_h[0]:h - crop_h[1]:subsample, crop_w[0]:w - crop_w[1]:subsample, :]
+
+    if isinstance(crop, int):
+        crop = [(crop, crop), (crop, crop)]
+
+    images_cropped = images[:, crop[0][0]:h - crop[0][1]:subsample, crop[1][0]:w - crop[1][1]:subsample, :]
     img_mean = np.mean(images_cropped)
     img_std = np.std(images_cropped)
 
-    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0],
+    # set up parameters for the different dataset types
+    if dataset == 'V1':
+        # for the "Amadeus V1" Dataset, recorded by Santiago Cadena, there was no specified test set.
+        # instead, the last 20% of the dataset were classified as test set. To make sure that the test set
+        # of this dataset will always stay identical, the `train_test_split` value is hardcoded here.
+        train_test_split = 0.8
+        image_id_offset = 1
+    else:
+        train_test_split = 1
+        image_id_offset = 0
+
+    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0] * train_test_split,
                                                              train_frac=train_frac,
                                                              seed=seed)
 
     # Initialize the Image Cache class
-    path = os.path.join(os.path.split(imagepath)[0], 'image_arrays')
-    Cache = ImageCache(path=path, subsample=subsample, crop=crop, img_mean=img_mean, img_std=img_std)
+    Cache = ImageCache(path=cached_images_path, subsample=subsample, crop=crop, img_mean=img_mean, img_std=img_std)
 
     # cycling through all datafiles to fill the dataloaders with an entry per session
-    for i, datapath in enumerate(datafiles):
+    for i, datapath in enumerate(neuronal_data_files):
 
         with open(datapath, "rb") as pkl:
             raw_data = pickle.load(pkl)
 
         subject_ids = raw_data["subject_id"]
         data_key = str(raw_data["session_id"])
-        repetitions_test = raw_data["testing_repetitions"]
         responses_train = raw_data["training_responses"].astype(np.float32)
         responses_test = raw_data["testing_responses"].astype(np.float32)
-        training_image_ids = raw_data["training_image_ids"]
-        testing_image_ids = raw_data["testing_image_ids"]
-        responses_test = responses_test.transpose((2, 0, 1))
-        responses_train = responses_train.transpose((2, 0, 1))
+        training_image_ids = raw_data["training_image_ids"] - image_id_offset
+        testing_image_ids = raw_data["testing_image_ids"] - image_id_offset
 
-        if time_bins_sum is not None:  # then average over given time bins
-            responses_train = (np.mean if avg else np.sum)(responses_train[:, :, time_bins_sum], axis=-1)
-            responses_test = (np.mean if avg else np.sum)(responses_test[:, :, time_bins_sum], axis=-1)
+        if dataset != 'V1':
+            responses_test = responses_test.transpose((2, 0, 1))
+            responses_train = responses_train.transpose((2, 0, 1))
+
+            if time_bins_sum is not None:  # then average over given time bins
+                responses_train = (np.mean if avg else np.sum)(responses_train[:, :, time_bins_sum], axis=-1)
+                responses_test = (np.mean if avg else np.sum)(responses_test[:, :, time_bins_sum], axis=-1)
 
         train_idx = np.isin(training_image_ids, all_train_ids)
         val_idx = np.isin(training_image_ids, all_validation_ids)
@@ -471,7 +495,7 @@ def get_validation_split(n_images, train_frac, seed):
 
     """
     if seed: np.random.seed(seed)
-    train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images*train_frac)])
+    train_idx, val_idx = np.split(np.random.permutation(int(n_images)), [int(n_images*train_frac)])
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
 
     return train_idx, val_idx
