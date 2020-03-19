@@ -13,7 +13,7 @@ class ImageCache:
     Images need to be present as 2D .npy arrays
     """
 
-    def __init__(self, path=None, subsample=1, crop=0, img_mean=None, img_std=None, leading_zeros=6):
+    def __init__(self, path=None, subsample=1, crop=0, img_mean=None, img_std=None, filename_precision=6):
         """
 
         path: str - pointing to the directory, where the individual .npy files are present
@@ -30,12 +30,14 @@ class ImageCache:
         self.crop = crop
         self.img_mean = img_mean
         self.img_std = img_std
-        self.leading_zeros = leading_zeros
+        self.leading_zeros = filename_precision
 
     def __contains__(self, key):
         return key in self.cache
 
     def __getitem__(self, item):
+        return [self[i] for i in item] if isinstance(item, Iterable) else self.cache.get(item, self.update(item))
+
         if isinstance(item, Iterable):
             for i in item:
                 if i not in self.cache:
@@ -50,10 +52,11 @@ class ImageCache:
     def update(self, key):
         filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
         image = np.load(filename)
-        transformed_image = self._transform_image(image)
+        transformed_image = self.transform_image(image)
         self.cache[key] = transformed_image
+        return transformed_image
 
-    def _transform_image(self, image):
+    def transform_image(self, image):
         """
         applies transformations to the image: downsampling and cropping, z-scoring, and dimension expansion.
         """
@@ -64,7 +67,7 @@ class ImageCache:
         return torch.tensor(image).to(torch.float)
 
     @property
-    def size(self):
+    def cache_size(self):
         return len(self.cache)
 
 
@@ -117,8 +120,6 @@ def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cach
     Returns: a PyTorch DataLoader object
     """
 
-    # Expected Dimension of the Image Tensor is Images x Channels x size_x x size_y
-    # In some CSRF files, Channels are at Dim4, the image tensor is thus reshaped accordingly
     image_ids = torch.tensor(image_ids.astype(np.int32))
     responses = torch.tensor(responses).to(torch.float)
 
@@ -210,7 +211,7 @@ def monkey_static_loader(dataset,
                                                              seed=seed)
 
     # Initialize the Image Cache class
-    Cache = ImageCache(path=cached_images_path, subsample=subsample, crop=crop, img_mean=img_mean, img_std=img_std)
+    cache = ImageCache(path=cached_images_path, subsample=subsample, crop=crop, img_mean=img_mean, img_std=img_std)
 
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(neuronal_data_files):
@@ -242,10 +243,10 @@ def monkey_static_loader(dataset,
         validation_image_ids = training_image_ids[val_idx]
         training_image_ids = training_image_ids[train_idx]
 
-        train_loader = get_cached_loader(training_image_ids, responses_train, batch_size=batch_size, image_cache=Cache)
-        val_loader = get_cached_loader(validation_image_ids, responses_val, batch_size=batch_size, image_cache=Cache)
+        train_loader = get_cached_loader(training_image_ids, responses_train, batch_size=batch_size, image_cache=cache)
+        val_loader = get_cached_loader(validation_image_ids, responses_val, batch_size=batch_size, image_cache=cache)
         test_loader = get_cached_loader(testing_image_ids, responses_test, batch_size=batch_size, shuffle=False,
-                                        image_cache=Cache)
+                                        image_cache=cache)
 
         dataloaders["train"][data_key] = train_loader
         dataloaders["validation"][data_key] = val_loader
@@ -264,7 +265,7 @@ class NamedTensorDataset(utils.Dataset):
     Arguments:
         *tensors (Tensor): tensors that have the same size of the first dimension.
     """
-    def __init__(self, *tensors, names=('inputs','targets'), image_cache=None):
+    def __init__(self, *tensors, names=('inputs','targets')):
         assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
         assert len(tensors) == len(names)
         self.tensors = tensors
