@@ -90,9 +90,13 @@ class CachedTensorDataset(utils.Dataset):
         retrieves the inputs (= tensors[0]) from the image cache. If the image ID is not present in the cache,
             the cache is updated to load the corresponding image into memory.
         """
-        key = self.tensors[0][index].item()
+        if type(index) == int:
+            key = self.tensors[0][index].item()
+        else:
+            key = self.tensors[0][index].numpy().astype(np.int32)
+
         tensors_expanded = [tensor[index] for pos, tensor in enumerate(self.tensors) if pos != self.input_position]
-        tensors_expanded.insert(self.input_position, self.image_cache[key])
+        tensors_expanded.insert(self.input_position, torch.stack(list(self.image_cache[key])))
         return self.DataPoint(*tensors_expanded)
 
     def __len__(self):
