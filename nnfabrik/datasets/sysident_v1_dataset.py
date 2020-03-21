@@ -107,7 +107,7 @@ class CachedTensorDataset(utils.Dataset):
         return self.tensors[0].size(0)
 
 
-def get_cached_loader_repeats(image_ids, responses, batch_size, shuffle=True, image_cache=None, repeat_condition=None):
+def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cache=None, repeat_condition=None):
     """
 
     Args:
@@ -246,8 +246,8 @@ def monkey_static_loader(dataset,
 
         train_loader = get_cached_loader(training_image_ids, responses_train, batch_size=batch_size, image_cache=cache)
         val_loader = get_cached_loader(validation_image_ids, responses_val, batch_size=batch_size, image_cache=cache)
-        test_loader = get_cached_loader(testing_image_ids, responses_test, batch_size=batch_size, shuffle=False,
-                                        image_cache=cache)
+        test_loader = get_cached_loader(testing_image_ids, responses_test, batch_size=1, shuffle=False,
+                                                image_cache=cache, repeats=testing_image_ids)
 
         dataloaders["train"][data_key] = train_loader
         dataloaders["validation"][data_key] = val_loader
