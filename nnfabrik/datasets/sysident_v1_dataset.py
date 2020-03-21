@@ -5,6 +5,7 @@ import pickle
 #from retina.retina import warp_image
 from collections import namedtuple, Iterable
 import os
+from mlutils.data.samplers import RepeatsBatchSampler
 
 
 class ImageCache:
@@ -106,7 +107,7 @@ class CachedTensorDataset(utils.Dataset):
         return self.tensors[0].size(0)
 
 
-def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cache=None):
+def get_cached_loader_repeats(image_ids, responses, batch_size, shuffle=True, image_cache=None, repeat_condition=None):
     """
 
     Args:
@@ -122,9 +123,12 @@ def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cach
     image_ids = torch.tensor(image_ids.astype(np.int32))
     responses = torch.tensor(responses).to(torch.float)
     dataset = CachedTensorDataset(image_ids, responses, image_cache=image_cache)
+    sampler = RepeatsBatchSampler(torch.tensor(repeat_condition.astype(np.int32))) if repeat_condition is not None else None
 
-    return utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-
+    return utils.DataLoader(dataset,
+                            batch_size=batch_size,
+                            shuffle=shuffle,
+                            sampler=sampler)
 
 def monkey_static_loader(dataset,
                          neuronal_data_files,
