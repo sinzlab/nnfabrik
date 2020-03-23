@@ -48,9 +48,10 @@ def get_module_output(model, input_shape):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     with eval_state(model):
         with torch.no_grad():
-            tensor_out = model.to(device)(torch.zeros(input_shape).to(device)).shape
+            input = torch.zeros(1, *input_shape[1:]).to(device)
+            output = model.to(device)(input)
     model.to(initial_device)
-    return tensor_out
+    return output.shape
 
 def set_random_seed(seed):
     """
