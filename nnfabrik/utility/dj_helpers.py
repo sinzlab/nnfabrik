@@ -172,7 +172,7 @@ def gitlog(repos=()):
     return gitlog_wrapper
 
 
-def create_param_expansion(f_name, container_table, fn_field=None, config_field=None, resolver=None, suffix='Param'):
+def create_param_expansion(f_name, container_table, fn_field=None, config_field=None, resolver=None, suffix='Param', default_to_str=False):
     """
     Given a function name `f_name` as would be found in the `container_table` class, this will create
     a new DataJoint computed table subclass with the correct definition to expand blobs corresponding to
@@ -202,7 +202,7 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
     resolver = resolver or (lambda x: container_table.resolve_fn(x))
     f = resolver(f_name)
 
-    def_str = make_definition(f)
+    def_str = make_definition(f, default_to_str)
 
     class NewTable(dj.Computed):
         definition = """
@@ -219,16 +219,17 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
             entries = (container_table & key).fetch1(config_field)
             entries = cleanup_numpy_scalar(entries)
             key = dict(key, **entries)
-            for k,v in key.items():
-                if type(v) in [list, tuple]:
-                    key[k]=str(v)
+            if default_to_str:
+                for k,v in key.items():
+                    if type(v) in [list, tuple]:
+                        key[k]=str(v)
             self.insert1(key, ignore_extra_fields=True)
 
     NewTable.__name__ = to_camel_case(f.__name__) + suffix
     return NewTable
 
 
-def make_definition(f, exclude=('model', 'dataloaders', 'seed')):
+def make_definition(f, exclude=('model', 'dataloaders', 'seed'), default_to_str=False):
     """
     Given a function `f`, creates a table definition string to house all arguments. The types
     of the arguments are inferred from (1) type annotation and (2) type of the default value if present,
@@ -258,7 +259,10 @@ def make_definition(f, exclude=('model', 'dataloaders', 'seed')):
         if v in argspec.annotations:
             t = argspec.annotations[v]
             if not t in [str, int, float, bool]:
-                t = str
+                if default_to_str:
+                    t = str
+                else:
+                    t = object
         elif v in def_lut:
             t = type(def_lut[v])
         else:
