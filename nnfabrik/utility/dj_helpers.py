@@ -192,6 +192,7 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
     `my_function_name`. In otherwords, the name is converted from snake_case to CamelCase and `suffix`
     (default to 'Param') is appended.
     """
+
     if fn_field is None:
         fn_field = next(v for v in container_table.heading.attributes.keys() if v.endswith('_fn'))
 
@@ -218,13 +219,16 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
             entries = (container_table & key).fetch1(config_field)
             entries = cleanup_numpy_scalar(entries)
             key = dict(key, **entries)
+            for k,v in key.items():
+                if type(v) in [list, tuple]:
+                    key[k]=str(v)
             self.insert1(key, ignore_extra_fields=True)
 
     NewTable.__name__ = to_camel_case(f.__name__) + suffix
     return NewTable
 
 
-def make_definition(f, exclude=('dataloaders', 'seed')):
+def make_definition(f, exclude=('model', 'dataloaders', 'seed')):
     """
     Given a function `f`, creates a table definition string to house all arguments. The types
     of the arguments are inferred from (1) type annotation and (2) type of the default value if present,
@@ -243,7 +247,9 @@ def make_definition(f, exclude=('dataloaders', 'seed')):
     }
     argspec = inspect.getfullargspec(f)
     total_def = []
-    def_lut = {k: (d if d is not None else 'NULL') for k, d in zip(argspec.args[::-1], argspec.defaults[::-1])}
+    def_lut = {}
+    if argspec.defaults is not None:
+        def_lut = {k: (d if d is not None else 'NULL') for k, d in zip(argspec.args[::-1], argspec.defaults[::-1])}
 
     for v in argspec.args:
         # skip arguments found in the exclude list
@@ -251,6 +257,8 @@ def make_definition(f, exclude=('dataloaders', 'seed')):
             continue
         if v in argspec.annotations:
             t = argspec.annotations[v]
+            if not t in [str, int, float, bool]:
+                t = str
         elif v in def_lut:
             t = type(def_lut[v])
         else:
