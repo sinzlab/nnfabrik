@@ -161,7 +161,7 @@ class Random():
 
         # import TrainedModel definition
         module_path, class_name = split_module_name(trained_model_table)
-        TrainedModel = dynamic_import(module_path, class_name)
+        self.TrainedModel = dynamic_import(module_path, class_name)
 
     @staticmethod
     def get_fixed_params(datase_config, model_config, trainer_config):
@@ -218,21 +218,21 @@ class Random():
         entry_exists = {"dataset_fn": "{}".format(self.fns['dataset'])} in Dataset() and {"dataset_hash": "{}".format(dataset_hash)} in Dataset()
         if not entry_exists:
             Dataset().add_entry(self.fns['dataset'], config['dataset'],
-                                dataset_architect=self.architect,
+                                dataset_fabrikant=self.architect,
                                 dataset_comment=self.comment)
 
         model_hash = make_hash(config['model'])
         entry_exists = {"model_fn": "{}".format(self.fns['model'])} in Model() and {"model_hash": "{}".format(model_hash)} in Model()
         if not entry_exists:
             Model().add_entry(self.fns['model'], config['model'],
-                              model_architect=self.architect,
+                              model_fabrikant=self.architect,
                               model_comment=self.comment)
 
         trainer_hash = make_hash(config['trainer'])
         entry_exists = {"trainer_fn": "{}".format(self.fns['trainer'])} in Trainer() and {"trainer_hash": "{}".format(trainer_hash)} in Trainer()
         if not entry_exists:
             Trainer().add_entry(self.fns['trainer'], config['trainer'],
-                                trainer_architect=self.architect,
+                                trainer_fabrikant=self.architect,
                                 trainer_comment=self.comment)
 
         # get the primary key values for all those entries
@@ -241,7 +241,7 @@ class Random():
                        'trainer_fn in ("{}")'.format(self.fns['trainer']), 'trainer_hash in ("{}")'.format(trainer_hash),)
 
         # populate the table for those primary keys
-        TrainedModel().populate(*restriction)
+        self.TrainedModel().populate(*restriction)
 
 
     def gen_params_value(self):
@@ -260,6 +260,6 @@ class Random():
 
     def run(self):
         n_trials = len(Seed()) * self.total_trials
-        init_len = len(TrainedModel())
-        while len(TrainedModel()) - init_len < n_trials:
+        init_len = len(self.TrainedModel())
+        while len(self.TrainedModel()) - init_len < n_trials:
             self.train_evaluate(self.gen_params_value())
