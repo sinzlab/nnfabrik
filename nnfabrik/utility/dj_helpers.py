@@ -202,7 +202,7 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
     resolver = resolver or (lambda x: container_table.resolve_fn(x))
     f = resolver(f_name)
 
-    def_str = make_definition(f, default_to_str)
+    def_str = make_definition(f, default_to_str=default_to_str)
 
     class NewTable(dj.Computed):
         definition = """
