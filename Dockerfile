@@ -1,13 +1,22 @@
-FROM sinzlab/pytorch:v3.8-torch1.4.0-cuda10.1-dj0.12.4
-    
+FROM sinzlab/pytorch:latest
+
+# WORKDIR /notebooks
 WORKDIR /src
+ADD . /src/notebooks
 
-
-# Add editable installation of nnfabrik
-ADD . /src/nnfabrik
-RUN pip3 install -e /src/nnfabrik/ml-utils
-RUN pip3 install -e /src/nnfabrik
+RUN pip3 install -e src/notebooks
+RUN pip3 install -e src/notebooks/ml-utils
 
 WORKDIR /notebooks
 
+#RUN python setup.py install
+#RUN pip3 install -e mei/mei
+#RUN pip3 install -e ml-utils
+#RUN pip3 install -e nnvision/nnvision
 
+# Add editable installation of nnfabrik
+#ADD . /src/projects
+#RUN pip3 install -e /src/projects/ml-utils
+#RUN pip3 install -e /src/projects
+#RUN pip3 install -e /src/projects/mei/mei
+#RUN pip3 install -e /src/projects/nnvision/nnvision
