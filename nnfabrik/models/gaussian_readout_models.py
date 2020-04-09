@@ -10,7 +10,8 @@ from mlutils.constraints import positive
 from mlutils.layers.cores import DepthSeparableConv2d, Core2d, Stacked2dCore
 from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
 from mlutils import regularizers
-from mlutils.layers.readouts import PointPooled2d, Gaussian2d
+from mlutils.layers.readouts import PointPooled2d
+from mlutils.layers.legacy import Gaussian2d
 from .pretrained_models import TransferLearningCore
 
 # Squeeze and Excitation Block
