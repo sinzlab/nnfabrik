@@ -3,7 +3,7 @@ import tempfile
 import torch
 import os
 from .main import Model, Dataset, Trainer, Seed, Fabrikant
-from .builder import get_all_parts
+from .builder import get_all_parts, get_model, get_trainer
 from .utility.nnf_helper import cleanup_numpy_scalar
 from .utility.dj_helpers import gitlog, make_hash
 
@@ -97,7 +97,7 @@ class TrainedModelBase(dj.Computed):
 
         return ret
 
-    def load_model(self, key=None, include_trainer=False, include_state_dict=True, seed:int=None):
+    def load_model(self, key=None, include_dataloader=True, include_trainer=False, include_state_dict=True, seed:int=None):
         """
         Load a single entry of the model. If state_dict is available, the model will be loaded with state_dict as well.
         By default the trainer is skipped. Set `include_trainer=True` to also retrieve the trainer function
@@ -123,7 +123,36 @@ class TrainedModelBase(dj.Computed):
         if seed is None and len(self.seed_table & key) == 1:
             seed = (self.seed_table & key).fetch1('seed')
 
+        if not include_dataloader and not include_state_dict:
+            raise ValueError("state dict is required when building a model without a dataloader. Consider setting"
+                              "either 'include_state_dict' or 'include_dataloader' to True.")
+
         config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
+
+        if not include_dataloader:
+            try:
+                data_info = config_dict["state_dict"]["data_info"]
+                model_config_dict = dict(model_fn=config_dict["model_fn"],
+                                         model_config=config_dict["model_config"],
+                                         data_info=data_info,
+                                         seed=seed,
+                                         state_dict=config_dict["state_dict"],
+                                         strict=False)
+
+                trainer_config_dict = dict(trainer_fn=config_dict["trainer_fn"],
+                                           trainer_config=config_dict["trainer_config"])
+
+                net = get_model(**model_config_dict)
+                return (net, get_trainer(**trainer_config_dict)) if include_trainer else net
+
+            except:
+                print("Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
+                      "Make sure that there is 'data_info' in the models state dict. The model_fn also has to be able to"
+                      "accept 'data_info' over the dataloader.")
+
+                ret = get_all_parts(**config_dict, seed=seed)
+                return ret[1:] if include_trainer else ret[1]
+
         return get_all_parts(**config_dict, seed=seed)
 
     def call_back(self, uid=None, epoch=None, model=None, info=None):
@@ -138,7 +167,6 @@ class TrainedModelBase(dj.Computed):
             info - Additional information provided by the trainer
         """
         pass
-
 
     def make(self, key):
         """
