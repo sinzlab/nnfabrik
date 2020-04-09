@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 from mlutils.measures import PoissonLoss3d
 
 def slice_iter(n, step):
