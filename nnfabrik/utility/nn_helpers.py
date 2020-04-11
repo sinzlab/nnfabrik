@@ -4,6 +4,7 @@ import torch
 from mlutils.training import eval_state
 import numpy as np
 
+
 def get_io_dims(data_loader):
     """
     gets the input and output dimensions from the dataloader.
@@ -32,6 +33,7 @@ def get_dims_for_loader_dict(dataloaders):
     """
     return {k: get_io_dims(v) for k, v in dataloaders.items()}
 
+
 def get_module_output(model, input_shape):
     """
     Gets the output dimensions of the convolutional core
@@ -48,6 +50,7 @@ def get_module_output(model, input_shape):
             input_tensor = torch.zeros(input_shape)
             tensor_out = model(input_tensor).shape
     return tensor_out
+
 
 def set_random_seed(seed):
     """

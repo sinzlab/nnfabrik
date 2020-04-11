@@ -1,5 +1,6 @@
 from mlutils.measures import PoissonLoss3d
 
+
 def slice_iter(n, step):
     k = 0
     while k < n - step:
@@ -7,8 +8,10 @@ def slice_iter(n, step):
         k += step
     yield slice(k, None)
 
+
 class BadConfigException(Exception):
     pass
+
 
 def corr(y1, y2, axis=-1, eps=1e-8, **kwargs):
     """
@@ -47,6 +50,7 @@ def ptcorr(y1, y2, axis=-1, eps=1e-8, **kwargs):
     y2 = (y2 - y2.mean(dim=axis, keepdim=True)) / (y2.std(dim=axis, keepdim=True) + eps)
     return (y1 * y2).mean(dim=axis, **kwargs)
 
+
 def compute_predictions(loader, model, readout_key, reshape=True, stack=True, subsamp_size=None, return_lag=False):
     y, y_hat = [], []
     if subsamp_size is not None:
@@ -59,8 +63,11 @@ def compute_predictions(loader, model, readout_key, reshape=True, stack=True, su
             y_mod = []
             for subs_idx in slice_iter(neurons, subsamp_size):
                 y_mod.append(
-                    model(x_val, readout_key, eye_pos=eye_val,
-                          behavior=beh_val, subs_idx=subs_idx).detach().cpu().numpy())
+                    model(x_val, readout_key, eye_pos=eye_val, behavior=beh_val, subs_idx=subs_idx)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
             y_mod = np.concatenate(y_mod, axis=-1)
         lag = y_val.shape[1] - y_mod.shape[1]
         if reshape:
@@ -76,15 +83,15 @@ def compute_predictions(loader, model, readout_key, reshape=True, stack=True, su
     else:
         return y, y_hat, lag
 
+
 def correlation_closure(mod, loaders, avg=True, subsamp_size=None):
     ret = []
     train = mod.training
     mod.eval()
     for readout_key, loader in loaders.items():
-        y, y_hat = compute_predictions(loader, mod, readout_key,
-                                       reshape=True, stack=True, subsamp_size=subsamp_size)
+        y, y_hat = compute_predictions(loader, mod, readout_key, reshape=True, stack=True, subsamp_size=subsamp_size)
         co = corr(y, y_hat, axis=0)
-        print(readout_key + 'correlation: {:.4f}'.format(co.mean()))
+        print(readout_key + "correlation: {:.4f}".format(co.mean()))
         ret.append(co)
     ret = np.hstack(ret)
     mod.train(train)
@@ -95,49 +102,62 @@ def correlation_closure(mod, loaders, avg=True, subsamp_size=None):
         return ret
 
 
-PerformanceScores = namedtuple('PerformanceScores', ['pearson'])
+PerformanceScores = namedtuple("PerformanceScores", ["pearson"])
+
 
 def compute_scores(y, y_hat, axis=0):
     pearson = corr(y, y_hat, axis=axis)
     return PerformanceScores(pearson=pearson)
 
 
-def dynamic_model_trainer(model, dataloaders, schedule=(0.005, 0.001), max_epoch=500,
-                          n_subsample_test=500, val_interval=4, patience=5, stop_tolerance=1e-6):
+def dynamic_model_trainer(
+    model,
+    dataloaders,
+    schedule=(0.005, 0.001),
+    max_epoch=500,
+    n_subsample_test=500,
+    val_interval=4,
+    patience=5,
+    stop_tolerance=1e-6,
+):
 
-    trainloaders = dataloaders['train_loader']
-    valloaders = dataloaders['val_loader']
-    testloaders = dataloaders['test_loader']
+    trainloaders = dataloaders["train_loader"]
+    valloaders = dataloaders["val_loader"]
+    testloaders = dataloaders["test_loader"]
 
     criterion = PoissonLoss3d()
     if len(trainloaders) > 1:
-        raise BadConfigException('TrainConfig.SingleScan only accepts single scan datasets')
+        raise BadConfigException("TrainConfig.SingleScan only accepts single scan datasets")
 
     def objective(model, readout_key, inputs, beh, eye_pos, targets):
         outputs = model(inputs, readout_key, eye_pos=eye_pos, behavior=beh)
-        return (criterion(outputs, targets)
-                + (model.core.regularizer() if not model.readout[readout_key].stop_grad else 0)
-                + model.readout.regularizer(readout_key).cuda(0)
-                + (model.shifter.regularizer(readout_key) if model.shift else 0)
-                + (model.modulator.regularizer(readout_key) if model.modulate else 0))
+        return (
+            criterion(outputs, targets)
+            + (model.core.regularizer() if not model.readout[readout_key].stop_grad else 0)
+            + model.readout.regularizer(readout_key).cuda(0)
+            + (model.shifter.regularizer(readout_key) if model.shift else 0)
+            + (model.modulator.regularizer(readout_key) if model.modulate else 0)
+        )
 
     def run(model, objective, optimizer, stop_closure, trainloaders, epoch=0):
-        log.info('Training models with {} and state {}'.format(optimizer.__class__.__name__,
-                                                               repr(model.state)))
+        log.info("Training models with {} and state {}".format(optimizer.__class__.__name__, repr(model.state)))
         optimizer.zero_grad()
         iteration = 0
 
-        for epoch, val_obj in early_stopping(model, stop_closure,
-                                             interval=val_interval,
-                                             patience=patience,
-                                             start=epoch,
-                                             max_iter=max_epoch,
-                                             maximize=True,
-                                             tolerance=stop_tolerance,
-                                             restore_best=True):
-            for batch_no, (readout_key, data) in tqdm(enumerate(cycle_datasets(trainloaders)),
-                                                      desc=self.__class__.__name__ +
-                                                           '  | Epoch {}'.format(epoch)):
+        for epoch, val_obj in early_stopping(
+            model,
+            stop_closure,
+            interval=val_interval,
+            patience=patience,
+            start=epoch,
+            max_iter=max_epoch,
+            maximize=True,
+            tolerance=stop_tolerance,
+            restore_best=True,
+        ):
+            for batch_no, (readout_key, data) in tqdm(
+                enumerate(cycle_datasets(trainloaders)), desc=self.__class__.__name__ + "  | Epoch {}".format(epoch)
+            ):
                 obj = objective(model, readout_key, *data)
                 obj.backward()
                 optimizer.step()
@@ -146,7 +166,7 @@ def dynamic_model_trainer(model, dataloaders, schedule=(0.005, 0.001), max_epoch
         return model, epoch
 
     # --- train
-    log.info('Shipping model to GPU')
+    log.info("Shipping model to GPU")
     model = model.cuda()
     model.train(True)
     print(model)
@@ -154,19 +174,19 @@ def dynamic_model_trainer(model, dataloaders, schedule=(0.005, 0.001), max_epoch
 
     model.shift = True
     for opt, lr in zip(repeat(torch.optim.Adam), schedule):
-        log.info('Training with learning rate {}'.format(lr))
+        log.info("Training with learning rate {}".format(lr))
 
         optimizer = opt(model.parameters(), lr=lr)
 
-        model, epoch = run(model, objective, optimizer,
-                           partial(correlation_closure, loaders=valloaders),
-                           trainloaders, epoch=epoch)
+        model, epoch = run(
+            model, objective, optimizer, partial(correlation_closure, loaders=valloaders), trainloaders, epoch=epoch
+        )
     model.eval()
 
     def compute_test_score_tuples(key, testloaders, model, **kwargs):
         scores, unit_scores = [], []
         for readout_key, testloader in testloaders.items():
-            log.info('Computing test scores for ' + readout_key)
+            log.info("Computing test scores for " + readout_key)
 
             y, y_hat = compute_predictions(testloader, model, readout_key, **kwargs)
             perf_scores = compute_scores(y, y_hat)
@@ -175,21 +195,20 @@ def dynamic_model_trainer(model, dataloaders, schedule=(0.005, 0.001), max_epoch
             member_key.update(key)
 
             unit_ids = testloader.dataset.neurons.unit_ids
-            member_key['neurons'] = len(unit_ids)
-            member_key['pearson'] = perf_scores.pearson.mean()
+            member_key["neurons"] = len(unit_ids)
+            member_key["pearson"] = perf_scores.pearson.mean()
 
             scores.append(member_key)
-            unit_scores.extend(
-                [dict(member_key, unit_id=u, pearson=c) for u, c in zip(unit_ids, perf_scores.pearson)])
+            unit_scores.extend([dict(member_key, unit_id=u, pearson=c) for u, c in zip(unit_ids, perf_scores.pearson)])
         return scores, unit_scores
 
     stop_closure = partial(correlation_closure, loaders=valloaders)
-    updated_key = dict(key,
-                       val_corr=np.nanmean(stop_closure(model, avg=False)),
-                       model={k: v.cpu().numpy() for k, v in model.state_dict().items()})
+    updated_key = dict(
+        key,
+        val_corr=np.nanmean(stop_closure(model, avg=False)),
+        model={k: v.cpu().numpy() for k, v in model.state_dict().items()},
+    )
 
-    scores, unit_scores = compute_test_score_tuples(key, testloaders, model,
-                                                    reshape=True, stack=True,
-                                                    subsamp_size=n_subsample_test)
-
-
+    scores, unit_scores = compute_test_score_tuples(
+        key, testloaders, model, reshape=True, stack=True, subsamp_size=n_subsample_test
+    )

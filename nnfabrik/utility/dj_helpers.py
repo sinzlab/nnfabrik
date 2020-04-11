@@ -6,6 +6,7 @@ import hashlib
 import datajoint as dj
 from git import Repo, cmd
 
+
 def make_hash(config):
     """"
     takes any non-nested dict to return a 32byte hash
@@ -52,7 +53,7 @@ def check_repo_commit(repo_path):
     err_msg = need_to_commit(repo, repo_name=repo_name)
 
     if err_msg:
-        return '{}_error_msg'.format(repo_name), err_msg
+        return "{}_error_msg".format(repo_name), err_msg
 
     else:
         sha1, branch = repo.head.commit.name_rev.split()
@@ -60,6 +61,14 @@ def check_repo_commit(repo_path):
         committer_name = repo.head.commit.committer.name
         committer_email = repo.head.commit.committer.email
 
-        return repo_name, {"sha1": sha1, "branch": branch, "commit_date": commit_date,
-                          "committer_name": committer_name, "committer_email": committer_email,
-                          "origin_url": origin_url}
+        return (
+            repo_name,
+            {
+                "sha1": sha1,
+                "branch": branch,
+                "commit_date": commit_date,
+                "committer_name": committer_name,
+                "committer_email": committer_email,
+                "origin_url": origin_url,
+            },
+        )

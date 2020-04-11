@@ -27,7 +27,7 @@ def get_model(model_fn, model_config, dataloaders, seed=None, state_dict=None, s
 
     if isinstance(model_fn, str):
         module_path, class_name = split_module_name(model_fn)
-        model_fn = dynamic_import(module_path, class_name) if module_path else eval('models.' + model_fn)
+        model_fn = dynamic_import(module_path, class_name) if module_path else eval("models." + model_fn)
 
     net = model_fn(dataloaders, seed=seed, **model_config)
 
@@ -51,7 +51,7 @@ def get_data(dataset_fn, dataset_config):
     """
     if isinstance(dataset_fn, str):
         module_path, class_name = split_module_name(dataset_fn)
-        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_fn)
+        dataset_fn = dynamic_import(module_path, class_name) if module_path else eval("datasets." + dataset_fn)
 
     return dataset_fn(**dataset_config)
 
@@ -71,7 +71,7 @@ def get_trainer(trainer_fn, trainer_config=None):
 
     if isinstance(trainer_fn, str):
         module_path, class_name = split_module_name(trainer_fn)
-        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval('training.' + trainer_fn)
+        trainer_fn = dynamic_import(module_path, class_name) if module_path else eval("training." + trainer_fn)
 
     if trainer_config is not None:
         trainer_fn = partial(trainer_fn, **trainer_config)
@@ -79,10 +79,21 @@ def get_trainer(trainer_fn, trainer_config=None):
     return trainer_fn
 
 
-def get_all_parts(dataset_fn, dataset_config, model_fn, model_config, seed=None, dl_key='train', state_dict=None, strict=True, trainer_fn=None, trainer_config=None):
+def get_all_parts(
+    dataset_fn,
+    dataset_config,
+    model_fn,
+    model_config,
+    seed=None,
+    dl_key="train",
+    state_dict=None,
+    strict=True,
+    trainer_fn=None,
+    trainer_config=None,
+):
 
     if seed is not None:
-        dataset_config['seed'] = seed  # override the seed if passed in
+        dataset_config["seed"] = seed  # override the seed if passed in
 
     dataloaders = get_data(dataset_fn, dataset_config)
 

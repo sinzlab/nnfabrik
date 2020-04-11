@@ -2,13 +2,22 @@ import torch
 import torch.utils.data as utils
 import numpy as np
 import pickle
-#from retina.retina import warp_image
+
+# from retina.retina import warp_image
 from collections import namedtuple
 
 
-def sysident_v1(datafiles, imagepath, batch_size, seed,
-                train_frac=0.8, subsample=2, crop=30,
-                time_bins_sum=tuple(range(12)), avg=False):
+def sysident_v1(
+    datafiles,
+    imagepath,
+    batch_size,
+    seed,
+    train_frac=0.8,
+    subsample=2,
+    crop=30,
+    time_bins_sum=tuple(range(12)),
+    avg=False,
+):
     """
     creates a nested dictionary of dataloaders in the format
             {'train' : dict_of_loaders,
@@ -35,23 +44,21 @@ def sysident_v1(datafiles, imagepath, batch_size, seed,
     """
 
     # initialize dataloaders as empty dict
-    dataloaders = {'train': {}, 'val': {}, 'test': {}}
+    dataloaders = {"train": {}, "val": {}, "test": {}}
 
     if imagepath:
         with open(imagepath, "rb") as pkl:
             images = pickle.load(pkl)
 
-    images = images[:,:,:,None]
+    images = images[:, :, :, None]
     _, h, w = images.shape[:3]
     img_mean = np.mean(images)
     img_std = np.std(images)
 
     # hard Coded Parameter used in the amadeus.pickle file
-    n_train_images = int(images.shape[0]*0.8)
+    n_train_images = int(images.shape[0] * 0.8)
 
-    all_train_ids, all_validation_ids = get_validation_split(n_images=n_train_images,
-                                                                train_frac=train_frac,
-                                                                seed=seed)
+    all_train_ids, all_validation_ids = get_validation_split(n_images=n_train_images, train_frac=train_frac, seed=seed)
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(datafiles):
 
@@ -71,8 +78,8 @@ def sysident_v1(datafiles, imagepath, batch_size, seed,
         training_image_ids = raw_data["training_image_ids"] - 1
         testing_image_ids = raw_data["testing_image_ids"] - 1
 
-        images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
-        images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+        images_train = images[training_image_ids, crop : h - crop : subsample, crop : w - crop : subsample]
+        images_test = images[testing_image_ids, crop : h - crop : subsample, crop : w - crop : subsample]
         images_train = (images_train - img_mean) / img_std
         images_test = (images_test - img_mean) / img_std
 
@@ -108,8 +115,9 @@ def get_validation_split(n_images, train_frac, seed):
     Returns: Two arrays, containing image IDs of the whole imageset, split into train and validation
 
     """
-    if seed: np.random.seed(seed)
-    train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images*train_frac)])
+    if seed:
+        np.random.seed(seed)
+    train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images * train_frac)])
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
 
     return train_idx, val_idx
@@ -152,15 +160,14 @@ class NamedTensorDataset(utils.Dataset):
         *tensors (Tensor): tensors that have the same size of the first dimension.
     """
 
-    def __init__(self, *tensors, names=('inputs','targets')):
+    def __init__(self, *tensors, names=("inputs", "targets")):
         assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
         assert len(tensors) == len(names)
         self.tensors = tensors
-        self.DataPoint = namedtuple('DataPoint', names)
+        self.DataPoint = namedtuple("DataPoint", names)
 
     def __getitem__(self, index):
         return self.DataPoint(*[tensor[index] for tensor in self.tensors])
 
     def __len__(self):
         return self.tensors[0].size(0)
-

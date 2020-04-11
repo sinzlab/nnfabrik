@@ -2,13 +2,22 @@ import torch
 import torch.utils.data as utils
 import numpy as np
 import pickle
-#from retina.retina import warp_image
+
+# from retina.retina import warp_image
 from collections import namedtuple
 
 
-def csrf_v1(datafiles, imagepath, batch_size, seed,
-            train_frac=0.8, subsample=1, crop=65,
-            time_bins_sum=tuple(range(12)), avg=False):
+def csrf_v1(
+    datafiles,
+    imagepath,
+    batch_size,
+    seed,
+    train_frac=0.8,
+    subsample=1,
+    crop=65,
+    time_bins_sum=tuple(range(12)),
+    avg=False,
+):
     """
     creates a nested dictionary of dataloaders in the format
             {'train' : dict_of_loaders,
@@ -35,25 +44,23 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
     """
 
     # initialize dataloaders as empty dict
-    dataloaders = {'train': {}, 'val': {}, 'test': {}}
+    dataloaders = {"train": {}, "val": {}, "test": {}}
 
     if imagepath:
         with open(imagepath, "rb") as pkl:
             images = pickle.load(pkl)
 
-    images = images[:,:,:,None]
+    images = images[:, :, :, None]
     _, h, w = images.shape[:3]
     img_mean = np.mean(images)
     img_std = np.std(images)
 
-    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0],
-                                                                train_frac=train_frac,
-                                                                seed=seed)
+    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0], train_frac=train_frac, seed=seed)
 
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(datafiles):
 
-        #Extract Session ID from the pickle filename
+        # Extract Session ID from the pickle filename
 
         with open(datapath, "rb") as pkl:
             raw_data = pickle.load(pkl)
@@ -71,8 +78,8 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
         responses_test = responses_test.transpose((2, 0, 1))
         responses_train = responses_train.transpose((2, 0, 1))
 
-        images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
-        images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+        images_train = images[training_image_ids, crop : h - crop : subsample, crop : w - crop : subsample]
+        images_test = images[testing_image_ids, crop : h - crop : subsample, crop : w - crop : subsample]
         images_train = (images_train - img_mean) / img_std
         images_test = (images_test - img_mean) / img_std
 
@@ -112,11 +119,13 @@ def get_validation_split(n_images, train_frac, seed):
     Returns: Two arrays, containing image IDs of the whole imageset, split into train and validation
 
     """
-    if seed: np.random.seed(seed)
-    train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images*train_frac)])
+    if seed:
+        np.random.seed(seed)
+    train_idx, val_idx = np.split(np.random.permutation(n_images), [int(n_images * train_frac)])
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
 
     return train_idx, val_idx
+
 
 def get_loader_csrf_v1(images, responses, batch_size, shuffle=True, retina_warp=False):
     """
@@ -155,11 +164,11 @@ class NamedTensorDataset(utils.Dataset):
         *tensors (Tensor): tensors that have the same size of the first dimension.
     """
 
-    def __init__(self, *tensors, names=('inputs','targets')):
+    def __init__(self, *tensors, names=("inputs", "targets")):
         assert all(tensors[0].size(0) == tensor.size(0) for tensor in tensors)
         assert len(tensors) == len(names)
         self.tensors = tensors
-        self.DataPoint = namedtuple('DataPoint', names)
+        self.DataPoint = namedtuple("DataPoint", names)
 
     def __getitem__(self, index):
         return self.DataPoint(*[tensor[index] for tensor in self.tensors])
@@ -168,14 +177,21 @@ class NamedTensorDataset(utils.Dataset):
         return self.tensors[0].size(0)
 
 
-
 # legacy functions for dataloader creation
 
-def csrf_v1_legacy(datapath, image_path, batch_size, seed, train_frac=0.8,
-                   subsample=1, crop=65, time_bins_sum=tuple(range(12))):
-    v1_data = CSRF_V1_Data(raw_data_path=datapath, image_path=image_path, seed=seed,
-                           train_frac=train_frac, subsample=subsample, crop=crop,
-                           time_bins_sum=time_bins_sum)
+
+def csrf_v1_legacy(
+    datapath, image_path, batch_size, seed, train_frac=0.8, subsample=1, crop=65, time_bins_sum=tuple(range(12))
+):
+    v1_data = CSRF_V1_Data(
+        raw_data_path=datapath,
+        image_path=image_path,
+        seed=seed,
+        train_frac=train_frac,
+        subsample=subsample,
+        crop=crop,
+        time_bins_sum=time_bins_sum,
+    )
 
     images, responses, valid_responses = v1_data.train()
     train_loader = get_loader_csrf_V1_legacy(images, responses, 1 * valid_responses, batch_size=batch_size)
@@ -184,7 +200,9 @@ def csrf_v1_legacy(datapath, image_path, batch_size, seed, train_frac=0.8,
     val_loader = get_loader_csrf_V1_legacy(images, responses, 1 * valid_responses, batch_size=batch_size)
 
     images, responses, valid_responses = v1_data.test()
-    test_loader = get_loader_csrf_V1_legacy(images, responses, 1 * valid_responses, batch_size=batch_size, shuffle=False)
+    test_loader = get_loader_csrf_V1_legacy(
+        images, responses, 1 * valid_responses, batch_size=batch_size, shuffle=False
+    )
 
     data_loader = dict(train_loader=train_loader, val_loader=val_loader, test_loader=test_loader)
 
@@ -192,6 +210,7 @@ def csrf_v1_legacy(datapath, image_path, batch_size, seed, train_frac=0.8,
 
 
 # begin of helper functions
+
 
 def get_loader_csrf_V1_legacy(images, responses, valid_responses, batch_size=None, shuffle=True, retina_warp=False):
     # Expected Dimension of the Image Tensor is Images x Channels x size_x x size_y
@@ -215,8 +234,16 @@ def get_loader_csrf_V1_legacy(images, responses, valid_responses, batch_size=Non
 class CSRF_V1_Data:
     """For use with George's and Kelli's csrf data set."""
 
-    def __init__(self, raw_data_path, image_path=None, seed=None, train_frac=0.8,
-                 subsample=1, crop=65, time_bins_sum=tuple(range(7))):
+    def __init__(
+        self,
+        raw_data_path,
+        image_path=None,
+        seed=None,
+        train_frac=0.8,
+        subsample=1,
+        crop=65,
+        time_bins_sum=tuple(range(7)),
+    ):
         """
         Args:
             raw_data_path: Path pointing to a pickle file that contains the experimental data.
@@ -253,8 +280,8 @@ class CSRF_V1_Data:
         real_responses = np.logical_not(np.isnan(responses_train))
         self._real_responses_test = np.logical_not(np.isnan(self.responses_test))
 
-        images_test = raw_data['images_test']
-        if 'test_image_locator' in raw_data:
+        images_test = raw_data["images_test"]
+        if "test_image_locator" in raw_data:
             test_image_locator = raw_data["test_image_locator"]
 
         # if an image path is provided, load the images from the corresponding pickle file
@@ -262,9 +289,9 @@ class CSRF_V1_Data:
             with open(image_path, "rb") as pkl:
                 raw_data = pickle.load(pkl)
 
-        _, h, w = raw_data['images_train'].shape[:3]
-        images_train = raw_data['images_train'][:, crop:h - crop:subsample, crop:w - crop:subsample]
-        images_test = raw_data['images_test'][:, crop:h - crop:subsample, crop:w - crop:subsample]
+        _, h, w = raw_data["images_train"].shape[:3]
+        images_train = raw_data["images_train"][:, crop : h - crop : subsample, crop : w - crop : subsample]
+        images_test = raw_data["images_test"][:, crop : h - crop : subsample, crop : w - crop : subsample]
 
         # z-score all images by mean, and sigma of all images
         all_images = np.append(images_train, images_test, axis=0)
@@ -272,7 +299,7 @@ class CSRF_V1_Data:
         img_std = np.std(all_images)
         images_train = (images_train - img_mean) / img_std
         self._images_test = (images_test - img_mean) / img_std
-        if 'test_image_locator' in raw_data:
+        if "test_image_locator" in raw_data:
             self._images_test = self._images_test[test_image_locator - 1, ::]
         # split into train and val set, images randomly assigned
         train_split, val_split = self.get_validation_split(real_responses, train_frac, seed)
@@ -379,7 +406,7 @@ class CSRF_V1_Data:
         Neurons_per_image = np.sum(real_responses_train, axis=1)[:, 0]
         Neurons_per_image_sort_idx = np.argsort(Neurons_per_image)
 
-        top_images = Neurons_per_image_sort_idx[-int(np.floor(train_frac / 2 * num_images)):]
+        top_images = Neurons_per_image_sort_idx[-int(np.floor(train_frac / 2 * num_images)) :]
         val_images_idx = np.random.choice(top_images, int(len(top_images) / 2), replace=False)
 
         train_idx_filter = np.logical_not(np.isin(Neurons_per_image_sort_idx, val_images_idx))

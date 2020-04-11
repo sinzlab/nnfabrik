@@ -9,8 +9,9 @@ from torch.nn.modules.utils import _pair
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+
 def elu1(x):
-    return F.elu(x, inplace=True) + 1.
+    return F.elu(x, inplace=True) + 1.0
 
 
 class Elu1(nn.Module):
@@ -25,7 +26,7 @@ class Elu1(nn.Module):
 
 
 def log1exp(x):
-    return torch.log(1. + torch.exp(x))
+    return torch.log(1.0 + torch.exp(x))
 
 
 class Log1Exp(nn.Module):
@@ -33,12 +34,21 @@ class Log1Exp(nn.Module):
         return log1exp(x)
 
 
-
 class DepthSeparableConv2d(nn.Sequential):
-
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, bias=True):
         super().__init__()
-        self.add_module('in_depth_conv', nn.Conv2d(in_channels, out_channels, 1, bias=bias))
-        self.add_module('spatial_conv', nn.Conv2d(out_channels, out_channels, kernel_size, stride=1, padding=padding,
-                                                  dilation=dilation, bias=bias, groups=out_channels))
-        self.add_module('out_depth_conv', nn.Conv2d(out_channels, out_channels, 1, bias=bias))
+        self.add_module("in_depth_conv", nn.Conv2d(in_channels, out_channels, 1, bias=bias))
+        self.add_module(
+            "spatial_conv",
+            nn.Conv2d(
+                out_channels,
+                out_channels,
+                kernel_size,
+                stride=1,
+                padding=padding,
+                dilation=dilation,
+                bias=bias,
+                groups=out_channels,
+            ),
+        )
+        self.add_module("out_depth_conv", nn.Conv2d(out_channels, out_channels, 1, bias=bias))
