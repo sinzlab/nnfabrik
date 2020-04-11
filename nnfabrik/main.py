@@ -1,19 +1,16 @@
-import torch
-import tempfile
 import warnings
 import os
-
-from . import config
-from . import utility
-from . import datasets
-from . import training
-from . import models
-
 import datajoint as dj
+
+from .builder import resolve_fn, resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
+from .utility.dj_helpers import make_hash
+from .utility.nnf_helper import cleanup_numpy_scalar
+
+# set external store based on env vars
 dj.config['stores'] = {
-    'minio': {    #  store in s3
+    'minio': {  # store in s3
         'protocol': 's3',
-        'endpoint': 'cantor.mvl6.uni-tuebingen.de:9000',
+        'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
         'bucket': 'nnfabrik',
         'location': 'dj-store',
         'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
@@ -21,10 +18,6 @@ dj.config['stores'] = {
     }
 }
 
-from .builder import get_data, get_trainer, get_model, get_all_parts
-
-from .utility.dj_helpers import make_hash, check_repo_commit
-from .utility.nnf_helper import split_module_name, dynamic_import, cleanup_numpy_scalar
 
 # check if schema_name defined, otherwise default to nnfabrik_core
 schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
@@ -60,7 +53,7 @@ class Model(dj.Manual):
     ---
     model_config:               longblob      # model configuration to be passed into the function
     -> Fabrikant.proj(model_fabrikant='fabrikant_name')
-    model_comment='' :          varchar(64)   # short description
+    model_comment='' :          varchar(256)   # short description
     model_ts=CURRENT_TIMESTAMP: timestamp     # UTZ timestamp at time of insertion
     """
 
@@ -70,25 +63,49 @@ class Model(dj.Manual):
         model_config = cleanup_numpy_scalar(model_config)
         return model_fn, model_config
 
-    def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment=''):
+    @staticmethod
+    def resolve_fn(fn_name):
+        return resolve_model(fn_name)
+
+    def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment='', skip_duplicates=False):
         """
-        model_fn -- name of the function/class that's callable
-        model_config -- actual Python object
+        Add a new entry to the model.
+
+        Args: 
+            model_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+                dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
+            model_config (dict) - Python dictionary containing keyword arguments for the model_fn
+            model_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
+            model_comment - Optional comment for the entry.
+            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+
+        Returns:
+            key - key in the table corresponding to the entry.
         """
-        module_path, class_name = split_module_name(model_fn)
-        model_fn_obj = dynamic_import(module_path, class_name) if module_path else eval('models.' + model_fn)
         try:
-            callable(model_fn_obj)
-        except NameError:
-            warnings.warn("Model function does not exist. Table entry rejected")
+            resolve_model(model_fn)
+        except (NameError, TypeError) as e:
+            warnings.warn(str(e) + '\nTable entry rejected')
             return
 
-        model_hash = make_hash(model_config)
         if model_fabrikant is None:
             model_fabrikant = Fabrikant.get_current_user()
+
+        model_hash = make_hash(model_config)
         key = dict(model_fn=model_fn, model_hash=model_hash, model_config=model_config,
                    model_fabrikant=model_fabrikant, model_comment=model_comment)
-        self.insert1(key)
+
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn('Corresponding entry found. Skipping...')
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError('Corresponding entry already exists')
+        else:
+            self.insert1(key)
+        
+        return key
 
     def build_model(self, dataloaders, seed=None, key=None):
         print('Loading model...')
@@ -107,7 +124,7 @@ class Dataset(dj.Manual):
     ---
     dataset_config:                 longblob       # dataset configuration object
     -> Fabrikant.proj(dataset_fabrikant='fabrikant_name')
-    dataset_comment='' :            varchar(64)    # short description
+    dataset_comment='' :            varchar(256)    # short description
     dataset_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
     """
 
@@ -117,20 +134,31 @@ class Dataset(dj.Manual):
         dataset_config = cleanup_numpy_scalar(dataset_config)
         return dataset_fn, dataset_config
 
-    def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment=''):
-        """
-        inserts one new entry into the Dataset Table
-        dataset_fn -- name of dataset function/class that's callable
-        dataset_config -- actual Python object with which the dataset function is called
-        """
+    @staticmethod
+    def resolve_fn(fn_name):
+        return resolve_data(fn_name)
 
-        module_path, class_name = split_module_name(dataset_fn)
-        dataset_fn_obj = dynamic_import(module_path, class_name) if module_path else eval('datasets.' + dataset_fn)
+    def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment='', skip_duplicates=False):
+        """
+        Add a new entry to the dataset.
+
+        Args: 
+            dataset_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+                dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
+            dataset_config (dict) - Python dictionary containing keyword arguments for the dataset_fn
+            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+                on the database user name for the existing connection.
+            dataset_comment - Optional comment for the entry.
+            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+
+        Returns:
+            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
+        """
 
         try:
-            callable(dataset_fn_obj)
-        except NameError:
-            warnings.warn("dataset function does not exist. Table entry rejected")
+            resolve_data(dataset_fn)
+        except (NameError, TypeError) as e:
+            warnings.warn(str(e) + '\nTable entry rejected')
             return
 
         if dataset_fabrikant is None:
@@ -139,7 +167,18 @@ class Dataset(dj.Manual):
         dataset_hash = make_hash(dataset_config)
         key = dict(dataset_fn=dataset_fn, dataset_hash=dataset_hash,
                    dataset_config=dataset_config, dataset_fabrikant=dataset_fabrikant, dataset_comment=dataset_comment)
-        self.insert1(key)
+        
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn('Corresponding entry found. Skipping...')
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError('Corresponding entry already exists')
+        else:
+            self.insert1(key)
+        
+        return key
 
     def get_dataloader(self, seed=None, key=None):
         """
@@ -156,13 +195,15 @@ class Dataset(dj.Manual):
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
+        #TODO: update the docstring
+
         if key is None:
             key = {}
 
         dataset_fn, dataset_config = (self & key).fn_config
 
         if seed is not None:
-            dataset_config['seed'] = seed # override the seed if passed in
+            dataset_config['seed'] = seed  # override the seed if passed in
 
         return get_data(dataset_fn, dataset_config)
 
@@ -175,7 +216,7 @@ class Trainer(dj.Manual):
     ---
     trainer_config:                 longblob        # training configuration object
     -> Fabrikant.proj(trainer_fabrikant='fabrikant_name')
-    trainer_comment='' :            varchar(64)     # short description
+    trainer_comment='' :            varchar(256)     # short description
     trainer_ts=CURRENT_TIMESTAMP:   timestamp       # UTZ timestamp at time of insertion
     """
 
@@ -185,34 +226,56 @@ class Trainer(dj.Manual):
         trainer_config = cleanup_numpy_scalar(trainer_config)
         return trainer_fn, trainer_config
 
-    def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment=''):
-        """
-        inserts one new entry into the Trainer Table
-        trainer_fn -- name of trainer function/class that's callable
-        trainer_config -- actual Python object with which the trainer function is called
-        """
+    @staticmethod
+    def resolve_fn(fn_name):
+        return resolve_trainer(fn_name)
 
-        module_path, class_name = split_module_name(trainer_fn)
-        trainer_fn_obj = dynamic_import(module_path, class_name) if module_path else eval('training.' + trainer_fn)
+    def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment='', skip_duplicates=False):
+        """
+        Add a new entry to the trainer.
+
+        Args: 
+            trainer_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+                dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
+            trainer_config (dict) - Python dictionary containing keyword arguments for the trainer_fn.
+            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+                on the database user name for the existing connection.
+            trainer_comment - Optional comment for the entry.
+            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+
+        Returns:
+            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
+        """
         try:
-            callable(trainer_fn_obj)
-        except NameError:
-            warnings.warn("dataset function does not exist. Table entry rejected")
+            resolve_trainer(trainer_fn)
+        except (NameError, TypeError) as e:
+            warnings.warn(str(e) + '\nTable entry rejected')
             return
-
-        trainer_hash = make_hash(trainer_config)
 
         if trainer_fabrikant is None:
             trainer_fabrikant = Fabrikant.get_current_user()
 
+        trainer_hash = make_hash(trainer_config)
         key = dict(trainer_fn=trainer_fn, trainer_hash=trainer_hash,
                    trainer_config=trainer_config, trainer_fabrikant=trainer_fabrikant,
                    trainer_comment=trainer_comment)
-        self.insert1(key)
+
+        existing = self.proj() & key
+        if existing:
+            if skip_duplicates:
+                warnings.warn('Corresponding entry found. Skipping...')
+                key = (self & (existing)).fetch1()
+            else:
+                raise ValueError('Corresponding entry already exists')
+        else:
+            self.insert1(key)
+        
+        return key
 
     def get_trainer(self, key=None, build_partial=True):
         """
-        Returns the trainer function and its corresponding configurations
+        Returns the trainer function and its corresponding configurations. If build_partial=True (default), then it constructs
+        a partial function with configuration object already passed in, thus returning only a single function.
         """
         if key is None:
             key = {}
@@ -233,94 +296,3 @@ class Seed(dj.Manual):
     """
 
 
-@schema
-# @gitlog
-class TrainedModel(dj.Computed):
-    definition = """
-    -> Model
-    -> Dataset
-    -> Trainer
-    -> Seed
-    ---
-    score:                             float        # loss
-    output:                            longblob     # trainer object's output
-    ->[nullable] Fabrikant
-    trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-    """
-
-    def get_full_config(self, key=None, include_state_dict=True):
-        if key is None:
-            key = self.fetch1('KEY')
-
-        model_fn, model_config = (Model & key).fn_config
-        dataset_fn, dataset_config = (Dataset & key).fn_config
-        trainer_fn, trainer_config = (Trainer & key).fn_config
-
-        ret = dict(model_fn=model_fn, model_config=model_config,
-                   dataset_fn=dataset_fn, dataset_config=dataset_config,
-                   trainer_fn=trainer_fn, trainer_config=trainer_config)
-
-        # if trained model exist and include_state_dict is True
-        if include_state_dict and (self & key):
-            ret['state_dict'] = (self.ModelStorage & key).fetch1('model_state')
-
-        return ret
-
-    class ModelStorage(dj.Part):
-        definition = """
-        # Contains the paths to the stored models
-        -> master
-        ---
-        model_state:            attach@minio
-        """
-
-    class GitLog(dj.Part):
-        definition = """
-        ->master
-        ---
-        info :              longblob
-        """
-
-    def get_entry(self, key):
-        (Dataset & key).fetch()
-
-    def make(self, key):
-
-        commits_info = {name: info for name, info in [check_repo_commit(repo) for repo in config['repos']]}
-        assert len(commits_info) == len(config['repos'])
-
-        if any(['error_msg' in name for name in commits_info.keys()]):
-            err_msgs = ["You have uncommited changes."]
-            err_msgs.extend([info for name, info in commits_info.items() if 'error_msg' in name])
-            err_msgs.append("\nPlease commit the changes before running populate.\n")
-            raise RuntimeError('\n'.join(err_msgs))
-
-        else:
-
-            # by default try to lookup the fabrikant corresponding to the current DJ user
-            fabrikant_name = Fabrikant.get_current_user()
-            seed = (Seed & key).fetch1('seed')
-
-            config_dict = self.get_full_config(key)
-            dataloaders, model, trainer = get_all_parts(**config_dict, seed=seed)
-
-            # model training
-            score, output, model_state = trainer(model, seed, dataloaders)
-
-            with tempfile.TemporaryDirectory() as trained_models:
-                filename = make_hash(key) + '.pth.tar'
-                filepath = os.path.join(trained_models, filename)
-                torch.save(model_state, filepath)
-
-                key['score'] = score
-                key['output'] = output
-                key['fabrikant_name'] = fabrikant_name
-                self.insert1(key)
-
-                key['model_state'] = filepath
-                self.ModelStorage.insert1(key, ignore_extra_fields=True)
-
-                # add the git info to the part table
-                if commits_info:
-                    key['info'] = commits_info
-                    self.GitLog().insert1(key, skip_duplicates=True, ignore_extra_fields=True)
