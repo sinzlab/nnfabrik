@@ -6,6 +6,51 @@ from .main import Model, Dataset, Trainer, Seed, Fabrikant
 from .builder import get_all_parts, get_model, get_trainer
 from .utility.nnf_helper import cleanup_numpy_scalar
 from .utility.dj_helpers import gitlog, make_hash
+from .builder import resolve_data
+
+
+class DataInfoBase(dj.Computed):
+    """
+    Inherit from this class and decorate with your own schema to create a functional
+    DatasetInfo table. By default, this will inherit from the Dataset as found in nnfabrik.main.
+    To change this behavior, overwrite the dataset_table` property.
+    """
+
+    dataset_table = Dataset
+    user_table = Fabrikant
+
+    # table level comment
+    table_comment = "Table containing information about input dimensions and statistics"
+
+    @property
+    def definition(self):
+        definition = """
+            # {table_comment}
+            -> self.dataset_table
+            ---
+            input_dimensions:                  longblob     # Dimensionality of the input
+            input_channels                     int          # number of input channels
+            input_mean:                        float        # mean across all inputs
+            input_std:                         float        # std across all inputs.
+
+            ->[nullable] self.user_table
+            datainfo_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+            """.format(table_comment=self.table_comment)
+        return definition
+
+    def make(self, key):
+        """
+        Given a dataset, extracts the data information and stores in itself
+        """
+
+        dataset_fn = resolve_data(key["dataset_fn"])
+        dataset_config = (self.dataset_table & key).fetch1("dataset_config")
+        data_info = dataset_fn(**dataset_config, return_data_info=True)
+
+        fabrikant_name = self.user_table.get_current_user()
+
+        key.update(data_info)
+        self.insert1(key, ignore_extra_fields=True)
 
 
 class TrainedModelBase(dj.Computed):
@@ -22,6 +67,7 @@ class TrainedModelBase(dj.Computed):
     trainer_table = Trainer
     seed_table = Seed
     user_table = Fabrikant
+    data_info_table = DataInfoBase
 
     # delimitter to use when concatenating comments from model, dataset, and trainer tables
     comment_delimitter = '.'
@@ -174,7 +220,7 @@ class TrainedModelBase(dj.Computed):
         trains the model and saves the trained model.
         """
         # lookup the fabrikant corresponding to the current DJ user
-        fabrikant_name = Fabrikant.get_current_user()
+        fabrikant_name = self.user_table.get_current_user()
         seed = (Seed & key).fetch1('seed')
 
         # load everything
