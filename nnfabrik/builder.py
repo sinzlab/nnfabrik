@@ -37,7 +37,7 @@ resolve_data = partial(resolve_fn, default_base='datasets')
 resolve_trainer = partial(resolve_fn, default_base='training')
 
 
-def get_model(model_fn, model_config, dataloaders=None, data_info=None, seed=None, state_dict=None, strict=True):
+def get_model(model_fn, model_config, dataloaders=None, seed=None, state_dict=None, strict=True, data_info=None):
     """
     Resolves `model_fn` and invokes the resolved function with `model_config` keyword arguments as well as the `dataloader` and `seed`.
     Note that the resolved `model_fn` is expected to accept the `dataloader` as the first positional argument and `seed` as a keyword argument.
