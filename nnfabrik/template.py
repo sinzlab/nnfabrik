@@ -40,7 +40,8 @@ class DataInfoBase(dj.Computed):
 
     def make(self, key):
         """
-        Given a dataset, extracts the data information and stores in itself
+        Given a dataset from nnfabrik, extracts the necessary information for model_building in form of the dictionary
+        'data_info'. The info is then expanded and stored in this table.
         """
 
         dataset_fn = resolve_data(key["dataset_fn"])
@@ -170,20 +171,16 @@ class TrainedModelBase(dj.Computed):
         if seed is None and len(self.seed_table & key) == 1:
             seed = (self.seed_table & key).fetch1('seed')
 
-        if not include_dataloader and not include_state_dict:
-            raise ValueError("state dict is required when building a model without a dataloader. Consider setting"
-                              "either 'include_state_dict' or 'include_dataloader' to True.")
-
         config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
 
         if not include_dataloader:
             try:
-                data_info = config_dict["state_dict"]["data_info"]
+                data_info = (self.data_info_table & key).fetch(as_dict=True)
                 model_config_dict = dict(model_fn=config_dict["model_fn"],
                                          model_config=config_dict["model_config"],
                                          data_info=data_info,
                                          seed=seed,
-                                         state_dict=config_dict["state_dict"],
+                                         state_dict=config_dict.get("state_dict", None),
                                          strict=False)
 
                 trainer_config_dict = dict(trainer_fn=config_dict["trainer_fn"],
