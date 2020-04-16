@@ -191,7 +191,7 @@ class TrainedModelBase(dj.Computed):
 
             except:
                 print("Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
-                      "Make sure that there is 'data_info' in the models state dict. The model_fn also has to be able to"
+                      "Make sure that the 'DataInfo' table is instantiated and filled. The 'model_fn' also has to be able to"
                       "accept 'data_info' over the dataloader.")
 
                 ret = get_all_parts(**config_dict, seed=seed)
