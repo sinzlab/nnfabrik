@@ -49,6 +49,7 @@ class DataInfoBase(dj.Computed):
 
         fabrikant_name = self.user_table.get_current_user()
 
+        key['fabrikant_name'] = fabrikant_name
         key.update(data_info)
         self.insert1(key, ignore_extra_fields=True)
 
