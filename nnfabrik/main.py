@@ -107,13 +107,32 @@ class Model(dj.Manual):
         
         return key
 
-    def build_model(self, dataloaders, seed=None, key=None):
+    def build_model(self, dataloaders=None, seed=None, key=None, data_info=None):
+        """
+        Builds a Pytorch module by calling the model_fn with the corresponding model_config. The table has to be
+        restricted to one entry in order for this method to return a model.
+        Either the dataloaders or data_info have to be specified to determine the size of the input and thus the
+        appropriate model settings.
+
+        Args:
+            dataloaders (dict) -  a dictionary of dataloaders. The model will infer its shape from these dataloaders
+            seed (int) -  random seed
+            key (dict) - datajoint key
+            data_info (dict) - contains all necessary information about the input in order to build the model.
+
+        Returns:
+            A PyTorch module.
+        """
+        if dataloaders is None and data_info is None:
+            raise ValueError("dataloaders and data_info can not both be None. To build the model, either dataloaders or"
+                             "data_info have to be passed.")
+
         print('Loading model...')
         if key is None:
             key = {}
         model_fn, model_config = (self & key).fn_config
 
-        return get_model(model_fn, model_config, dataloaders, seed=seed)
+        return get_model(model_fn, model_config, dataloaders=dataloaders, seed=seed, data_info=data_info)
 
 
 @schema
