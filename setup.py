@@ -11,5 +11,5 @@ setup(
     author="Konstantin Willeke, Edgar. Y. Walker",
     author_email="edgar.y.walker@mnf.uni-tuebingen.de",
     packages=find_packages(exclude=[]),
-    install_requires=[],
+    install_requires=['sphinx', 'pytorch_sphinx_theme', 'recommonmark'],
 )

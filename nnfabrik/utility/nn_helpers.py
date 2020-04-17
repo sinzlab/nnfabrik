@@ -3,6 +3,7 @@
 import torch
 from mlutils.training import eval_state
 import numpy as np
+import random
 
 
 def get_io_dims(data_loader):
@@ -45,11 +46,14 @@ def get_module_output(model, input_shape):
 
     :return: output dimensions of the core
     """
+    initial_device = 'cuda' if next(iter(model.parameters())).is_cuda else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     with eval_state(model):
         with torch.no_grad():
-            input_tensor = torch.zeros(input_shape)
-            tensor_out = model(input_tensor).shape
-    return tensor_out
+            input = torch.zeros(1, *input_shape[1:]).to(device)
+            output = model.to(device)(input)
+    model.to(initial_device)
+    return output.shape
 
 
 def set_random_seed(seed):
@@ -57,6 +61,7 @@ def set_random_seed(seed):
     Sets all random seeds
     """
     np.random.seed(seed)
+    random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
