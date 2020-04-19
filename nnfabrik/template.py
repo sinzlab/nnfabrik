@@ -20,7 +20,7 @@ class DataInfoBase(dj.Computed):
     user_table = Fabrikant
 
     # table level comment
-    table_comment = "Table containing information about input dimensions and statistics"
+    table_comment = "Table containing information about i/o dimensions and statistics, per data_key in dataset"
 
     @property
     def definition(self):
@@ -28,10 +28,7 @@ class DataInfoBase(dj.Computed):
             # {table_comment}
             -> self.dataset_table
             ---
-            input_dimensions:                  longblob     # Dimensionality of the input
-            input_channels                     int          # number of input channels
-            input_mean:                        float        # mean across all inputs
-            input_std:                         float        # std across all inputs.
+            data_info:                     longblob     # Dictionary of data_keys and i/o information
 
             ->[nullable] self.user_table
             datainfo_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
@@ -40,8 +37,17 @@ class DataInfoBase(dj.Computed):
 
     def make(self, key):
         """
-        Given a dataset from nnfabrik, extracts the necessary information for model_building in form of the dictionary
-        'data_info'. The info is then expanded and stored in this table.
+        Given a dataset from nnfabrik, extracts the necessary information for building a model in nnfabrik.
+        'data_info' is expected to be a dictionary of dictionaries, similar to the dataloaders object.
+        For example:
+            data_info = {
+                        'data_key_0': dict(input_dimensions=[N,c,h,w, ...],
+                                           input_channels=[c],
+                                           output_dimension=[o, ...],
+                                           img_mean=mean_train_images,
+                                           img_std=std_train_images),
+                        'data_key_1':  ...
+                        }
         """
 
         dataset_fn = resolve_data(key["dataset_fn"])
@@ -51,7 +57,7 @@ class DataInfoBase(dj.Computed):
         fabrikant_name = self.user_table.get_current_user()
 
         key['fabrikant_name'] = fabrikant_name
-        key.update(data_info)
+        key['data_info'] = data_info
         self.insert1(key, ignore_extra_fields=True)
 
 
