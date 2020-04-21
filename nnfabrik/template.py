@@ -256,3 +256,83 @@ class TrainedModelBase(dj.Computed):
             key['model_state'] = filepath
 
             self.ModelStorage.insert1(key, ignore_extra_fields=True)
+
+
+class UnitIDsBase(dj.Computed):
+    definition = """
+        # Template table for Unit IDs
+
+        unit_id:     int            # Neuron Identifier
+        ---
+        unit_position: int          # position index of the neuron in the dataset
+        """
+
+
+def scoring_function_base(dataloaders, model, per_Neuron=False):
+    raise NotImplementedError("Scoring Function has to be implemented")
+
+
+class ScoringBase(dj.Computed):
+    """
+    Inherit from this class and decorate with your own schema to create a functional
+    Scores table. This serves as a template for scores than can be computed with a
+    trained_model and a dataloader. The dataloader is expected to return batches of the same condition,
+    such as image reapeats.
+    """
+
+    user_table = Fabrikant
+    trainedmodel_table = TrainedModelBase
+    unit_table = UnitIDsBase
+    scoring_function = scoring_function_base
+
+    # table level comment
+    table_comment = "A template table for storing results/scores of a TrainedModel"
+
+    @property
+    def definition(self):
+        definition = """
+            # {table_comment}
+            -> self.trainedmodel_table
+            ---
+            score:      float     # A template for a computed score of a trained model
+
+            ->[nullable] self.user_table
+            score_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+            """.format(table_comment=self.table_comment)
+        return definition
+
+    class UnitScore(dj.Part):
+
+        @property
+        def definition(self):
+            definition = """
+            # Scores for Individual Neurons
+            -> master
+            -> unit_table
+            ---
+            unit_score:     float   # A template for a computed unit score        
+            """
+            return definition
+
+    def get_repeats_dataloader(self, key=None):
+        if key is None:
+            key = self.fetch1('KEY')
+        dataloaders = self.trainedmodel_table().dataset_table.get_dataloader(key=key)
+        return dataloaders["test"]
+
+    def make(self, key):
+        dataloaders = self.get_repeats_dataloader(key=key)
+        model = self.trainedmodel_table().load_model(key=key, include_state_dict=True, include_dataloader=False, include_trainer=False)
+
+        fabrikant_name = self.user_table.get_current_user()
+        key['fabrikant_name'] = fabrikant_name
+        key['score'] = self.scoring_function(dataloaders=dataloaders, model=model, per_Neuron=False)
+        self.insert1(key, ignore_extra_fields=True)
+
+        unit_scores = self.scoring_function(dataloaders=dataloaders, model=model, per_Neuron=True)
+
+        for unit_pos, unit_score in enumerate(unit_scores):
+            unit_id = (self.unit_table & key & "unit_position=".format(unit_pos)).fetch1("unit_id")
+            key["unit_id"] = unit_id
+            key["unit_score"] = unit_score
+            self.UnitScore.insert1(key, ignore_extra_fields=True)
