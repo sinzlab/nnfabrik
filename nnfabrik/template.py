@@ -181,7 +181,7 @@ class TrainedModelBase(dj.Computed):
 
         if not include_dataloader:
             try:
-                data_info = (self.data_info_table & key).fetch(as_dict=True)
+                data_info = (self.data_info_table & key).fetch1('data_info')
                 model_config_dict = dict(model_fn=config_dict["model_fn"],
                                          model_config=config_dict["model_config"],
                                          data_info=data_info,
