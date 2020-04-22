@@ -218,6 +218,9 @@ class TransferredTrainedModelBase(TrainedModelBase):
         """.format(table_comment=self.table_comment)
         return definition
 
+    class ModelStorage(TrainedModelBase.ModelStorage):
+        pass
+
     def _transfer_recipe(self, transfer_step):
         """
         Combines multiple transfer recipes and their resitrictions as specified by post_restr attribute.
