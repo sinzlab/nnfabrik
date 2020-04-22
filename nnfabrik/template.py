@@ -221,11 +221,36 @@ class TransferredTrainedModelBase(TrainedModelBase):
     def _transfer_recipe(self, transfer_step):
         """
         Combines multiple transfer recipes and their resitrictions as specified by post_restr attribute.
+        The combination is transfer-step-specific, meaning only the recipes relevant for a specific transfer step would be combined.
+
+        Combining recipes are pretty easy and the user does not need to interact with this method directly. Below is an example:
+        Let us assume you have two recipe tables: TrainerRecipe and ModelRecipe, the you can attach all this recipes to your 
+        TransferTrainedModel table as follow:
+
+        ``` Python
+            TransferTrainedModel.transfer_recipe = [TrainerRecipe, ModelRecipe]
+        ```
+
+        The rest (combining the recipes and their restrictions) is taken care of by this method.
+
+        Args:
+            transfer_step (int): table population trasnfer step.
+
+        Returns:
+            string or datajoint AndList: A single or combined restriction of one or multiple recipes, respectively.
         """
+
         if isinstance(self.transfer_recipe, list):
             
             # get the recipes that have a entry for a specific transfer step
-            transfer_recipe = [tr & f"transfer_step = {transfer_step}" for tr in self.transfer_recipe if tr & f"transfer_step = {transfer_step}"]
+            # transfer_recipe = [tr & f"transfer_step = {transfer_step}" for tr in self.transfer_recipe if tr & f"transfer_step = {transfer_step}"]
+            transfer_recipe = []
+            # loop over the transfer recipes
+            for tr in self.transfer_recipe:
+                # check if an entry exists for a specific transfer step in the recipe
+                if tr & f"transfer_step = {transfer_step}": 
+                    # if it exists add that entry to the list of recipes (relevant for a specific transfer step)
+                    transfer_recipe.append(tr & f"transfer_step = {transfer_step}")
             
             # join all the recipes (and their post_restr)
             joined = transfer_recipe[0]
