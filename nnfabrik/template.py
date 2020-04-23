@@ -7,6 +7,7 @@ from .builder import get_all_parts, get_model, get_trainer
 from .utility.nnf_helper import cleanup_numpy_scalar
 from .utility.dj_helpers import gitlog, make_hash
 from .builder import resolve_data
+from datajoint.fetch import DataJointError
 
 
 class DataInfoBase(dj.Computed):
@@ -189,16 +190,19 @@ class TrainedModelBase(dj.Computed):
                                          state_dict=config_dict.get("state_dict", None),
                                          strict=False)
 
-                trainer_config_dict = dict(trainer_fn=config_dict["trainer_fn"],
-                                           trainer_config=config_dict["trainer_config"])
+                if include_trainer:
+                    trainer_config_dict = dict(trainer_fn=config_dict["trainer_fn"],
+                                               trainer_config=config_dict["trainer_config"])
 
                 net = get_model(**model_config_dict)
                 return (net, get_trainer(**trainer_config_dict)) if include_trainer else net
-
-            except:
+            except DataJointError:
+                print("The table `DataInfo` needs to be filled in order to load the model without"
+                      "the dataloaders. Resorting to the standard way of model loading.")
+            except (TypeError, AttributeError):
                 print("Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
-                      "Make sure that the 'DataInfo' table is instantiated and filled. The 'model_fn' also has to be able to"
-                      "accept 'data_info' over the dataloader.")
+                      "Make sure to have an The 'model_fn' also has to be able to"
+                      "accept 'data_info' as an input arg, and use that over the dataloader to build the model.")
 
                 ret = get_all_parts(**config_dict, seed=seed)
                 return ret[1:] if include_trainer else ret[1]
