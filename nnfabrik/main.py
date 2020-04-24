@@ -18,9 +18,7 @@ dj.config['stores'] = {
     }
 }
 
-
-# check if schema_name defined, otherwise default to nnfabrik_core
-schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
+schema = dj.schema('konstantin_nnfabrik')
 
 
 @schema
@@ -71,7 +69,7 @@ class Model(dj.Manual):
         """
         Add a new entry to the model.
 
-        Args: 
+        Args:
             model_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             model_config (dict) - Python dictionary containing keyword arguments for the model_fn
@@ -104,7 +102,7 @@ class Model(dj.Manual):
                 raise ValueError('Corresponding entry already exists')
         else:
             self.insert1(key)
-        
+
         return key
 
     def build_model(self, dataloaders, seed=None, key=None):
@@ -142,11 +140,11 @@ class Dataset(dj.Manual):
         """
         Add a new entry to the dataset.
 
-        Args: 
+        Args:
             dataset_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             dataset_config (dict) - Python dictionary containing keyword arguments for the dataset_fn
-            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             dataset_comment - Optional comment for the entry.
             skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
@@ -167,7 +165,7 @@ class Dataset(dj.Manual):
         dataset_hash = make_hash(dataset_config)
         key = dict(dataset_fn=dataset_fn, dataset_hash=dataset_hash,
                    dataset_config=dataset_config, dataset_fabrikant=dataset_fabrikant, dataset_comment=dataset_comment)
-        
+
         existing = self.proj() & key
         if existing:
             if skip_duplicates:
@@ -177,7 +175,7 @@ class Dataset(dj.Manual):
                 raise ValueError('Corresponding entry already exists')
         else:
             self.insert1(key)
-        
+
         return key
 
     def get_dataloader(self, seed=None, key=None):
@@ -234,11 +232,11 @@ class Trainer(dj.Manual):
         """
         Add a new entry to the trainer.
 
-        Args: 
+        Args:
             trainer_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             trainer_config (dict) - Python dictionary containing keyword arguments for the trainer_fn.
-            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             trainer_comment - Optional comment for the entry.
             skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
@@ -269,7 +267,7 @@ class Trainer(dj.Manual):
                 raise ValueError('Corresponding entry already exists')
         else:
             self.insert1(key)
-        
+
         return key
 
     def get_trainer(self, key=None, build_partial=True):
