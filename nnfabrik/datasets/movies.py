@@ -7,10 +7,11 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 
-def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, area='V1', layer='L2/3', normalize=False,
-                       tier='train'):
+def load_movie_dataset(
+    data_path, batch_size, stats_source="all", seq_len=30, area="V1", layer="L2/3", normalize=False, tier="train"
+):
 
-    field_names = ['inputs', 'behavior', 'eye_position', 'responses']
+    field_names = ["inputs", "behavior", "eye_position", "responses"]
 
     # load the dataset
     dataset = MovieSet(data_path, *field_names)
@@ -25,7 +26,7 @@ def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, ar
 
     # whether to add normalizer
     if normalize:
-        transforms.append(Normalizer(dataset, ))
+        transforms.append(Normalizer(dataset))
 
     transforms.append(ToTensor(cuda=True))
 
@@ -39,7 +40,6 @@ def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, ar
 
     dataset.transforms = transforms
 
-
     idx = np.where(dataset.tiers == tier)[0]
     sampler = SubsetRandomSampler(idx)
 
@@ -47,23 +47,25 @@ def load_movie_dataset(data_path, batch_size, stats_source='all', seq_len=30, ar
     return DataLoader(dataset, sampler=sampler, batch_size=batch_size)
 
 
-
-def load_movie_set(data_path, batch_size, stats_source='all', seq_len=30, area='V1', layer='L2/3', normalize=False, tiers_map=None):
+def load_movie_set(
+    data_path, batch_size, stats_source="all", seq_len=30, area="V1", layer="L2/3", normalize=False, tiers_map=None
+):
     if tiers_map is None:
-        tiers_map = {
-            'train_loader': 'train',
-            'val_loader': 'validation',
-            'test_loader': 'test'
-        }
+        tiers_map = {"train_loader": "train", "val_loader": "validation", "test_loader": "test"}
 
     data_loaders = {}
 
     for key, tier in tiers_map.items():
-        print('Packaging data loader for {tier}'.format(tier=tier))
-        data_loaders[key] = load_movie_dataset(data_path, batch_size, stats_source=stats_source, seq_len=seq_len, area=area,
-                                       layer=layer, normalize=normalize, tier=tier)
+        print("Packaging data loader for {tier}".format(tier=tier))
+        data_loaders[key] = load_movie_dataset(
+            data_path,
+            batch_size,
+            stats_source=stats_source,
+            seq_len=seq_len,
+            area=area,
+            layer=layer,
+            normalize=normalize,
+            tier=tier,
+        )
 
     return data_loaders
-
-
-
