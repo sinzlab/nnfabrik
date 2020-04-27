@@ -11,7 +11,7 @@ class ToyModel(nn.Module):
 
     def forward(self, x):
         return self.lin2(self.lin1(x))
-
-
-def toy_model(trainloader, seed, kern=16, kern2=32):
+    
+def toy_model(dataloaders, seed, kern=16, kern2=32):
     return ToyModel(kern=kern, kern2=kern2)
+

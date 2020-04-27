@@ -29,8 +29,7 @@ class Bayesian():
 
         # import TrainedModel definition
         module_path, class_name = split_module_name(trained_model_table)
-        self.TrainedModel = dynamic_import(module_path, class_name)
-
+        self.trained_model_table = dynamic_import(module_path, class_name)
 
     @staticmethod
     def get_fixed_params(datase_config, model_config, trainer_config):
@@ -119,10 +118,10 @@ class Bayesian():
                        'trainer_fn in ("{}")'.format(self.fns['trainer']), 'trainer_hash in ("{}")'.format(trainer_hash),)
 
         # populate the table for those primary keys
-        self.TrainedModel().populate(*restriction)
+        self.trained_model_table().populate(*restriction)
 
         # get the score of the model for this specific set of hyperparameters
-        score = (self.TrainedModel() & dj.AndList(restriction)).fetch("score")[0]
+        score = (self.trained_model_table() & dj.AndList(restriction)).fetch("score")[0]
         
         return score
 
@@ -161,7 +160,7 @@ class Random():
 
         # import TrainedModel definition
         module_path, class_name = split_module_name(trained_model_table)
-        self.TrainedModel = dynamic_import(module_path, class_name)
+        self.trained_model_table = dynamic_import(module_path, class_name)
 
     @staticmethod
     def get_fixed_params(datase_config, model_config, trainer_config):
@@ -241,7 +240,7 @@ class Random():
                        'trainer_fn in ("{}")'.format(self.fns['trainer']), 'trainer_hash in ("{}")'.format(trainer_hash),)
 
         # populate the table for those primary keys
-        self.TrainedModel().populate(*restriction)
+        self.trained_model_table().populate(*restriction)
 
 
     def gen_params_value(self):
@@ -260,6 +259,6 @@ class Random():
 
     def run(self):
         n_trials = len(Seed()) * self.total_trials
-        init_len = len(self.TrainedModel())
-        while len(self.TrainedModel()) - init_len < n_trials:
+        init_len = len(self.trained_model_table())
+        while len(self.trained_model_table()) - init_len < n_trials:
             self.train_evaluate(self.gen_params_value())
