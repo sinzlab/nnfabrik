@@ -1,23 +1,23 @@
-import warnings
 import os
+import warnings
+
 import datajoint as dj
 
-from .builder import resolve_fn, resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
+from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer
 from .utility.dj_helpers import make_hash
 from .utility.nnf_helper import cleanup_numpy_scalar
 
 # set external store based on env vars
-dj.config['stores'] = {
-    'minio': {  # store in s3
-        'protocol': 's3',
-        'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
-        'bucket': 'nnfabrik',
-        'location': 'dj-store',
-        'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
-        'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
-    }
+if not 'stores' in dj.config:
+    dj.config['stores'] = {}
+dj.config['stores']['minio'] = {  # store in s3
+    'protocol': 's3',
+    'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
+    'bucket': 'nnfabrik',
+    'location': 'dj-store',
+    'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
+    'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
 }
-
 
 # check if schema_name defined, otherwise default to nnfabrik_core
 schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
@@ -104,7 +104,7 @@ class Model(dj.Manual):
                 raise ValueError('Corresponding entry already exists')
         else:
             self.insert1(key)
-        
+
         return key
 
     def build_model(self, dataloaders, seed=None, key=None):
@@ -167,7 +167,7 @@ class Dataset(dj.Manual):
         dataset_hash = make_hash(dataset_config)
         key = dict(dataset_fn=dataset_fn, dataset_hash=dataset_hash,
                    dataset_config=dataset_config, dataset_fabrikant=dataset_fabrikant, dataset_comment=dataset_comment)
-        
+
         existing = self.proj() & key
         if existing:
             if skip_duplicates:
@@ -177,7 +177,7 @@ class Dataset(dj.Manual):
                 raise ValueError('Corresponding entry already exists')
         else:
             self.insert1(key)
-        
+
         return key
 
     def get_dataloader(self, seed=None, key=None):
@@ -195,7 +195,7 @@ class Dataset(dj.Manual):
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
-        #TODO: update the docstring
+        # TODO: update the docstring
 
         if key is None:
             key = {}
@@ -269,7 +269,7 @@ class Trainer(dj.Manual):
                 raise ValueError('Corresponding entry already exists')
         else:
             self.insert1(key)
-        
+
         return key
 
     def get_trainer(self, key=None, build_partial=True):
@@ -294,5 +294,3 @@ class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
-
-
