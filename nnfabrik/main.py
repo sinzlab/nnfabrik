@@ -19,8 +19,7 @@ dj.config['stores']['minio'] = {  # store in s3
     'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
 }
 
-
-schema = dj.schema('konstantin_nnfabrik')
+schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
 
 
 @schema
