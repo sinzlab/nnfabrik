@@ -19,8 +19,8 @@ dj.config['stores']['minio'] = {  # store in s3
     'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
 }
 
-# check if schema_name defined, otherwise default to nnfabrik_core
-schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
+
+schema = dj.schema('konstantin_nnfabrik')
 
 
 @schema
@@ -71,7 +71,7 @@ class Model(dj.Manual):
         """
         Add a new entry to the model.
 
-        Args: 
+        Args:
             model_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             model_config (dict) - Python dictionary containing keyword arguments for the model_fn
@@ -142,11 +142,11 @@ class Dataset(dj.Manual):
         """
         Add a new entry to the dataset.
 
-        Args: 
+        Args:
             dataset_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             dataset_config (dict) - Python dictionary containing keyword arguments for the dataset_fn
-            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             dataset_comment - Optional comment for the entry.
             skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
@@ -234,11 +234,11 @@ class Trainer(dj.Manual):
         """
         Add a new entry to the trainer.
 
-        Args: 
+        Args:
             trainer_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             trainer_config (dict) - Python dictionary containing keyword arguments for the trainer_fn.
-            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based 
+            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             trainer_comment - Optional comment for the entry.
             skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.

@@ -1,9 +1,9 @@
 import numpy as np
 from collections import namedtuple
 
+
 class BadConfigException(Exception):
     pass
-
 
 
 def slice_iter(n, step):
@@ -12,7 +12,6 @@ def slice_iter(n, step):
         yield slice(k, k + step)
         k += step
     yield slice(k, None)
-
 
 
 def corr(y1, y2, axis=-1, eps=1e-8, **kwargs):
@@ -52,6 +51,7 @@ def ptcorr(y1, y2, axis=-1, eps=1e-8, **kwargs):
     y2 = (y2 - y2.mean(dim=axis, keepdim=True)) / (y2.std(dim=axis, keepdim=True) + eps)
     return (y1 * y2).mean(dim=axis, **kwargs)
 
+
 def compute_predictions(loader, model, readout_key, reshape=True, stack=True, subsamp_size=None, return_lag=False):
     y, y_hat = [], []
     if subsamp_size is not None:
@@ -64,8 +64,11 @@ def compute_predictions(loader, model, readout_key, reshape=True, stack=True, su
             y_mod = []
             for subs_idx in slice_iter(neurons, subsamp_size):
                 y_mod.append(
-                    model(x_val, readout_key, eye_pos=eye_val,
-                          behavior=beh_val, subs_idx=subs_idx).detach().cpu().numpy())
+                    model(x_val, readout_key, eye_pos=eye_val, behavior=beh_val, subs_idx=subs_idx)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
             y_mod = np.concatenate(y_mod, axis=-1)
         lag = y_val.shape[1] - y_mod.shape[1]
         if reshape:
@@ -82,16 +85,14 @@ def compute_predictions(loader, model, readout_key, reshape=True, stack=True, su
         return y, y_hat, lag
 
 
-
 def correlation_closure(mod, loaders, avg=True, subsamp_size=None):
     ret = []
     train = mod.training
     mod.eval()
     for readout_key, loader in loaders.items():
-        y, y_hat = compute_predictions(loader, mod, readout_key,
-                                       reshape=True, stack=True, subsamp_size=subsamp_size)
+        y, y_hat = compute_predictions(loader, mod, readout_key, reshape=True, stack=True, subsamp_size=subsamp_size)
         co = corr(y, y_hat, axis=0)
-        print(readout_key + 'correlation: {:.4f}'.format(co.mean()))
+        print(readout_key + "correlation: {:.4f}".format(co.mean()))
         ret.append(co)
     ret = np.hstack(ret)
     mod.train(train)
@@ -102,7 +103,8 @@ def correlation_closure(mod, loaders, avg=True, subsamp_size=None):
         return ret
 
 
-PerformanceScores = namedtuple('PerformanceScores', ['pearson'])
+PerformanceScores = namedtuple("PerformanceScores", ["pearson"])
+
 
 def compute_scores(y, y_hat, axis=0):
     pearson = corr(y, y_hat, axis=axis)

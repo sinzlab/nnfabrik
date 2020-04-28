@@ -7,6 +7,7 @@ from torch import nn as nn
 from torch.autograd import Variable
 from . import logger as log
 
+
 class _CorePlusReadoutBase(nn.Module):
     def __init__(self, core, readout, modulator=None, nonlinearity=None, shifter=None):
         super().__init__()
@@ -47,10 +48,6 @@ class _CorePlusReadoutBase(nn.Module):
         return nout
 
 
-
-
-
-
 class CorePlusReadout3d(_CorePlusReadoutBase):
     def __init__(self, core, readout, modulator=None, nonlinearity=None, shifter=None, burn_in=15):
         super().__init__(core, readout, modulator=modulator, nonlinearity=nonlinearity, shifter=shifter)
@@ -81,8 +78,9 @@ class CorePlusReadout3d(_CorePlusReadoutBase):
 
             if x.size(0) > 1:
                 device_ids = list(range(1, min(n_gpu, x.size(0))))
-                x = data_parallel(self.readout[readout_key], x.cuda(1),
-                              module_kwargs=module_kwargs, device_ids=device_ids).cuda(0)
+                x = data_parallel(
+                    self.readout[readout_key], x.cuda(1), module_kwargs=module_kwargs, device_ids=device_ids
+                ).cuda(0)
             else:
                 x = self.readout[readout_key](x.cuda(1), **module_kwargs).cuda(0)
         else:
@@ -94,7 +92,7 @@ class CorePlusReadout3d(_CorePlusReadoutBase):
             x = self.modulator[readout_key](behavior, x, subs_idx=subs_idx)
 
         if self.burn_in < timesteps - x.size(1):
-            log.warning('WARNING: burn in is smaller than induced lag')
+            log.warning("WARNING: burn in is smaller than induced lag")
 
         burn_in = max(0, self.burn_in - timesteps + x.size(1))
 
@@ -110,8 +108,8 @@ class CorePlusReadout3d(_CorePlusReadoutBase):
 
     def __repr__(self):
         s = super().__repr__()
-        s += ' [{} parameters: '.format(self.__class__.__name__)
+        s += " [{} parameters: ".format(self.__class__.__name__)
         ret = []
-        for attr in filter(lambda x: 'burn' in x, dir(self)):
-            ret.append('{} = {}'.format(attr, getattr(self, attr)))
-        return s + '|'.join(ret) + ']\n'
+        for attr in filter(lambda x: "burn" in x, dir(self)):
+            ret.append("{} = {}".format(attr, getattr(self, attr)))
+        return s + "|".join(ret) + "]\n"
