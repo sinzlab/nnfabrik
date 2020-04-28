@@ -267,27 +267,55 @@ class UnitIDsBase(dj.Computed):
         # Template table for Unit IDs
 
         unit_id:     int            # Neuron Identifier
+        data_key:    varchar(64)    # Identifier of the dataset which the neuron is a part of
         ---
         unit_position: int          # position index of the neuron in the dataset
         """
 
+    def make(self):
+        raise NotImplementedError("Scoring Function has to be implemented")
 
-def scoring_function_base(dataloaders, model, per_Neuron=False):
+
+def scoring_function_base(dataloaders, model, device='cuda', as_dict=True, per_Neuron=False):
     raise NotImplementedError("Scoring Function has to be implemented")
 
 
 class ScoringBase(dj.Computed):
     """
     Inherit from this class and decorate with your own schema to create a functional
-    Scores table. This serves as a template for scores than can be computed with a
-    trained_model and a dataloader. The dataloader is expected to return batches of the same condition,
-    such as image reapeats.
-    """
+    Score table. This serves as a template for all scores than can be computed with a
+    TrainedModel and a dataloader.
+    Each master table has an attribute that stores the grand average score across all Neurons.
+    The `UnitScore` part table stores the score for all units.
+    In order to instantiate a functional table, the default table attriubutes need to be changed.
 
+    This template table is implementing the following logic:
+    1) Loading the a trained model from the TrainedModel table. This table needs to have the 'load_model' method.
+    2) gettng a dataloader. Minimally, the dataloader returns batches of inputs and targets.
+        The dataloader will be built by the Datast table of nnfabrik as default.
+        This table needs to have the 'get_dataloader' method
+    3) passing the model and the dataloader to a scoring function, defined in the class attribute. The function is expected to
+        return either the grand average score or the score per unit.
+    4) The average scores and unit scores will be stored in the maser/part tables of this template.
+
+    Attributes:
+        user_table (Datajoint Table) - as per default the Fabrikant Table of nnfabrik
+        trainedmodel_table (Datajoint Table) - an instantiation of the TrainedModelBase
+        unit_table (Datajoint Table) - an instantiation of the UnitIDsBase
+        scoring_function (function object) - a function that computes the average score (for the master table),
+            as well as the unit scores. An example function can be found in this module under 'scoring_function_base'
+        scoring_dataset (str) - following nnfabrik convention, this string specifies the key for the 'dataloaders'
+            object. The dataloaders object has to contain at least ['train', 'validation', 'test'].
+            This string determines, on what data tier the score is computed on. Defaults to the test set.
+        scoring_attribute (str) - name of the non-primary attribute of the master and part tables for the score.
+    """
     user_table = Fabrikant
     trainedmodel_table = TrainedModelBase
+    dataset_table = trainedmodel_table.dataset_table
     unit_table = UnitIDsBase
     scoring_function = scoring_function_base
+    scoring_dataset = "test"
+    scoring_attribute = "score"
 
     # table level comment
     table_comment = "A template table for storing results/scores of a TrainedModel"
@@ -295,51 +323,68 @@ class ScoringBase(dj.Computed):
     @property
     def definition(self):
         definition = """
-            # {table_comment}
-            -> self.trainedmodel_table
-            ---
-            score:      float     # A template for a computed score of a trained model
+                # {table_comment}
+                -> self.trainedmodel_table
+                ---
+                {score_attribute}:      float     # A template for a computed score of a trained model
 
-            ->[nullable] self.user_table
-            score_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-            """.format(table_comment=self.table_comment)
+                ->[nullable] self.user_table
+                {score_attribute}_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+                """.format(table_comment=self.table_comment, score_attribute=self.scoring_attribute)
         return definition
 
     class UnitScore(dj.Part):
-
         @property
         def definition(self):
             definition = """
-            # Scores for Individual Neurons
-            -> master
-            -> unit_table
-            ---
-            unit_score:     float   # A template for a computed unit score        
-            """
+                # Scores for Individual Neurons
+                -> master
+                -> master.unit_table
+                ---
+                {score_attribute}:     float   # A template for a computed unit score        
+                """.format(score_attribute=self._master.scoring_attribute)
             return definition
 
-    def get_repeats_dataloader(self, key=None):
+    def get_dataloaders(self, key=None):
         if key is None:
             key = self.fetch1('KEY')
-        dataloaders = self.trainedmodel_table().dataset_table.get_dataloader(key=key)
+        dataloaders = self.dataset_table().get_dataloader(key=key)
+        return dataloaders[self.scoring_dataset]
+
+    def get_repeats_dataloaders(self, key=None):
+        if key is None:
+            key = self.fetch1('KEY')
+        dataloaders = self.dataset_table().get_dataloader(key=key)
         return dataloaders["test"]
 
     def make(self, key):
-        dataloaders = self.get_repeats_dataloader(key=key)
-        model = self.trainedmodel_table().load_model(key=key, include_state_dict=True, include_dataloader=False, include_trainer=False)
-
+        dataloaders = self.get_repeats_dataloaders(key=key) if self.scoring_dataset == 'test' else self.get_dataloaders(
+            key=key)
+        model = self.trainedmodel_table().load_model(key=key, include_state_dict=True, include_dataloader=False,
+                                                     include_trainer=False)
         fabrikant_name = self.user_table.get_current_user()
         key['fabrikant_name'] = fabrikant_name
-        key['score'] = self.scoring_function(dataloaders=dataloaders, model=model, per_Neuron=False)
+        key[self.scoring_attribute] = self.scoring_function(model=model, dataloaders=dataloaders, device='cuda',
+                                                            as_dict=False, per_neuron=False)
         self.insert1(key, ignore_extra_fields=True)
 
-        unit_scores = self.scoring_function(dataloaders=dataloaders, model=model, per_Neuron=True)
+        unit_scores_dict = self.scoring_function(model=model,
+                                                 dataloaders=dataloaders,
+                                                 device='cuda',
+                                                 as_dict=True,
+                                                 per_neuron=True)
 
-        for unit_pos, unit_score in enumerate(unit_scores):
-            unit_id = (self.unit_table & key & "unit_position=".format(unit_pos)).fetch1("unit_id")
-            key["unit_id"] = unit_id
-            key["unit_score"] = unit_score
-            self.UnitScore.insert1(key, ignore_extra_fields=True)
+        for data_key, unit_scores in unit_scores_dict.items():
+            for unit_index, unit_score in enumerate(unit_scores):
+                key.pop("unit_id") if "unit_id" in key else None
+                key.pop("data_key") if "data_key" in key else None
+                neuron_key = dict(unit_index=unit_index, data_key=data_key)
+                unit_id = ((self.unit_table & key) & neuron_key).fetch1("unit_id")
+                key["unit_id"] = unit_id
+                key[self.scoring_attribute] = unit_score
+                key["data_key"] = data_key
+                self.UnitScore.insert1(key, ignore_extra_fields=True)
+
 
             
 class TransferredTrainedModelBase(TrainedModelBase):
