@@ -325,8 +325,6 @@ class ScoringBase(dj.Computed):
                 -> self.trainedmodel_table
                 ---
                 {score_attribute}:      float     # A template for a computed score of a trained model
-
-                ->[nullable] self.user_table
                 {score_attribute}_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
                 """.format(table_comment=self.table_comment, score_attribute=self.scoring_attribute)
         return definition
