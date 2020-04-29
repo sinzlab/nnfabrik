@@ -1,24 +1,25 @@
-import warnings
 import os
+import warnings
+
 import datajoint as dj
 
-from .builder import resolve_fn, resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
+from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer
 from .utility.dj_helpers import make_hash
 from .utility.nnf_helper import cleanup_numpy_scalar
 
 # set external store based on env vars
-dj.config['stores'] = {
-    'minio': {  # store in s3
-        'protocol': 's3',
-        'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
-        'bucket': 'nnfabrik',
-        'location': 'dj-store',
-        'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
-        'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
-    }
+if not 'stores' in dj.config:
+    dj.config['stores'] = {}
+dj.config['stores']['minio'] = {  # store in s3
+    'protocol': 's3',
+    'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
+    'bucket': 'nnfabrik',
+    'location': 'dj-store',
+    'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
+    'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
 }
 
-schema = dj.schema('konstantin_nnfabrik')
+schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
 
 
 @schema
@@ -193,7 +194,7 @@ class Dataset(dj.Manual):
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
-        #TODO: update the docstring
+        # TODO: update the docstring
 
         if key is None:
             key = {}
@@ -292,5 +293,3 @@ class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
-
-
