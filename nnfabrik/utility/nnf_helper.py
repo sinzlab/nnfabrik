@@ -1,6 +1,7 @@
 from importlib import import_module
 import numpy as np
 
+
 def cleanup_numpy_scalar(data):
     """
     Recursively cleanups up a (potentially nested data structure of) 
@@ -19,8 +20,8 @@ def cleanup_numpy_scalar(data):
 
 
 def split_module_name(abs_class_name):
-    abs_module_path = '.'.join(abs_class_name.split('.')[:-1])
-    class_name = abs_class_name.split('.')[-1]
+    abs_module_path = ".".join(abs_class_name.split(".")[:-1])
+    class_name = abs_class_name.split(".")[-1]
     return (abs_module_path, class_name)
 
 

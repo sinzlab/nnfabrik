@@ -8,25 +8,23 @@ from . import logger as log
 class Shifter:
     def __repr__(self):
         s = super().__repr__()
-        s += ' [{} regularizers: '.format(self.__class__.__name__)
+        s += " [{} regularizers: ".format(self.__class__.__name__)
         ret = []
-        for attr in filter(lambda x: 'gamma' in x, dir(self)):
-            ret.append('{} = {}'.format(attr, getattr(self, attr)))
-        return s + '|'.join(ret) + ']\n'
-
-
+        for attr in filter(lambda x: "gamma" in x, dir(self)):
+            ret.append("{} = {}".format(attr, getattr(self, attr)))
+        return s + "|".join(ret) + "]\n"
 
 
 class StaticAffineShifter(Shifter, ModuleDict):
     def __init__(self, data_keys, input_channels, bias=True, gamma_shifter=0, **kwargs):
-        log.info('Ignoring input {} when creating {}'.format(pformat(kwargs, indent=20), self.__class__.__name__))
+        log.info("Ignoring input {} when creating {}".format(pformat(kwargs, indent=20), self.__class__.__name__))
         super().__init__()
         self.gamma_shifter = gamma_shifter
         for k in data_keys:
             self.add_module(k, StaticAffine(input_channels, 2, bias=bias))
 
     def initialize(self, bias=None):
-        log.info('Initializing affine weights')
+        log.info("Initializing affine weights")
         for k in self:
             if bias is not None:
                 self[k].initialize(bias=bias[k])
@@ -39,7 +37,7 @@ class StaticAffineShifter(Shifter, ModuleDict):
 
 class StaticAffine(nn.Linear):
     def __init__(self, input_channels, output_channels, bias=True, **kwargs):
-        log.info('Ignoring input {} when creating {}'.format(pformat(kwargs, indent=20), self.__class__.__name__))
+        log.info("Ignoring input {} when creating {}".format(pformat(kwargs, indent=20), self.__class__.__name__))
         super().__init__(input_channels, output_channels, bias=bias)
 
     def forward(self, input):
@@ -52,7 +50,7 @@ class StaticAffine(nn.Linear):
         self.weight.data.normal_(0, 1e-6)
         if self.bias is not None:
             if bias is not None:
-                log.info('Setting bias to predefined value ' + repr(bias))
+                log.info("Setting bias to predefined value " + repr(bias))
                 self.bias.data = bias
             else:
                 self.bias.data.normal_(0, 1e-6)

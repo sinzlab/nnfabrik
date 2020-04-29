@@ -5,6 +5,7 @@ from mlutils.training import eval_state
 import numpy as np
 import random
 
+
 def get_io_dims(data_loader):
     """
     gets the input and output dimensions from the dataloader.
@@ -33,6 +34,7 @@ def get_dims_for_loader_dict(dataloaders):
     """
     return {k: get_io_dims(v) for k, v in dataloaders.items()}
 
+
 def get_module_output(model, input_shape):
     """
     Gets the output dimensions of the convolutional core
@@ -52,6 +54,7 @@ def get_module_output(model, input_shape):
             output = model.to(device)(input)
     model.to(initial_device)
     return output.shape
+
 
 def set_random_seed(seed):
     """

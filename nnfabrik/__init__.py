@@ -1,3 +1,1 @@
-config={
-    'repos': []
-}
+config = {"repos": []}
