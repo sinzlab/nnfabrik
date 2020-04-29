@@ -4,8 +4,9 @@ import warnings
 import datajoint as dj
 
 from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer
-from .utility.dj_helpers import make_hash
+from .utility.dj_helpers import make_hash, CustomSchema
 from .utility.nnf_helper import cleanup_numpy_scalar
+
 
 # set external store based on env vars
 if not 'stores' in dj.config:
@@ -19,7 +20,7 @@ dj.config['stores']['minio'] = {  # store in s3
     'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
 }
 
-schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
+schema = CustomSchema(dj.config.get('schema_name', 'nnfabrik_core'))
 
 
 @schema
