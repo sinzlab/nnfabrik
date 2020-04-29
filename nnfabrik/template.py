@@ -299,7 +299,6 @@ class ScoringBase(dj.Computed):
     4) The average scores and unit scores will be stored in the maser/part tables of this template.
 
     Attributes:
-        user_table (Datajoint Table) - as per default the Fabrikant Table of nnfabrik
         trainedmodel_table (Datajoint Table) - an instantiation of the TrainedModelBase
         unit_table (Datajoint Table) - an instantiation of the UnitIDsBase
         scoring_function (function object) - a function that computes the average score (for the master table),
@@ -309,7 +308,6 @@ class ScoringBase(dj.Computed):
             This string determines, on what data tier the score is computed on. Defaults to the test set.
         scoring_attribute (str) - name of the non-primary attribute of the master and part tables for the score.
     """
-    user_table = Fabrikant
     trainedmodel_table = TrainedModelBase
     dataset_table = trainedmodel_table.dataset_table
     unit_table = UnitIDsBase
@@ -362,8 +360,6 @@ class ScoringBase(dj.Computed):
             key=key)
         model = self.trainedmodel_table().load_model(key=key, include_state_dict=True, include_dataloader=False,
                                                      include_trainer=False)
-        fabrikant_name = self.user_table.get_current_user()
-        key['fabrikant_name'] = fabrikant_name
         key[self.scoring_attribute] = self.scoring_function(model=model, dataloaders=dataloaders, device='cuda',
                                                             as_dict=False, per_neuron=False)
         self.insert1(key, ignore_extra_fields=True)
