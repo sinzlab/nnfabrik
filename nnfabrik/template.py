@@ -266,10 +266,10 @@ class UnitIDsBase(dj.Computed):
     definition = """
         # Template table for Unit IDs
 
-        unit_id:     int            # Neuron Identifier
-        data_key:    varchar(64)    # Identifier of the dataset which the neuron is a part of
+        unit_id:        int             # Neuron Identifier
+        data_key:       varchar(64)     # Identifier of the dataset which the neuron is a part of
         ---
-        unit_position: int          # position index of the neuron in the dataset
+        unit_index:     int             # position index of the neuron in the dataset and model
         """
 
     def make(self):
@@ -586,4 +586,3 @@ class TransferredTrainedModelBase(TrainedModelBase):
             key['model_state'] = filepath
 
             self.ModelStorage.insert1(key, ignore_extra_fields=True)
-            
