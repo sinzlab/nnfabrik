@@ -14,3 +14,35 @@ services:
     environment:
       - DISPLAY=$DISPLAY
       - NVIDIA_VISIBLE_DEVICES=0
+  gpu-server_develop:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - /var/lib/nova/sinz-shared:/data
+      - ../projects:/notebooks
+    env_file: .env
+    environment:
+      - DISPLAY=$DISPLAY
+    runtime: nvidia
+  server_develop:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../../../var/sinz-shared:/data
+      - ../projects:/notebooks
+    env_file: .env
+    environment:
+      - DISPLAY=$DISPLAY
+    runtime: nvidia
+  gpu_server_playground:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - /var/lib/nova/sinz-shared:/data
+    env_file: .env
+    environment:
+      - DISPLAY=$DISPLAY
+    runtime: nvidia
