@@ -15,9 +15,20 @@ class TransferLearningCore(Core2d, nn.Module):
     """
     A Class to create a Core based on a model class from torchvision.models.
     """
-    def __init__(self, input_channels, tr_model_fn, model_layer, pretrained=True,
-                 final_batchnorm=True, final_nonlinearity=True,
-                 bias=False, momentum=0.1, fine_tune = False, **kwargs):
+
+    def __init__(
+        self,
+        input_channels,
+        tr_model_fn,
+        model_layer,
+        pretrained=True,
+        final_batchnorm=True,
+        final_nonlinearity=True,
+        bias=False,
+        momentum=0.1,
+        fine_tune=False,
+        **kwargs
+    ):
         """
         Args:
             input_channels: number of input channgels
@@ -31,17 +42,17 @@ class TransferLearningCore(Core2d, nn.Module):
             fine_tune: boolean, sets all weights to trainable if True
             **kwargs:
         """
-        print('Ignoring input {} when creating {}'.format(repr(kwargs), self.__class__.__name__))
+        print("Ignoring input {} when creating {}".format(repr(kwargs), self.__class__.__name__))
         super().__init__()
 
-        #getattr(self, tr_model_fn)
-        tr_model_fn         = globals()[tr_model_fn]
+        # getattr(self, tr_model_fn)
+        tr_model_fn = globals()[tr_model_fn]
 
         self.input_channels = input_channels
-        self.tr_model_fn    = tr_model_fn
+        self.tr_model_fn = tr_model_fn
 
-        tr_model            = tr_model_fn(pretrained=pretrained)
-        self.model_layer    = model_layer
+        tr_model = tr_model_fn(pretrained=pretrained)
+        self.model_layer = model_layer
         self.features = nn.Sequential()
 
         tr_features = nn.Sequential(*list(tr_model.features.children())[:model_layer])
@@ -51,12 +62,12 @@ class TransferLearningCore(Core2d, nn.Module):
             for param in tr_features.parameters():
                 param.requires_grad = False
 
-        self.features.add_module('TransferLearning', tr_features)
+        self.features.add_module("TransferLearning", tr_features)
         print(self.features)
         if final_batchnorm:
-            self.features.add_module('OutBatchNorm', nn.BatchNorm2d(self.outchannels, momentum=momentum))
+            self.features.add_module("OutBatchNorm", nn.BatchNorm2d(self.outchannels, momentum=momentum))
         if final_nonlinearity:
-            self.features.add_module('OutNonlin', nn.ReLU(inplace=True))
+            self.features.add_module("OutNonlin", nn.ReLU(inplace=True))
 
     def forward(self, x):
         if self.input_channels == 1:
@@ -72,10 +83,10 @@ class TransferLearningCore(Core2d, nn.Module):
         Returns: dimensions of the output, after a forward pass through the model
         """
         found_out_channels = False
-        i=1
+        i = 1
         while not found_out_channels:
-            if 'out_channels' in self.features.TransferLearning[-i].__dict__:
+            if "out_channels" in self.features.TransferLearning[-i].__dict__:
                 found_out_channels = True
             else:
-                i = i+1
+                i = i + 1
         return self.features.TransferLearning[-i].out_channels

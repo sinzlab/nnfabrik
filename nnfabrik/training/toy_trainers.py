@@ -7,3 +7,4 @@ def toy_trainer(model, dataloaders, seed, param1=0):
     some_model_state = 3
     
     return a_score, some_output, some_model_state
+

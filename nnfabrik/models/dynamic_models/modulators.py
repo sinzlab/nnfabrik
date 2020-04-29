@@ -10,7 +10,7 @@ from . import logger as log
 class GateGRU(nn.Module):
     def __init__(self, neurons, input_channels=3, hidden_channels=5, bias=True, offset=0, **kwargs):
         super().__init__()
-        log.info('Ignoring input {} when creating {}'.format(pformat(kwargs, indent=20),  self.__class__.__name__))
+        log.info("Ignoring input {} when creating {}".format(pformat(kwargs, indent=20), self.__class__.__name__))
         self.gru = nn.GRUCell(input_channels, hidden_channels, bias=bias)
         self.linear = nn.Linear(hidden_channels, neurons)
         self.hidden_states = hidden_channels
@@ -37,7 +37,7 @@ class GateGRU(nn.Module):
             hidden = self.gru(x[t, ...], hidden)
             states.append(self.linear(hidden))
         if readoutput is None:
-            log.info('Nothing to modulate. Returning modulation only')
+            log.info("Nothing to modulate. Returning modulation only")
             return torch.exp(torch.stack(states, 1))
         else:
             lag = T - readoutput.size(1)
@@ -50,21 +50,23 @@ class GateGRU(nn.Module):
 class GRUModulator(ModuleDict):
     _base_modulator = None
 
-    def __init__(self, n_neurons, input_channels=3, hidden_channels=5,
-                 bias=True, gamma_modulator=0, offset=0, **kwargs):
-        log.info('Ignoring input {} when creating {}'.format(pformat(kwargs, indent=20), self.__class__.__name__))
+    def __init__(
+        self, n_neurons, input_channels=3, hidden_channels=5, bias=True, gamma_modulator=0, offset=0, **kwargs
+    ):
+        log.info("Ignoring input {} when creating {}".format(pformat(kwargs, indent=20), self.__class__.__name__))
         super().__init__()
         self.gamma_modulator = gamma_modulator
         for k, n in n_neurons.items():
             self.add_module(k, self._base_modulator(n, input_channels, hidden_channels, bias, offset))
 
     def initialize(self):
-        log.info('Initializing ' + self.__class__.__name__)
+        log.info("Initializing " + self.__class__.__name__)
         for k, mu in self.items():
             self[k].gru.reset_parameters()
 
     def regularizer(self, data_key, subs_idx=None):
         return self[data_key].regularizer(subs_idx=subs_idx) * self.gamma_modulator
+
 
 class GateGRUModulator(GRUModulator):
     _base_modulator = GateGRU
