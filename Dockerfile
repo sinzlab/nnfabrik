@@ -1,10 +1,12 @@
 FROM sinzlab/pytorch:latest
 
-# WORKDIR /notebooks
+ADD . /src/nnfabrik
 WORKDIR /src
-ADD . /src/notebooks
 
-RUN pip3 install -e src/notebooks
-RUN pip3 install -e src/notebooks/ml-utils
+RUN ls
+RUN pip3 install -e nnfabrik
+RUN pip3 install -e nnfabrik/ml-utils
+RUN pip3 install -e nnfabrik/nnvision/nnvision
+RUN pip3 install -e nnfabrik/mei/mei
 
 WORKDIR /notebooks
