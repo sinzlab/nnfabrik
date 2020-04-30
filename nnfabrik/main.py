@@ -18,7 +18,7 @@ dj.config['stores'] = {
     }
 }
 
-schema = dj.schema('konstantin_nnfabrik')
+schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
 
 
 @schema
