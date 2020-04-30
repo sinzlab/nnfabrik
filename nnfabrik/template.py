@@ -276,7 +276,7 @@ class UnitIDsBase(dj.Computed):
         raise NotImplementedError("Scoring Function has to be implemented")
 
 
-def scoring_function_base(dataloaders, model, device='cuda', as_dict=True, per_Neuron=False):
+def scoring_function_base(dataloaders, model, device='cuda', as_dict=True, per_neuron=False):
     raise NotImplementedError("Scoring Function has to be implemented")
 
 
@@ -337,7 +337,7 @@ class ScoringBase(dj.Computed):
                 -> master
                 -> master.unit_table
                 ---
-                {score_attribute}:     float   # A template for a computed unit score        
+                unit_{score_attribute}:     float   # A template for a computed unit score        
                 """.format(score_attribute=self._master.scoring_attribute)
             return definition
 
@@ -358,8 +358,11 @@ class ScoringBase(dj.Computed):
             key=key)
         model = self.trainedmodel_table().load_model(key=key, include_state_dict=True, include_dataloader=False,
                                                      include_trainer=False)
-        key[self.scoring_attribute] = self.scoring_function(model=model, dataloaders=dataloaders, device='cuda',
-                                                            as_dict=False, per_neuron=False)
+        key[self.scoring_attribute] = self.scoring_function(model=model,
+                                                            dataloaders=dataloaders,
+                                                            device='cuda',
+                                                            as_dict=False,
+                                                            per_neuron=False)
         self.insert1(key, ignore_extra_fields=True)
 
         unit_scores_dict = self.scoring_function(model=model,
@@ -375,12 +378,34 @@ class ScoringBase(dj.Computed):
                 neuron_key = dict(unit_index=unit_index, data_key=data_key)
                 unit_id = ((self.unit_table & key) & neuron_key).fetch1("unit_id")
                 key["unit_id"] = unit_id
-                key[self.scoring_attribute] = unit_score
+                key["unit_{}".format(self.scoring_attribute)] = unit_score
                 key["data_key"] = data_key
                 self.UnitScore.insert1(key, ignore_extra_fields=True)
 
 
-            
+class ModelScoringBase(ScoringBase):
+    """
+    A template scoring table with the same logic as ScoringBase, but for scores that do not have unit scores, but
+    an overall score per model only.
+    """
+    UnitScore = None
+
+    def make(self, key):
+        dataloaders = self.get_repeats_dataloaders(key=key) if self.scoring_dataset == 'test' else self.get_dataloaders(
+            key=key)
+        model = self.trainedmodel_table().load_model(key=key,
+                                                     include_state_dict=True,
+                                                     include_dataloader=False,
+                                                     include_trainer=False)
+
+        key[self.scoring_attribute] = self.scoring_function(model=model,
+                                                            dataloaders=dataloaders,
+                                                            device='cuda',
+                                                            as_dict=False,
+                                                            per_neuron=False)
+        self.insert1(key, ignore_extra_fields=True)
+
+
 class TransferredTrainedModelBase(TrainedModelBase):
     """
     A modified version of TrainedModel table which enables step-wise table population given the 
