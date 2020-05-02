@@ -16,7 +16,7 @@ class Bayesian():
                  architect,
                  trained_model_table,
                  total_trials=5,
-                 arms_per_trial=1, 
+                 arms_per_trial=1,
                  comment="Bayesian optimization of Hyper params."):
 
         self.fns = dict(dataset=dataset_fn, model=model_fn, trainer=trainer_fn)
@@ -92,23 +92,23 @@ class Bayesian():
 
         # insert the stuff into their corresponding tables
         dataset_hash = make_hash(config['dataset'])
-        entry_exists = {"dataset_fn": "{}".format(self.fns['dataset'])} in Dataset() and {"dataset_hash": "{}".format(dataset_hash)} in Dataset()
+        entry_exists = {"dataset_fn": "{}".format(self.fns['dataset'])} in self.trained_model_table.dataset_table() and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
         if not entry_exists:
-            Dataset().add_entry(self.fns['dataset'], config['dataset'],
+            self.trained_model_table.dataset_table().add_entry(self.fns['dataset'], config['dataset'],
                                 dataset_fabrikant=self.architect,
                                 dataset_comment=self.comment)
 
         model_hash = make_hash(config['model'])
-        entry_exists = {"model_fn": "{}".format(self.fns['model'])} in Model() and {"model_hash": "{}".format(model_hash)} in Model()
+        entry_exists = {"model_fn": "{}".format(self.fns['model'])} in self.trained_model_table.model_table() and {"model_hash": "{}".format(model_hash)} in self.trained_model_table.model_table()
         if not entry_exists:
-            Model().add_entry(self.fns['model'], config['model'],
+            self.trained_model_table.model_table().add_entry(self.fns['model'], config['model'],
                               model_fabrikant=self.architect,
                               model_comment=self.comment)
 
         trainer_hash = make_hash(config['trainer'])
-        entry_exists = {"trainer_fn": "{}".format(self.fns['trainer'])} in Trainer() and {"trainer_hash": "{}".format(trainer_hash)} in Trainer()
+        entry_exists = {"trainer_fn": "{}".format(self.fns['trainer'])} in self.trained_model_table.trainer_table() and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
         if not entry_exists:
-            Trainer().add_entry(self.fns['trainer'], config['trainer'],
+            self.trained_model_table.trainer_table().add_entry(self.fns['trainer'], config['trainer'],
                                 trainer_fabrikant=self.architect,
                                 trainer_comment=self.comment)
 
@@ -122,7 +122,7 @@ class Bayesian():
 
         # get the score of the model for this specific set of hyperparameters
         score = (self.trained_model_table() & dj.AndList(restriction)).fetch("score")[0]
-        
+
         return score
 
     def run(self):
@@ -147,7 +147,7 @@ class Random():
                  architect,
                  trained_model_table,
                  total_trials=5,
-                 arms_per_trial=1, 
+                 arms_per_trial=1,
                  comment="Random search for hyper params."):
 
         self.fns = dict(dataset=dataset_fn, model=model_fn, trainer=trainer_fn)
@@ -214,23 +214,23 @@ class Random():
 
         # insert the stuff into their corresponding tables
         dataset_hash = make_hash(config['dataset'])
-        entry_exists = {"dataset_fn": "{}".format(self.fns['dataset'])} in Dataset() and {"dataset_hash": "{}".format(dataset_hash)} in Dataset()
+        entry_exists = {"dataset_fn": "{}".format(self.fns['dataset'])} in self.trained_model_table.dataset_table() and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
         if not entry_exists:
-            Dataset().add_entry(self.fns['dataset'], config['dataset'],
+            self.trained_model_table.dataset_table().add_entry(self.fns['dataset'], config['dataset'],
                                 dataset_fabrikant=self.architect,
                                 dataset_comment=self.comment)
 
         model_hash = make_hash(config['model'])
-        entry_exists = {"model_fn": "{}".format(self.fns['model'])} in Model() and {"model_hash": "{}".format(model_hash)} in Model()
+        entry_exists = {"model_fn": "{}".format(self.fns['model'])} in self.trained_model_table.model_table() and {"model_hash": "{}".format(model_hash)} in self.trained_model_table.model_table()
         if not entry_exists:
-            Model().add_entry(self.fns['model'], config['model'],
+            self.trained_model_table.model_table().add_entry(self.fns['model'], config['model'],
                               model_fabrikant=self.architect,
                               model_comment=self.comment)
 
         trainer_hash = make_hash(config['trainer'])
-        entry_exists = {"trainer_fn": "{}".format(self.fns['trainer'])} in Trainer() and {"trainer_hash": "{}".format(trainer_hash)} in Trainer()
+        entry_exists = {"trainer_fn": "{}".format(self.fns['trainer'])} in self.trained_model_table.trainer_table() and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
         if not entry_exists:
-            Trainer().add_entry(self.fns['trainer'], config['trainer'],
+            self.trained_model_table.trainer_table().add_entry(self.fns['trainer'], config['trainer'],
                                 trainer_fabrikant=self.architect,
                                 trainer_comment=self.comment)
 
