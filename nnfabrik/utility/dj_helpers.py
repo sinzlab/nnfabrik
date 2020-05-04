@@ -5,15 +5,31 @@ from datetime import datetime
 import hashlib
 import datajoint as dj
 from git import Repo, cmd
-from .nnf_helper import cleanup_numpy_scalar
-
+import numpy as np
 import inspect
 from datetime import date, datetime
 from datajoint.utils import to_camel_case
-
 from datajoint.schema import Schema, ordered_dir
 
 from collections import OrderedDict, Iterable, Mapping
+
+
+def cleanup_numpy_scalar(data):
+    """
+    Recursively cleanups up a (potentially nested data structure of)
+    objects, replacing any scalar numpy instance with the corresponding
+    Python native datatype.
+    """
+    if isinstance(data, np.generic):
+        if data.shape == ():
+            data = data.item()
+    elif isinstance(data, dict):
+        for k, v in data.items():
+            data[k] = cleanup_numpy_scalar(v)
+    elif isinstance(data, (list, tuple)):
+        data = [cleanup_numpy_scalar(e) for e in data]
+    return data
+
 
 def make_hash(obj):
     """
