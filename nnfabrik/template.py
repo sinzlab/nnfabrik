@@ -310,6 +310,7 @@ class ScoringBase(dj.Computed):
     dataset_table = trainedmodel_table.dataset_table
     unit_table = UnitIDsBase
     measure_function = staticmethod(scoring_function_base)
+    function_kwargs = {}
     measure_dataset = "test"
     measure_attribute = "score"
     model_cache = None
@@ -381,16 +382,16 @@ class ScoringBase(dj.Computed):
                 self.Units.insert1(key, ignore_extra_fields=True)
 
     def make(self, key):
+
         dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(
             key=key)
-
         model = self.get_model(key=key)
-
         unit_measures_dict = self.measure_function(model=model,
                                                  dataloaders=dataloaders,
                                                  device='cuda',
                                                  as_dict=True,
-                                                 per_neuron=True)
+                                                 per_neuron=True,
+                                                 **self.function_kwargs)
 
         key[self.measure_attribute] = self.get_avg_of_unit_dict(unit_measures_dict)
         self.insert1(key, ignore_extra_fields=True)
@@ -403,23 +404,17 @@ class SummaryScoringBase(ScoringBase):
     an overall score per model only.
     """
     unit_table = None
-    UnitScore = None
+    Units = None
 
     def make(self, key):
+
         dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(
             key=key)
-
-        if self.model_cache is None:
-            model = self.trainedmodel_table().load_model(key=key,
-                                                         include_state_dict=True,
-                                                         include_dataloader=False,
-                                                         include_trainer=False)
-        else:
-            model = self.model_cache().load(key=key)
-
+        model = self.get_model(key=key)
         key[self.measure_attribute] = self.measure_function(model=model,
                                                             dataloaders=dataloaders,
-                                                            device='cuda')
+                                                            device='cuda',
+                                                            **self.function_kwargs)
         self.insert1(key, ignore_extra_fields=True)
 
 
@@ -454,12 +449,12 @@ class MeasuresBase(ScoringBase):
             return definition
 
     def make(self, key):
-        # if key is none. load all the
-        dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(key=key)
 
+        dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(key=key)
         unit_measures_dict = self.measure_function(dataloaders=dataloaders,
-                                                 as_dict=True,
-                                                 per_neuron=True)
+                                                   as_dict=True,
+                                                   per_neuron=True,
+                                                   **self.function_kwargs)
 
         key[self.measure_attribute] = self.get_avg_of_unit_dict(unit_measures_dict)
         self.insert1(key, ignore_extra_fields=True)
@@ -475,7 +470,8 @@ class SummaryMeasuresBase(MeasuresBase):
 
     def make(self, key):
         dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(key=key)
-        key[self.measure_attribute] = self.measure_function(dataloaders=dataloaders)
+        key[self.measure_attribute] = self.measure_function(dataloaders=dataloaders,
+                                                            **self.function_kwargs)
         self.insert1(key, ignore_extra_fields=True)
 
 
