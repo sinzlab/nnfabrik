@@ -258,7 +258,7 @@ class Random():
 
 
     def run(self):
-        n_trials = len(Seed()) * self.total_trials
+        n_trials = len(self.trained_model_table.seed_table()) * self.total_trials
         init_len = len(self.trained_model_table())
         while len(self.trained_model_table()) - init_len < n_trials:
             self.train_evaluate(self.gen_params_value())
