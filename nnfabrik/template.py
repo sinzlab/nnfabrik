@@ -266,10 +266,6 @@ class UnitIDsBase(dj.Computed):
         raise NotImplementedError("Scoring Function has to be implemented")
 
 
-def scoring_function_base(dataloaders, model, device='cuda', as_dict=True, per_neuron=False):
-    raise NotImplementedError("Scoring Function has to be implemented")
-
-
 class ScoringBase(dj.Computed):
     """
     Inherit from this class and decorate with your own schema to create a functional
@@ -302,12 +298,15 @@ class ScoringBase(dj.Computed):
     trainedmodel_table = TrainedModelBase
     dataset_table = trainedmodel_table.dataset_table
     unit_table = UnitIDsBase
-    measure_function = staticmethod(scoring_function_base)
     function_kwargs = {}
     measure_dataset = "test"
     measure_attribute = "score"
     model_cache = None
     data_cache = None
+
+    @staticmethod
+    def measure_function(dataloaders, model, device='cuda', as_dict=True, per_neuron=True):
+        raise NotImplementedError("Scoring Function has to be implemented")
 
     # table level comment
     table_comment = "A template table for storing results/scores of a TrainedModel"
