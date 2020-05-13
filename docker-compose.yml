@@ -1,48 +1,62 @@
-version: '2.3'
+version: "2.3"
 services:
-  notebook:
-    build: .
-    env_file: .env
-    ports:
-      - "5003:8888"
+  local_notebook:
+    build: ..
     volumes:
-      - ../data:/data
-      #- /mnt/qb/data:/data
-      - /tmp:/tmp
-      - .:/src/nnfabrik
+      - ./notebooks/models:/notebooks/models
+      - $HOME/data/static:/notebooks/data
       - ./notebooks:/notebooks
+      - ../ml-utils:/src/ml-utils
+      - ../nnfabrik:/src/nnfabrik
+      - ../NIPS-System-Identification:/src/nips
+      - ../nnsysident:/src/nnsysident
+      - /tmp/djcache:/cache
+    ports:
+      - "8888:8888"
+    env_file: .env
+
+  local_debug:
+    build: ..
+    volumes:
+      - ./notebooks/models:/notebooks/models
+      - $HOME/data/static:/notebooks/data
+      - ./notebooks:/notebooks
+      - ../ml-utils:/src/ml-utils
+      - ../nnfabrik:/src/nnfabrik
+      - ../NIPS-System-Identification:/src/nips
+      - ../nnsysident:/src/nnsysident
+      - /tmp/djcache:/cache
+    entrypoint: /usr/local/bin/python3
+    env_file: .env
+
+  gpu_job:
+    build: ..
+    volumes:
+      - ./notebooks/models:/notebooks/models
+      - /var/sinz-shared/mouse/toliaslab/static:/notebooks/data
+      - ./notebooks:/notebooks
+      - ../ml-utils:/src/ml-utils
+      - ../NIPS-System-Identification:/src/nips
+      - ../nnsysident:/src/nnsysident
+      - /tmp/djcache:/cache
+    env_file: .env
+    runtime: nvidia
+    entrypoint: /usr/local/bin/python3
+    command: run.py
+
+  gpu_notebook:
+    build: ..
+    volumes:
+      - ./notebooks/models:/notebooks/models
+      - /var/sinz-shared/mouse/toliaslab/static:/notebooks/data
+      - ./notebooks:/notebooks
+      - ../ml-utils:/src/ml-utils
+      - ../nnfabrik:/src/nnfabrik
+      - ../NIPS-System-Identification:/src/nips
+      - ../nnsysident:/src/nnsysident
+      - /tmp/djcache:/cache
+    env_file: .env
+    ports:
+      - "8888:8888"
     environment:
-      - DISPLAY=$DISPLAY
       - NVIDIA_VISIBLE_DEVICES=0
-  gpu-server_develop:
-    build: .
-    ports:
-      - "8888:8888"
-    volumes:
-      - /var/lib/nova/sinz-shared:/data
-      - ../projects:/notebooks
-    env_file: .env
-    environment:
-      - DISPLAY=$DISPLAY
-    runtime: nvidia
-  server_develop:
-    build: .
-    ports:
-      - "8888:8888"
-    volumes:
-      - ../../../var/sinz-shared:/data
-      - ../projects:/notebooks
-    env_file: .env
-    environment:
-      - DISPLAY=$DISPLAY
-    runtime: nvidia
-  gpu_server_playground:
-    build: .
-    ports:
-      - "8888:8888"
-    volumes:
-      - /var/lib/nova/sinz-shared:/data
-    env_file: .env
-    environment:
-      - DISPLAY=$DISPLAY
-    runtime: nvidia
