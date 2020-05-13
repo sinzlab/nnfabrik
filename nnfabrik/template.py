@@ -13,7 +13,7 @@ from datajoint.fetch import DataJointError
 class DataInfoBase(dj.Computed):
     """
     Inherit from this class and decorate with your own schema to create a functional
-    DatasetInfo table. By default, this will inherit from the Dataset as found in nnfabrik.main.
+    DataInfo table. By default, this will inherit from the Dataset as found in nnfabrik.main.
     To change this behavior, overwrite the dataset_table` property.
     """
 
@@ -59,7 +59,7 @@ class DataInfoBase(dj.Computed):
 
         key['fabrikant_name'] = fabrikant_name
         key['data_info'] = data_info
-        self.insert1(key, ignore_extra_fields=True)
+        self.insert1(key)
 
 
 class TrainedModelBase(dj.Computed):
@@ -190,20 +190,13 @@ class TrainedModelBase(dj.Computed):
                                          state_dict=config_dict.get("state_dict", None),
                                          strict=False)
 
-                if include_trainer:
-                    trainer_config_dict = dict(trainer_fn=config_dict["trainer_fn"],
-                                               trainer_config=config_dict["trainer_config"])
-
                 net = get_model(**model_config_dict)
-                return (net, get_trainer(**trainer_config_dict)) if include_trainer else net
-            except (TypeError, AttributeError, DataJointError):
+                return (net, get_trainer(config_dict["trainer_fn"], config_dict["trainer_config"])) if include_trainer else net
 
+            except (TypeError, AttributeError, DataJointError):
                 print("Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
                       "Make sure to have an The 'model_fn' also has to be able to"
                       "accept 'data_info' as an input arg, and use that over the dataloader to build the model.")
-                ret = get_all_parts(**config_dict, seed=seed)
-                return ret[1:] if include_trainer else ret[1]
-
         return get_all_parts(**config_dict, seed=seed)
 
     def call_back(self, uid=None, epoch=None, model=None, info=None):
