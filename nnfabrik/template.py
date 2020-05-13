@@ -219,7 +219,7 @@ class TrainedModelBase(dj.Computed):
         """
         # lookup the fabrikant corresponding to the current DJ user
         fabrikant_name = self.user_table.get_current_user()
-        seed = (Seed & key).fetch1('seed')
+        seed = (self.seed_table & key).fetch1('seed')
 
         # load everything
         dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
