@@ -1,24 +1,26 @@
-import warnings
 import os
+import warnings
+
 import datajoint as dj
 
-from .builder import resolve_fn, resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer, get_all_parts
-from .utility.dj_helpers import make_hash
+from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer
+from .utility.dj_helpers import make_hash, CustomSchema
 from .utility.nnf_helper import cleanup_numpy_scalar
 
+
 # set external store based on env vars
-dj.config['stores'] = {
-    'minio': {  # store in s3
-        'protocol': 's3',
-        'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
-        'bucket': 'nnfabrik',
-        'location': 'dj-store',
-        'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
-        'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
-    }
+if not 'stores' in dj.config:
+    dj.config['stores'] = {}
+dj.config['stores']['minio'] = {  # store in s3
+    'protocol': 's3',
+    'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
+    'bucket': 'nnfabrik',
+    'location': 'dj-store',
+    'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
+    'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
 }
 
-schema = dj.schema(dj.config.get('schema_name', 'nnfabrik_core'))
+schema = CustomSchema(dj.config.get('schema_name', 'nnfabrik_core'))
 
 
 @schema
@@ -105,13 +107,32 @@ class Model(dj.Manual):
 
         return key
 
-    def build_model(self, dataloaders, seed=None, key=None):
+    def build_model(self, dataloaders=None, seed=None, key=None, data_info=None):
+        """
+        Builds a Pytorch module by calling the model_fn with the corresponding model_config. The table has to be
+        restricted to one entry in order for this method to return a model.
+        Either the dataloaders or data_info have to be specified to determine the size of the input and thus the
+        appropriate model settings.
+
+        Args:
+            dataloaders (dict) -  a dictionary of dataloaders. The model will infer its shape from these dataloaders
+            seed (int) -  random seed
+            key (dict) - datajoint key
+            data_info (dict) - contains all necessary information about the input in order to build the model.
+
+        Returns:
+            A PyTorch module.
+        """
+        if dataloaders is None and data_info is None:
+            raise ValueError("dataloaders and data_info can not both be None. To build the model, either dataloaders or"
+                             "data_info have to be passed.")
+
         print('Loading model...')
         if key is None:
             key = {}
         model_fn, model_config = (self & key).fn_config
 
-        return get_model(model_fn, model_config, dataloaders, seed=seed)
+        return get_model(model_fn, model_config, dataloaders=dataloaders, seed=seed, data_info=data_info)
 
 
 @schema
@@ -193,7 +214,7 @@ class Dataset(dj.Manual):
                 the input should have the following form:
                     [batch_size, channels, px_x, px_y, ...]
         """
-        #TODO: update the docstring
+        # TODO: update the docstring
 
         if key is None:
             key = {}
@@ -292,5 +313,3 @@ class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
-
-
