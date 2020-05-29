@@ -9,11 +9,15 @@ import numpy as np
 import inspect
 from datetime import date, datetime
 from datajoint.utils import to_camel_case
+from collections import OrderedDict, Iterable, Mapping
+
+# try/except is necessary to support all versions of dj
 try:
+    # for versions < 0.12.6
     from datajoint.schema import Schema
 except:
+    # for versions >= 0.12.6
     from datajoint.schemas import Schema
-from collections import OrderedDict, Iterable, Mapping
 
 
 def cleanup_numpy_scalar(data):
