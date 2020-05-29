@@ -10,9 +10,9 @@ import inspect
 from datetime import date, datetime
 from datajoint.utils import to_camel_case
 try:
-    from datajoint.schema import Schema, ordered_dir
+    from datajoint.schema import Schema
 except:
-    from datajoint.schemas import Schema, ordered_dir
+    from datajoint.schemas import Schema
 from collections import OrderedDict, Iterable, Mapping
 
 
