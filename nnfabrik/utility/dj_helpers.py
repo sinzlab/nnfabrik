@@ -9,9 +9,15 @@ import numpy as np
 import inspect
 from datetime import date, datetime
 from datajoint.utils import to_camel_case
-from datajoint.schema import Schema, ordered_dir
-
 from collections import OrderedDict, Iterable, Mapping
+
+# try/except is necessary to support all versions of dj
+try:
+    # for versions < 0.12.6
+    from datajoint.schema import Schema
+except:
+    # for versions >= 0.12.6
+    from datajoint.schemas import Schema
 
 
 def cleanup_numpy_scalar(data):
@@ -290,7 +296,6 @@ def make_definition(f, exclude=('model', 'dataloaders', 'seed'), default_to_str=
                     t = object
         else:
             t = object
-
         field = type_lut.get(t, 'longblob')  # default to longblob if no match found
         # if boolean field, turn default value into an integer
         if field == 'bool' and v in def_lut:
