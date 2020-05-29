@@ -9,8 +9,10 @@ import numpy as np
 import inspect
 from datetime import date, datetime
 from datajoint.utils import to_camel_case
-from datajoint.schema import Schema, ordered_dir
-
+try:
+    from datajoint.schema import Schema, ordered_dir
+except:
+    from datajoint.schemas import Schema, ordered_dir
 from collections import OrderedDict, Iterable, Mapping
 
 
@@ -271,11 +273,13 @@ def make_definition(f, exclude=('model', 'dataloaders', 'seed'), default_to_str=
         def_lut = {k: (d if d is not None else 'NULL') for k, d in zip(argspec.args[::-1], argspec.defaults[::-1])}
 
     for v in argspec.args:
+        print(v)
         # skip arguments found in the exclude list
         if v in exclude:
             continue
         if v in argspec.annotations:
             t = argspec.annotations[v]
+            print(t)
             if not t in [str, int, float, bool]:
                 if default_to_str:
                     t = str
@@ -290,7 +294,7 @@ def make_definition(f, exclude=('model', 'dataloaders', 'seed'), default_to_str=
                     t = object
         else:
             t = object
-
+        print(t)
         field = type_lut.get(t, 'longblob')  # default to longblob if no match found
         # if boolean field, turn default value into an integer
         if field == 'bool' and v in def_lut:
