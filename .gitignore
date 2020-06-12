@@ -11,3 +11,4 @@ mei
 nnvision
 .ipynb_checkpoints/
 Untitled*.ipynb
+.vscode/*
