@@ -62,13 +62,13 @@ However, to ensure a generalized solution nnfabrik makes some minor assumptions 
   * a collection (list, tuple, or dictionary) of any other quantity 
   * the `state_dict` of the trained model.
 
-You can take a look at some examples in [toy_dataset](), [toy_model](), and [toy_trainer]().
+You can take a look at some examples in [toy_dataset](./nnfabrik/datasets/toy_datasets.py), [toy_model](./nnfabrik/models/toy_models.py), and [toy_trainer](./nnfabrik/training/toy_trainers.py).
 
 Once you have these three functions, all is left to do is to define the corresponding tables. Tables are structured similar to the the functions. That is, we have a `Dataset`, `Model`, and `Trainer` table. Each entry of the table corresponds to an specific instance of the corresponding function. For example one entry of the `Dataset` table refers to a specific dataset function and a specific `dataset_config`.
 
 In addition to the tables which store unique combinations of functions and configuration objects, there is another table, called `TrainedModel` to store the trained models. Each entry of the `TrainedModel` table refers to the resulting model from a unique combination of dataset, model, and trainer.
 
-To get familiar with the tables (e.g. how to define them and add entries) take a look at the [example notebook]().
+To get familiar with the tables (e.g. how to define them and add entries) take a look at the [example notebook](./notebooks/nnfabrik_example.ipynb).
 
 We have pretty much covered the most important information about nnfabrik, and it is time to use it. Some basics about the Datajoint Python package (which is the backbone of nnfabrik) might come handy (especially about dealing with tables) and you can learn more about Datajoint [here](https://datajoint.io/).
 
