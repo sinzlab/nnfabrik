@@ -1,2 +1,5 @@
-# nnfabrik
-A generalized model fitting pipeline that houses models, trainers, and datasets in datajoint and returns as well as stores trained models.
+# nnfabrik: generalized neural network model fitting pipeline
+nnfabrik is a model fitting pipeline where training results (i.e. scores, and trained models) as well as any data related to models, trainers, and datasets used for training are stored in datajoint tables.
+
+## :bug: Report bugs
+bla
