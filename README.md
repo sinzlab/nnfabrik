@@ -76,6 +76,6 @@ We have pretty much covered the most important information about nnfabrik, and i
 
 This is a work in progress. We will update this readme with the corresponding links to the documentation once it is ready.
 
-## :bug: Report bugs
+## :bug: Report bugs (or request features)
 
-In case of bugs, please create and issue or contact any of the contributors.
+In case you find a bug or would like to see some new features added to nnfabrik, please create and issue or contact any of the contributors.
