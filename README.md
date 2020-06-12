@@ -78,4 +78,4 @@ This is a work in progress. We will update this readme with the corresponding li
 
 ## :bug: Report bugs (or request features)
 
-In case you find a bug or would like to see some new features added to nnfabrik, please create and issue or contact any of the contributors.
+In case you find a bug or would like to see some new features added to nnfabrik, please create an issue or contact any of the contributors.
