@@ -3,15 +3,26 @@ import torch.nn as nn
 
 
 class ToyModel(nn.Module):
-    def __init__(self, kern=16, kern2=32):
+    def __init__(self, in_dim, out_dim, h_dim=5):
         super().__init__()
-        self.kern = kern
-        self.lin1 = nn.Linear(128, kern)
-        self.lin2 = nn.Linear(kern, 16)
+
+        self.fc1 = nn.Linear(in_dim, h_dim)
+        self.fc2 = nn.Linear(h_dim, out_dim)
+        self.nl = nn.ReLU()
 
     def forward(self, x):
-        return self.lin2(self.lin1(x))
+        out = self.nl(self.fc1(x))
+        return self.nl(self.fc2(out))
+
+
+def toy_model_fn(dataloaders, seed, h_dim=5):
     
-def toy_model(dataloaders, seed, kern=16, kern2=32):
-    return ToyModel(kern=kern, kern2=kern2)
+    # get the input and output dimension for the model
+    in_dim = dataloaders.dataset.tensors[0].shape[1]
+    out_dim = dataloaders.dataset.tensors[1].shape[1]
+    
+    torch.manual_seed(seed) # for reproducibility (almost)
+    model = ToyModel(in_dim, out_dim, h_dim=h_dim)
+    
+    return model
 
