@@ -82,8 +82,7 @@ Here, we will go through the whole pipeline with a simple example. Let's start w
 def my_dataset_fn(seed, batch_size=64):
     
     np.random.seed(seed)
-    x = np.random.rand(1000, 5)
-    y = np.random.randint(0, 1, size=1000)
+    x, y = np.random.rand(1000, 5), np.random.rand(1000, 1)
     dataset = TensorDataset(torch.from_numpy(x), torch.from_numpy(x))
     
     return DataLoader(dataset, batch_size=batch_size)
@@ -126,11 +125,11 @@ def my_model_fn(dataloaders, seed,
 ``` python
 
 class MyTrainer:
-    def __init__(self, model, dataloaders, seed, 
-                 epochs=5)
+    def __init__(self, model, dataloaders, seed, epochs=5)
 
         self.model = model
         self.trainloader = dataloaders
+        self.seed = seed
         self.epochs = 5
 
         self.loss_fn = nn.MSELoss()
@@ -139,7 +138,7 @@ class MyTrainer:
         torch.manual_seed(seed)
 
     def train(self):
-
+        set_random_seed(self.seed)
         losses = []
         for epoch in range(self.epochs):
 
@@ -151,7 +150,6 @@ class MyTrainer:
                 loss = self.loss_fn(y_hat, y)
                 loss.backward()
                 optimizer.step()
-
                 _losses.append(loss.item())
 
         losses.append(np.mean(_losses))
