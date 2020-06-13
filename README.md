@@ -10,7 +10,7 @@ Training neural network models commonly involves the following steps:
 
 While that would fulfill the training procedure, a huge portion of time spent on finding the best model for your application is dedicated to hyper-parameter selection/optimization. Importantly, each of the above-mentioned steps may require their own specifications which effect the resulting model. For instance, whether to standardize the data, whether to use 2 layers or 20 layers, or wether to use Adam or SGD as the optimizer. This is where nnfabrik becomes very handy by keeping track of models trained for every unique combination of hyperparameters.
 
-## :gear: Installation
+## :computer: Installation
 
 You can use one of the following ways to install nnfabrik:
 
@@ -71,6 +71,100 @@ In addition to the tables which store unique combinations of functions and confi
 To get familiar with the tables (e.g. how to define them and add entries) take a look at the [example notebook](./notebooks/nnfabrik_example.ipynb).
 
 We have pretty much covered the most important information about nnfabrik, and it is time to use it. Some basics about the Datajoint Python package (which is the backbone of nnfabrik) might come handy (especially about dealing with tables) and you can learn more about Datajoint [here](https://datajoint.io/).
+
+## :bulb: Example
+
+Here, we will go through the whole pipeline with a simple example. Let's start with defining the first three functions.
+
+#### Dataset function
+
+``` python
+def my_dataset_fn(seed, batch_size=64):
+    
+    np.random.seed(seed)
+    x = np.random.rand(1000, 5)
+    y = np.random.randint(0, 1, size=1000)
+    dataset = TensorDataset(torch.from_numpy(x), torch.from_numpy(x))
+    
+    return DataLoader(dataset, batch_size=batch_size)
+
+```
+
+#### Model function
+
+``` python
+
+class MyModel(nn.Module):
+    def __init__(self, in_dim, out_dim, h_dim=5)
+        super().__init__()
+
+        self.fc1 = nn.Linear(in_dim, h_dim)
+        self.fc2 = nn.Linear(h_dim, out_dim)
+        self.nl = nn.ReLU()
+
+    def forward(self, x):
+        out = self.nl(self.fc1(x))
+        return self.nl(self.fc2(x))
+
+
+def my_model_fn(dataloaders, seed, 
+                in_dim, out_dim, h_dim=5):
+    
+    # get the input and output dimension for the model
+    in_dim = dataloaders.dataset.tensors[0].shape[1]
+    out_dim = dataloaders.dataset.tensors[1].shape[1]
+    
+    torch.manual_seed(seed) # for reproducibility (almost)
+    model = MyModel(in_dim, out_dim, h_dim=h_dim)
+    
+    return model
+
+```
+
+#### Trainer function
+
+``` python
+
+class MyTrainer:
+    def __init__(self, model, dataloaders, seed, 
+                 epochs=5)
+
+        self.model = model
+        self.trainloader = dataloaders
+        self.epochs = 5
+
+        self.loss_fn = nn.MSELoss()
+        self.optimizer = optim.Adam(self.model.parameters())
+
+        torch.manual_seed(seed)
+
+    def train(self):
+
+        losses = []
+        for epoch in range(self.epochs):
+
+            _losses = []
+            for x, y in data_loader:
+                
+                self.optimizer.zero_grad()
+                y_hat = self.model(x)
+                loss = self.loss_fn(y_hat, y)
+                loss.backward()
+                optimizer.step()
+
+                _losses.append(loss.item())
+
+        losses.append(np.mean(_losses))
+
+        return losses[-1], None, self.model.state_dict()
+
+
+def my_trainer_fn(model, dataloaders, seed, epochs=5):
+    trainer = MyTrainer(model, dataloaders, seed, epochs=epochs)
+    out = trainer.train()
+    return out
+
+```
 
 ## :book: Documentation
 
