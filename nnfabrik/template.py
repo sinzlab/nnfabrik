@@ -135,7 +135,6 @@ class TrainedModelBase(dj.Computed):
         model_fn, model_config = (self.model_table & key).fn_config
         dataset_fn, dataset_config = (self.dataset_table & key).fn_config
 
-
         ret = dict(model_fn=model_fn, model_config=model_config,
                    dataset_fn=dataset_fn, dataset_config=dataset_config)
 
@@ -197,6 +196,10 @@ class TrainedModelBase(dj.Computed):
                 print("Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
                       "Make sure to have an The 'model_fn' also has to be able to"
                       "accept 'data_info' as an input arg, and use that over the dataloader to build the model.")
+
+            ret = get_all_parts(**config_dict, seed=seed)
+            return ret[1:] if include_trainer else ret[1]
+
         return get_all_parts(**config_dict, seed=seed)
 
     def call_back(self, uid=None, epoch=None, model=None, info=None):
