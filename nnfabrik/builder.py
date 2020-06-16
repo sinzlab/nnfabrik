@@ -5,7 +5,7 @@ from . import models
 from functools import partial
 
 from .utility.nnf_helper import split_module_name, dynamic_import
-from .utility.nn_helpers import set_state_dict
+from .utility.nn_helpers import load_state_dict
 
 
 def resolve_fn(fn_name, default_base):
@@ -62,7 +62,7 @@ def get_model(model_fn, model_config, dataloaders=None, seed=None, state_dict=No
     net = model_fn(dataloaders, seed=seed, **model_config) if data_info is None else model_fn(dataloaders, data_info=data_info, seed=seed, **model_config)
 
     if state_dict is not None:
-        set_state_dict(state_dict, net)
+        load_state_dict(net, state_dict)
 
     return net
 

@@ -92,72 +92,92 @@ def move_to_device(model, gpu=True, multi_gpu=True):
     return model, device
 
 
-def set_state_dict(
-    pretrained_dict,
+def find_prefix(s_dict: dict, p_agree: float = 0.66) -> (list, int):
+    """
+    Finds common prefix among state_dict keys
+    :param s_dict: state_dict
+    :param p_agree: percentage of keys that should agree for a valid prefix
+    :return: (prefix, end index of prefix)
+    """
+    prefix_end = 0
+    first_key = list(s_dict.keys())[0].split(".")
+    for i in range(len(first_key)):
+        is_prefix = True
+        breaking_counter = 0
+        # compare current prefix of first_key with all other keys
+        for key in s_dict.keys():
+            if key.split(".")[:i] != first_key[:i]:
+                breaking_counter += 1
+                # 2/3 should agree on prefix (i.e. prefix is valid even if 1/3 disagrees)
+                p_ignore = 1.0 - p_agree
+                if breaking_counter > p_ignore * len(s_dict):
+                    is_prefix = False
+                    break
+        if is_prefix:
+            prefix_end = i
+    return first_key[:prefix_end], prefix_end
+
+
+def load_state_dict(
     model,
-    ignore_missing=True,
-    match_names=True,
-    ignore_dim_mismatch=True,
+    state_dict: dict,
+    ignore_missing: bool = False,
+    match_names: bool = False,
+    ignore_dim_mismatch: bool = False,
 ):
-    if ignore_missing:
-        model_dict = model.state_dict()
-        # 0. Try to match names by adding or removing prefix:
-        if match_names:
-            first_key_pretrained = list(pretrained_dict.keys())[0].split(".")
-            first_key_model = list(model_dict.keys())[0].split(".")
-            # find prefix in each:
-            for i in range(len(first_key_pretrained)):
-                is_prefix = True
-                breaking_counter = 0
-                for j, key in enumerate(pretrained_dict.keys()):
-                    if key.split(".")[:i] != first_key_pretrained[:i]:
-                        breaking_counter += 1
-                        if breaking_counter > 0.33 * len(pretrained_dict):  # 2/3 should agree on prefix
-                            is_prefix = False
-                            break
-                if is_prefix:
-                    pretrained_prefix_end = i
-            for i in range(len(first_key_model)):
-                is_prefix = True
-                for key in model_dict.keys():
-                    if key.split(".")[:i] != first_key_model[:i]:
-                        is_prefix = False
-                        break
-                if is_prefix:
-                    model_prefix = first_key_model[:i]
-            # switch prefixes:
-            state_dict_ = {}
-            for k, v in pretrained_dict.items():
-                if k.split(".")[:pretrained_prefix_end] == first_key_pretrained[:pretrained_prefix_end]:
-                    stripped_key = k.split(".")[pretrained_prefix_end:]
-                else:
-                    stripped_key = k.split(".")
-                new_key = model_prefix + stripped_key
-                state_dict_[".".join(new_key)] = v
-            pretrained_dict = state_dict_
+    """
+    Loads given state_dict into model, but allows for some more flexible loading.
 
-        # 1. filter out missing keys
-        filtered_pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        unused = set(pretrained_dict.keys()) - set(filtered_pretrained_dict.keys())
-        if unused:
-            print("Ignored unnecessary keys in pretrained dict:")
-            for k in unused:
-                print(k)
-        missing = set(model_dict.keys()) - set(filtered_pretrained_dict.keys())
-        if missing:
-            print("Ignored missing keys:")
-            for k in missing:
-                print(k)
+    :param model: nn.Module object
+    :param state_dict: dictionary containing a whole state of the module (result of `some_model.state_dict()`)
+    :param ignore_missing: if True ignores entries present in model but not in `state_dict`
+    :param match_names: if True tries to match names in `state_dict` and `model.state_dict()`
+                        by finding and removing a common prefix from the keys in each dict
+    :param ignore_dim_mismatch: if True ignores parameters in `state_dict` that don't fit the shape in `model`
+    """
+    model_dict = model.state_dict()
+    # 0. Try to match names by adding or removing prefix:
+    if match_names:
+        # find prefix keys of each state dict:
+        s_pref, s_idx = find_prefix(state_dict)
+        m_pref, m_idx = find_prefix(model_dict)
+        # switch prefixes:
+        stripped_state_dict = {}
+        for k, v in state_dict.items():
+            if k.split(".")[:s_idx] == s_pref:
+                stripped_key = k.split(".")[s_idx:]
+            else:
+                stripped_key = k.split(".")
+            new_key = m_pref + stripped_key
+            stripped_state_dict[".".join(new_key)] = v
+        state_dict = stripped_state_dict
 
-        # 2. overwrite entries in the existing state dict
-        for k, v in model_dict.items():
-            if v.shape != filtered_pretrained_dict[k].shape and ignore_dim_mismatch:
-                print("Ignored shape-mismatched parameters:", k)
+    # 1. filter out missing keys
+    filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
+    unused = set(state_dict.keys()) - set(filtered_state_dict.keys())
+    if unused:
+        print("Ignored unnecessary keys in pretrained dict:\n" + "\n".join(unused))
+    missing = set(model_dict.keys()) - set(filtered_state_dict.keys())
+    if missing and ignore_missing:
+        print("Ignored Missing keys:\n" + "\n".join(missing))
+    elif missing:
+        raise RuntimeError(
+            "Error in loading state_dict: Missing keys:\n" + "\n".join(missing)
+        )
+
+    # 2. overwrite entries in the existing state dict
+    updated_model_dict = {}
+    for k, v in filtered_state_dict.items():
+        if v.shape != model_dict[k].shape:
+            if ignore_dim_mismatch:
+                print("Ignored shape-mismatched parameter:", k)
                 continue
-            model_dict[k] = filtered_pretrained_dict[k]
+            else:
+                raise RuntimeError(
+                    "Error in loading state_dict: Shape-mismatch for key {}".format(k)
+                )
+        updated_model_dict[k] = v
 
-        # 3. load the new state dict
-        model.load_state_dict(model_dict)
-    else:
-        model.load_state_dict(pretrained_dict)
+    # 3. load the new state dict
+    model.load_state_dict(updated_model_dict, strict=(not ignore_missing))
 
