@@ -122,6 +122,7 @@ def load_state_dict(
     model,
     state_dict: dict,
     ignore_missing: bool = False,
+    ignore_unused: bool = False,
     match_names: bool = False,
     ignore_dim_mismatch: bool = False,
 ):
@@ -155,8 +156,12 @@ def load_state_dict(
     # 1. filter out missing keys
     filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
     unused = set(state_dict.keys()) - set(filtered_state_dict.keys())
-    if unused:
+    if unused and ignore_unused:
         print("Ignored unnecessary keys in pretrained dict:\n" + "\n".join(unused))
+    elif ignore_unused:
+        raise RuntimeError(
+            "Error in loading state_dict: Unused keys:\n" + "\n".join(unused)
+        )
     missing = set(model_dict.keys()) - set(filtered_state_dict.keys())
     if missing and ignore_missing:
         print("Ignored Missing keys:\n" + "\n".join(missing))
