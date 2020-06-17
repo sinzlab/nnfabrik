@@ -9,6 +9,10 @@ docker-compose.yml
 Dockerfile
 mei
 nnvision
+dataport
+sysident
+nndichromacy
+lucent
 .ipynb_checkpoints/
 Untitled*.ipynb
 .vscode/*
