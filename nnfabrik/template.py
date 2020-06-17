@@ -357,10 +357,7 @@ class ScoringBase(dj.Computed):
         return dataloaders[self.measure_dataset]
 
     def get_repeats_dataloaders(self, key=None):
-        if key is None:
-            key = self.fetch1('KEY')
-        dataloaders = self.dataset_table().get_dataloader(key=key) if self.data_cache is None else self.data_cache.load(key=key)
-        return dataloaders["test"]
+        raise NotImplementedError("Function to return the repeats-dataloader has to be implemented")
 
     def get_avg_of_unit_dict(self, unit_scores_dict):
         return np.mean(np.hstack([v for v in unit_scores_dict.values()]))
