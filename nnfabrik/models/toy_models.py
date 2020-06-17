@@ -1,5 +1,9 @@
+from typing import Dict
+
 import torch
 import torch.nn as nn
+
+from nnfabrik.models.model import ModelBuilder
 
 
 class ToyModel(nn.Module):
@@ -15,14 +19,14 @@ class ToyModel(nn.Module):
         return self.nl(self.fc2(out))
 
 
-def toy_model_fn(dataloaders, seed, h_dim=5):
-    
-    # get the input and output dimension for the model
-    in_dim = dataloaders.dataset.tensors[0].shape[1]
-    out_dim = dataloaders.dataset.tensors[1].shape[1]
-    
-    torch.manual_seed(seed) # for reproducibility (almost)
-    model = ToyModel(in_dim, out_dim, h_dim=h_dim)
-    
-    return model
+class ToyModelBuilder(ModelBuilder):
+    def __call__(self, data_loaders: Dict, seed: int, **config) -> torch.nn.Module:
+        # get the input and output dimension for the model
+        train_loader = data_loaders["train"]
+        in_dim = train_loader.dataset.tensors[0].shape[1]
+        out_dim = train_loader.dataset.tensors[1].shape[1]
 
+        torch.manual_seed(seed)  # for reproducibility (almost)
+        model = ToyModel(in_dim, out_dim, h_dim=config.get("h_dim"))
+
+        return model
