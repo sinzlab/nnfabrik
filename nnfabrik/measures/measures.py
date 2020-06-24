@@ -56,7 +56,7 @@ def model_predictions(model, dataloader, data_key, device='cpu'):
         if len(images.shape) == 5:
             images = images.squeeze(dim=0)
             responses = responses.squeeze(dim=0)
-        with torch.no_grad():
+        with eval_state(model) if not is_ensemble_function(model) else contextlib.nullcontext():
             with device_state(model, device) if not is_ensemble_function(model) else contextlib.nullcontext():
                 output = torch.cat((output, (model(images.to(device), data_key=data_key).detach().cpu())), dim=0)
             target = torch.cat((target, responses.detach().cpu()), dim=0)

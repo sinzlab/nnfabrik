@@ -347,8 +347,6 @@ class ScoringBase(dj.Computed):
             model = self.model_cache.load(key=key,
                                           include_state_dict=True,
                                           include_dataloader=False)
-        model.eval()
-        model.to("cuda")
         return model
 
 
