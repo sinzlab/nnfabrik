@@ -59,16 +59,20 @@ def get_module_output(model, input_shape):
     return output.shape
 
 
-def set_random_seed(seed):
+def set_random_seed(seed: int, deterministic: bool = True):
     """
     Sets all random seeds
+
+    :param seed: (int) seed to be set
+    :param deterministic: (bool) activates cudnn.deterministic, which might slow down things
     """
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
-        cudnn.benchmark = False
-        cudnn.deterministic = True
+        if deterministic:
+            cudnn.benchmark = False
+            cudnn.deterministic = True
         torch.cuda.manual_seed(seed)
 
 
@@ -86,4 +90,3 @@ def move_to_device(model, gpu=True, multi_gpu=True):
         model = nn.DataParallel(model)
     model = model.to(device)
     return model, device
-
