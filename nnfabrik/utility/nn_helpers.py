@@ -158,7 +158,7 @@ def load_state_dict(
     unused = set(state_dict.keys()) - set(filtered_state_dict.keys())
     if unused and ignore_unused:
         print("Ignored unnecessary keys in pretrained dict:\n" + "\n".join(unused))
-    elif ignore_unused:
+    elif unused:
         raise RuntimeError(
             "Error in loading state_dict: Unused keys:\n" + "\n".join(unused)
         )
