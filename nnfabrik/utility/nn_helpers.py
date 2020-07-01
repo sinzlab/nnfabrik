@@ -92,30 +92,35 @@ def move_to_device(model, gpu=True, multi_gpu=True):
     return model, device
 
 
-def find_prefix(s_dict: dict, p_agree: float = 0.66) -> (list, int):
+def find_prefix(keys: list, p_agree: float = 0.66, separator=".") -> (list, int):
     """
     Finds common prefix among state_dict keys
-    :param s_dict: state_dict
+    :param keys: list of strings to find a common prefix
     :param p_agree: percentage of keys that should agree for a valid prefix
+    :param separator: string that separates keys into substrings, e.g. "model.conv1.bias"
     :return: (prefix, end index of prefix)
     """
-    prefix_end = 0
-    first_key = list(s_dict.keys())[0].split(".")
-    for i in range(len(first_key)):
-        is_prefix = True
-        breaking_counter = 0
-        # compare current prefix of first_key with all other keys
-        for key in s_dict.keys():
-            if key.split(".")[:i] != first_key[:i]:
-                breaking_counter += 1
-                # 2/3 should agree on prefix (i.e. prefix is valid even if 1/3 disagrees)
-                p_ignore = 1.0 - p_agree
-                if breaking_counter > p_ignore * len(s_dict):
-                    is_prefix = False
-                    break
-        if is_prefix:
-            prefix_end = i
-    return first_key[:prefix_end], prefix_end
+    keys = [k.split(separator) for k in keys]
+    p_len = 0
+    do_loop = True
+    common_prefix = ""
+    prefs = {"": len(keys)}
+    while do_loop:
+        sorted_prefs = sorted(prefs.items(), key=lambda x: x[1], reverse=True)
+        # check if largest count is above threshold
+        if sorted_prefs[0][1] < p_agree * len(keys):
+            break
+        common_prefix = sorted_prefs[0][0]  # save prefix
+
+        p_len += 1
+        prefs = {}
+        for key in keys:
+            if p_len == len(key):  # prefix cannot be an entire key
+                do_loop = False
+                break
+            p_str = ".".join(key[:p_len])
+            prefs[p_str] = prefs.get(p_str, 0) + 1
+    return common_prefix, p_len - 1
 
 
 def load_state_dict(
@@ -140,17 +145,17 @@ def load_state_dict(
     # 0. Try to match names by adding or removing prefix:
     if match_names:
         # find prefix keys of each state dict:
-        s_pref, s_idx = find_prefix(state_dict)
-        m_pref, m_idx = find_prefix(model_dict)
+        s_pref, s_idx = find_prefix(list(state_dict.keys()))
+        m_pref, m_idx = find_prefix(list(model_dict.keys()))
         # switch prefixes:
         stripped_state_dict = {}
         for k, v in state_dict.items():
-            if k.split(".")[:s_idx] == s_pref:
-                stripped_key = k.split(".")[s_idx:]
+            if k.split(".")[:s_idx] == s_pref.split("."):
+                stripped_key = ".".join(k.split(".")[s_idx:])
             else:
-                stripped_key = k.split(".")
+                stripped_key = k
             new_key = m_pref + stripped_key
-            stripped_state_dict[".".join(new_key)] = v
+            stripped_state_dict[new_key] = v
         state_dict = stripped_state_dict
 
     # 1. filter out missing keys
@@ -185,4 +190,3 @@ def load_state_dict(
 
     # 3. load the new state dict
     model.load_state_dict(updated_model_dict, strict=(not ignore_missing))
-
