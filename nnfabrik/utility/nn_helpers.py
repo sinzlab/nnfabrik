@@ -102,10 +102,9 @@ def find_prefix(keys: list, p_agree: float = 0.66, separator=".") -> (list, int)
     """
     keys = [k.split(separator) for k in keys]
     p_len = 0
-    do_loop = True
     common_prefix = ""
     prefs = {"": len(keys)}
-    while do_loop:
+    while True:
         sorted_prefs = sorted(prefs.items(), key=lambda x: x[1], reverse=True)
         # check if largest count is above threshold
         if sorted_prefs[0][1] < p_agree * len(keys):
@@ -116,8 +115,7 @@ def find_prefix(keys: list, p_agree: float = 0.66, separator=".") -> (list, int)
         prefs = {}
         for key in keys:
             if p_len == len(key):  # prefix cannot be an entire key
-                do_loop = False
-                break
+                continue
             p_str = ".".join(key[:p_len])
             prefs[p_str] = prefs.get(p_str, 0) + 1
     return common_prefix, p_len - 1
