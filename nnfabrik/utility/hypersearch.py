@@ -149,7 +149,7 @@ class Bayesian():
         return config
 
     @staticmethod
-    def _add_etery(Table, fn, config):
+    def _add_entry(Table, fn, config):
         entry_hash = make_hash(config)
         entry_exists = {"configurator": "{}".format(fn)} in Table() and {"config_hash": "{}".format(entry_hash)} in Table()
         if not entry_exists:
