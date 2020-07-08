@@ -15,4 +15,5 @@ nndichromacy
 lucent
 .ipynb_checkpoints/
 Untitled*.ipynb
+.history.*
 .vscode/*
