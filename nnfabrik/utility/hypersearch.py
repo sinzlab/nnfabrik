@@ -10,6 +10,10 @@ from nnfabrik.main import *
 class Bayesian():
     """
     A hyperparamter optimization tool based on Facebook Ax (https://ax.dev/), integrated with nnfabrik.
+    This tool, iteratively, optimizes for hyperparameters that imporove a specific score representing 
+    model performance (the same score used in TrainedModel table). In every iteration (after every training), 
+    it automatically adds an entry to the corresponding tables, and populated the trained model table (i.e. 
+    trains the model) for that specific entry.
 
     Args:
         dataset_fn (str): name of the dataset function
@@ -228,6 +232,9 @@ class Bayesian():
 class Random():
     """
     Random hyperparameter search, integrated with nnfabrik.
+    Similar to Bayesian optimization tool, but instead of optimizing for hyperparamters to maximize a score, 
+    in every iteration (after every training), it randomly samples new value for the specified parameters, adds an 
+    entry to the corresponding tables, and populated the trained model table (i.e. trains the model) for that specific entry.
 
     Args:
         dataset_fn (str): name of the dataset function
