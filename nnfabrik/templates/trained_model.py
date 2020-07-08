@@ -4,8 +4,8 @@ import torch
 import os
 from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
 from nnfabrik.builder import get_all_parts, get_model, get_trainer
-from .utility import DataInfoBase
 from nnfabrik.utility.dj_helpers import gitlog, make_hash
+from .utility import DataInfoBase
 from datajoint.fetch import DataJointError
 
 

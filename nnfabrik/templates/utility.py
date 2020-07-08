@@ -1,6 +1,6 @@
 import datajoint as dj
-from .main import Model, Dataset, Trainer, Seed, Fabrikant
-from .builder import resolve_data
+from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
+from nnfabrik.builder import resolve_data
 
 
 class DataInfoBase(dj.Computed):

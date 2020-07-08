@@ -3,6 +3,7 @@ import numpy as np
 from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
 from .trained_model import TrainedModelBase
 
+
 class UnitIDsBase(dj.Computed):
     definition = """
         # Template table for Unit IDs

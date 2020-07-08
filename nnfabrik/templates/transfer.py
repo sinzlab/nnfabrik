@@ -2,9 +2,9 @@ import datajoint as dj
 import tempfile
 import torch
 import os
-from .main import Model, Dataset, Trainer, Seed, Fabrikant
-from .utility.dj_helpers import gitlog, make_hash
-
+from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
+from nnfabrik.utility.dj_helpers import gitlog, make_hash
+from .trained_model import TrainedModelBase
 
 
 class TransferredTrainedModelBase(TrainedModelBase):
