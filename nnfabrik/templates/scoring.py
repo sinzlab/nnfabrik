@@ -4,20 +4,6 @@ from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
 from .trained_model import TrainedModelBase
 
 
-class UnitIDsBase(dj.Computed):
-    definition = """
-        # Template table for Unit IDs
-
-        unit_id:        int             # Neuron Identifier
-        data_key:       varchar(64)     # Identifier of the dataset which the neuron is a part of
-        ---
-        unit_index:     int             # position index of the neuron in the dataset and model
-        """
-
-    def make(self):
-        raise NotImplementedError("Scoring Function has to be implemented")
-
-
 class ScoringBase(dj.Computed):
     """
     Inherit from this class and decorate with your own schema to create a functional
@@ -45,11 +31,11 @@ class ScoringBase(dj.Computed):
             object. The dataloaders object has to contain at least ['train', 'validation', 'test'].
             This string determines, on what data tier the score is computed on. Defaults to the test set.
         scoring_attribute (str) - name of the non-primary attribute of the master and part tables for the score.
-        cache (object) - Stores
+        cache (object) - A Store that caches models or datasets, so that they don't need to be recomputed for each
+            analysis. Ready to use: an instantiation of the FabrikCache (from nnfabrik.utility.nnf_helper)
     """
     trainedmodel_table = TrainedModelBase
     dataset_table = trainedmodel_table.dataset_table
-    unit_table = UnitIDsBase
     function_kwargs = {}
     measure_dataset = "test"
     measure_attribute = "score"
@@ -57,7 +43,7 @@ class ScoringBase(dj.Computed):
     data_cache = None
 
     @staticmethod
-    def measure_function(dataloaders, model, device='cuda', as_dict=True, per_neuron=True):
+    def measure_function(dataloaders, model, per_unit=True):
         raise NotImplementedError("Scoring Function has to be implemented")
 
     # table level comment
@@ -80,13 +66,16 @@ class ScoringBase(dj.Computed):
             definition = """
                 # Scores for Individual Neurons
                 -> master
-                -> master.unit_table
+                -> unit_index
                 ---
                 unit_{measure_attribute}:     float   # A template for a computed unit score        
                 """.format(measure_attribute=self._master.measure_attribute)
             return definition
 
     def get_model(self, key=None):
+        if key is None:
+            key = self.fetch1('KEY')
+
         if self.model_cache is None:
             model = self.trainedmodel_table().load_model(key=key,
                                                          include_state_dict=True,
@@ -97,47 +86,33 @@ class ScoringBase(dj.Computed):
                                           include_dataloader=False)
         return model
 
-
     def get_dataloaders(self, key=None):
         if key is None:
             key = self.fetch1('KEY')
         dataloaders = self.dataset_table().get_dataloader(key=key) if self.data_cache is None else self.data_cache.load(key=key)
         return dataloaders[self.measure_dataset]
 
-    def get_repeats_dataloaders(self, key=None):
-        raise NotImplementedError("Function to return the repeats-dataloader has to be implemented")
+    def get_overall_score(self, unit_scores):
+        return np.mean(unit_scores)
 
-    def get_avg_of_unit_dict(self, unit_scores_dict):
-        return np.mean(np.hstack([v for v in unit_scores_dict.values()]))
-
-    def insert_unit_measures(self, key, unit_measures_dict):
+    def insert_unit_scores(self, key, unit_scores):
         key = key.copy()
-        for data_key, unit_scores in unit_measures_dict.items():
-            for unit_index, unit_score in enumerate(unit_scores):
-                if "unit_id" in key: key.pop("unit_id")
-                if "data_key" in key: key.pop("data_key")
-                neuron_key = dict(unit_index=unit_index, data_key=data_key)
-                unit_id = ((self.unit_table & key) & neuron_key).fetch1("unit_id")
-                key["unit_id"] = unit_id
-                key["unit_{}".format(self.measure_attribute)] = unit_score
-                key["data_key"] = data_key
-                self.Units.insert1(key, ignore_extra_fields=True)
+        for unit_index, unit_score in enumerate(unit_scores):
+            key["unit_index"] = unit_index
+            key["unit_{}".format(self.measure_attribute)] = unit_score
+            self.Units.insert1(key, ignore_extra_fields=True)
 
     def make(self, key):
-
-        dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(
-            key=key)
+        dataloaders = self.get_dataloaders(key=key)
         model = self.get_model(key=key)
-        unit_measures_dict = self.measure_function(model=model,
+        unit_scores = self.measure_function(model=model,
                                                  dataloaders=dataloaders,
-                                                 device='cuda',
-                                                 as_dict=True,
-                                                 per_neuron=True,
+                                                 per_unit=True,
                                                  **self.function_kwargs)
 
-        key[self.measure_attribute] = self.get_avg_of_unit_dict(unit_measures_dict)
+        key[self.measure_attribute] = self.get_overall_score(unit_scores)
         self.insert1(key, ignore_extra_fields=True)
-        self.insert_unit_measures(key=key, unit_measures_dict=unit_measures_dict)
+        self.insert_unit_scores(key=key, unit_scores=unit_scores)
 
 
 class SummaryScoringBase(ScoringBase):
@@ -145,17 +120,13 @@ class SummaryScoringBase(ScoringBase):
     A template scoring table with the same logic as ScoringBase, but for scores that do not have unit scores, but
     an overall score per model only.
     """
-    unit_table = None
     Units = None
 
     def make(self, key):
-
-        dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(
-            key=key)
+        dataloaders = self.get_dataloaders(key=key)
         model = self.get_model(key=key)
         key[self.measure_attribute] = self.measure_function(model=model,
                                                             dataloaders=dataloaders,
-                                                            device='cuda',
                                                             **self.function_kwargs)
         self.insert1(key, ignore_extra_fields=True)
 
@@ -184,7 +155,7 @@ class MeasuresBase(ScoringBase):
             definition = """
                 # Scores for Individual Neurons
                 -> master
-                -> master.unit_table
+                unit_index:                   int     # unit index as extracted by the model
                 ---
                 unit_{measure_attribute}:     float   # A template for a computed unit score        
                 """.format(measure_attribute=self._master.measure_attribute)
@@ -192,26 +163,24 @@ class MeasuresBase(ScoringBase):
 
     def make(self, key):
 
-        dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(key=key)
-        unit_measures_dict = self.measure_function(dataloaders=dataloaders,
-                                                   as_dict=True,
-                                                   per_neuron=True,
+        dataloaders = self.get_dataloaders(key=key)
+        unit_scores = self.measure_function(dataloaders=dataloaders,
+                                                   per_unit=True,
                                                    **self.function_kwargs)
 
-        key[self.measure_attribute] = self.get_avg_of_unit_dict(unit_measures_dict)
+        key[self.measure_attribute] = self.get_overall_score(unit_scores)
         self.insert1(key, ignore_extra_fields=True)
-        self.insert_unit_measures(key=key, unit_measures_dict=unit_measures_dict)
+        self.insert_unit_scores(key=key, unit_scores=unit_scores)
 
 
 class SummaryMeasuresBase(MeasuresBase):
-    unit_table = None
     Units = None
 
     # table level comment
     table_comment = "A template table for storing measures / descriptive statistics of the Dataset"
 
     def make(self, key):
-        dataloaders = self.get_repeats_dataloaders(key=key) if self.measure_dataset == 'test' else self.get_dataloaders(key=key)
+        dataloaders = self.get_dataloaders(key=key)
         key[self.measure_attribute] = self.measure_function(dataloaders=dataloaders,
                                                             **self.function_kwargs)
         self.insert1(key, ignore_extra_fields=True)
