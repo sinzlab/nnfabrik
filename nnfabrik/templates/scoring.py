@@ -66,7 +66,7 @@ class ScoringBase(dj.Computed):
             definition = """
                 # Scores for Individual Neurons
                 -> master
-                -> unit_index
+                unit_index:                   int
                 ---
                 unit_{measure_attribute}:     float   # A template for a computed unit score        
                 """.format(measure_attribute=self._master.measure_attribute)
