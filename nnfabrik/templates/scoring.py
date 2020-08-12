@@ -15,7 +15,7 @@ class ScoringBase(dj.Computed):
 
     This template table is implementing the following logic:
     1) Loading the a trained model from the TrainedModel table. This table needs to have the 'load_model' method.
-    2) getiting a dataloader. Minimally, the dataloader returns batches of inputs and targets.
+    2) getting a dataloader. Minimally, the dataloader returns batches of inputs and targets.
         The dataloader will be built by the Datast table of nnfabrik as default.
         This table needs to have the 'get_dataloader' method
     3) passing the model and the dataloader to a scoring function, defined in the class attribute. The function is expected to
@@ -49,6 +49,15 @@ class ScoringBase(dj.Computed):
 
     @staticmethod
     def measure_function(dataloaders, model, per_unit=True):
+        """
+        Args:
+            dataloaders (dict): an nnfabrik dataloader object
+            model (Object): An instance of a TrainedModel
+            per_unit (bool): Makes the function either return a unit score, or the grand average score
+
+        Returns:
+            (list, array): a score per unit, from which also the grand average score is calculated
+        """
         raise NotImplementedError("Scoring Function has to be implemented")
 
     # table level comment
