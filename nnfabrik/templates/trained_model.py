@@ -54,7 +54,7 @@ class TrainedModelBase(dj.Computed):
         @property
         def definition(self):
             definition = """
-            # Contains the paths to the stored models
+            # Contains the models state dict, stored externally.
             -> master
             ---
             model_state:            attach@{storage}
@@ -109,6 +109,9 @@ class TrainedModelBase(dj.Computed):
             key - specific key against which to retrieve the model. The key must restrict all component
                   tables into a single entry. If None, will assume that this table is already restricted and
                   will obtain an existing single entry.
+            include_dataloader - if True, builds the dataloaer and the model, and returns both.
+                                 if False, tries to build the model without requiring dataloader.
+                                    Returns the model only when set to False.
             include_trainer - If False (default), will not load or return the trainer.
             include_state_dict - If True, the model is loaded with state_dict if key corresponds to a trained entry.
             seed - Optional seed. If not given and a corresponding entry exists in self.seed_table, seed is taken from there
@@ -183,6 +186,7 @@ class TrainedModelBase(dj.Computed):
         # model training
         score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
 
+        # save resulting model_state into a temporary file to be attached
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key) + '.pth.tar'
             filepath = os.path.join(temp_dir, filename)
