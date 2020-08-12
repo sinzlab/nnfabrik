@@ -7,15 +7,15 @@ from .trained_model import TrainedModelBase
 class ScoringBase(dj.Computed):
     """
     Inherit from this class and decorate with your own schema to create a functional
-    Score table. This serves as a template for all scores than can be computed with a
+    Score table. This serves as a template for all scores that can be computed with a
     TrainedModel and a dataloader.
-    Each master table has an attribute that stores the grand average score across all Neurons.
+    Each master table has an attribute that stores the grand average score across all Units.
     The `UnitScore` part table stores the score for all units.
     In order to instantiate a functional table, the default table attriubutes need to be changed.
 
     This template table is implementing the following logic:
     1) Loading the a trained model from the TrainedModel table. This table needs to have the 'load_model' method.
-    2) gettng a dataloader. Minimally, the dataloader returns batches of inputs and targets.
+    2) getiting a dataloader. Minimally, the dataloader returns batches of inputs and targets.
         The dataloader will be built by the Datast table of nnfabrik as default.
         This table needs to have the 'get_dataloader' method
     3) passing the model and the dataloader to a scoring function, defined in the class attribute. The function is expected to
@@ -24,23 +24,28 @@ class ScoringBase(dj.Computed):
 
     Attributes:
         trainedmodel_table (Datajoint Table) - an instantiation of the TrainedModelBase
-        unit_table (Datajoint Table) - an instantiation of the UnitIDsBase
-        scoring_function (function object) - a function that computes the average score (for the master table),
-            as well as the unit scores. An example function can be found in this module under 'scoring_function_base'
-        scoring_dataset (str) - following nnfabrik convention, this string specifies the key for the 'dataloaders'
+        dataset_table (Datajoint Table) - A Dataset table of nnfabrik. By default the Dataset table of the trainedmodel_table.
+        measure_function (function object) - a function that given model and dataloader computes a score. The grand average
+            score will be stored in the master table, and the unit scores are stored in the .Units part table.
+            Refer to lines 47-49 for an example implementation of a measure function.
+        measure_dataset (str) - following nnfabrik convention, this string specifies the key for the 'dataloaders'
             object. The dataloaders object has to contain at least ['train', 'validation', 'test'].
             This string determines, on what data tier the score is computed on. Defaults to the test set.
-        scoring_attribute (str) - name of the non-primary attribute of the master and part tables for the score.
+        measure_attribute (str) - name of the non-primary attribute of the master and part tables for the score.
+        function_kwargs (dict) - additonal keyword arguments, provided as a mapping, that will be passed to the
+            measure function when computing a score.
         cache (object) - A Store that caches models or datasets, so that they don't need to be recomputed for each
-            analysis. Ready to use: an instantiation of the FabrikCache (from nnfabrik.utility.nnf_helper)
+            analysis. Ready to use: an instantiation of the FabrikCache (from ..utility.nnf_helper)
     """
+
     trainedmodel_table = TrainedModelBase
     dataset_table = trainedmodel_table.dataset_table
-    function_kwargs = {}
     measure_dataset = "test"
     measure_attribute = "score"
+    function_kwargs = {}
     model_cache = None
     data_cache = None
+
 
     @staticmethod
     def measure_function(dataloaders, model, per_unit=True):
