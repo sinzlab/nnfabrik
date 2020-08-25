@@ -2,7 +2,8 @@ import torch
 import torch.utils.data as utils
 import numpy as np
 import pickle
-#from retina.retina import warp_image
+
+# from retina.retina import warp_image
 from collections import namedtuple, Iterable
 import os
 from mlutils.data.samplers import RepeatsBatchSampler
@@ -34,7 +35,7 @@ class ImageCache:
         self.leading_zeros = filename_precision
 
     def __len__(self):
-        return len([file for file in os.listdir(self.path) if file.endswith('.npy')])
+        return len([file for file in os.listdir(self.path) if file.endswith(".npy")])
 
     def __contains__(self, key):
         return key in self.cache
@@ -46,7 +47,7 @@ class ImageCache:
         if key in self.cache:
             return self.cache[key]
         else:
-            filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + '.npy')
+            filename = os.path.join(self.path, str(key).zfill(self.leading_zeros) + ".npy")
             image = np.load(filename)
             transformed_image = self.transform_image(image)
             self.cache[key] = transformed_image
@@ -57,7 +58,10 @@ class ImageCache:
         applies transformations to the image: downsampling and cropping, z-scoring, and dimension expansion.
         """
         h, w = image.shape
-        image = image[self.crop[0][0]:h - self.crop[0][1]:self.subsample, self.crop[1][0]:w - self.crop[1][1]:self.subsample]
+        image = image[
+            self.crop[0][0] : h - self.crop[0][1] : self.subsample,
+            self.crop[1][0] : w - self.crop[1][1] : self.subsample,
+        ]
         image = (image - self.img_mean) / self.img_std
         image = image[None,]
         return torch.tensor(image).to(torch.float)
@@ -77,15 +81,19 @@ class CachedTensorDataset(utils.Dataset):
         *tensors (Tensor): tensors that have the same size of the first dimension.
     """
 
-    def __init__(self, *tensors, names=('inputs', 'targets'), image_cache=None):
+    def __init__(self, *tensors, names=("inputs", "targets"), image_cache=None):
         if not all(tensors[0].size(0) == tensor.size(0) for tensor in tensors):
-            raise ValueError('The tensors of the dataset have unequal lenghts. The first dim of all tensors has to match exactly.')
+            raise ValueError(
+                "The tensors of the dataset have unequal lenghts. The first dim of all tensors has to match exactly."
+            )
         if not len(tensors) == len(names):
-            raise ValueError('Number of tensors and names provided have to match.  If there are more than two tensors,'
-                             'names have to be passed to the TensorDataset')
+            raise ValueError(
+                "Number of tensors and names provided have to match.  If there are more than two tensors,"
+                "names have to be passed to the TensorDataset"
+            )
         self.tensors = tensors
         self.input_position = names.index("inputs")
-        self.DataPoint = namedtuple('DataPoint', names)
+        self.DataPoint = namedtuple("DataPoint", names)
         self.image_cache = image_cache
 
     def __getitem__(self, index):
@@ -98,8 +106,10 @@ class CachedTensorDataset(utils.Dataset):
         else:
             key = self.tensors[0][index].numpy().astype(np.int32)
 
-        tensors_expanded = [tensor[index] if pos != self.input_position else torch.stack(list(self.image_cache[key]))
-                            for pos, tensor in enumerate(self.tensors)]
+        tensors_expanded = [
+            tensor[index] if pos != self.input_position else torch.stack(list(self.image_cache[key]))
+            for pos, tensor in enumerate(self.tensors)
+        ]
 
         return self.DataPoint(*tensors_expanded)
 
@@ -123,24 +133,26 @@ def get_cached_loader(image_ids, responses, batch_size, shuffle=True, image_cach
     image_ids = torch.tensor(image_ids.astype(np.int32))
     responses = torch.tensor(responses).to(torch.float)
     dataset = CachedTensorDataset(image_ids, responses, image_cache=image_cache)
-    sampler = RepeatsBatchSampler(torch.tensor(repeat_condition.astype(np.int32))) if repeat_condition is not None else None
+    sampler = (
+        RepeatsBatchSampler(torch.tensor(repeat_condition.astype(np.int32))) if repeat_condition is not None else None
+    )
 
-    return utils.DataLoader(dataset,
-                            batch_size=batch_size,
-                            shuffle=shuffle,
-                            sampler=sampler)
+    return utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, sampler=sampler)
 
-def monkey_static_loader(dataset,
-                         neuronal_data_files,
-                         imagepath,
-                         cached_images_path,
-                         batch_size=64,
-                         seed=None,
-                         train_frac=0.8,
-                         subsample=1,
-                         crop=96,
-                         time_bins_sum=12,
-                         avg=False):
+
+def monkey_static_loader(
+    dataset,
+    neuronal_data_files,
+    imagepath,
+    cached_images_path,
+    batch_size=64,
+    seed=None,
+    train_frac=0.8,
+    subsample=1,
+    crop=96,
+    time_bins_sum=12,
+    avg=False,
+):
     """
     Function that returns cached dataloaders for the Center Surround Visual Field Experiments.
         Data recorded by George and Kelli at BCM, Houston.
@@ -177,7 +189,7 @@ def monkey_static_loader(dataset,
     """
 
     # initialize dataloaders as empty dict
-    dataloaders = {'train': {}, 'validation': {}, 'test': {}}
+    dataloaders = {"train": {}, "validation": {}, "test": {}}
 
     if not isinstance(time_bins_sum, Iterable):
         time_bins_sum = tuple(range(time_bins_sum))
@@ -192,12 +204,12 @@ def monkey_static_loader(dataset,
     if isinstance(crop, int):
         crop = [(crop, crop), (crop, crop)]
 
-    images_cropped = images[:, crop[0][0]:h - crop[0][1]:subsample, crop[1][0]:w - crop[1][1]:subsample, :]
+    images_cropped = images[:, crop[0][0] : h - crop[0][1] : subsample, crop[1][0] : w - crop[1][1] : subsample, :]
     img_mean = np.mean(images_cropped)
     img_std = np.std(images_cropped)
 
     # set up parameters for the different dataset types
-    if dataset == 'V1':
+    if dataset == "V1":
         # for the "Amadeus V1" Dataset, recorded by Santiago Cadena, there was no specified test set.
         # instead, the last 20% of the dataset were classified as test set. To make sure that the test set
         # of this dataset will always stay identical, the `train_test_split` value is hardcoded here.
@@ -207,9 +219,9 @@ def monkey_static_loader(dataset,
         train_test_split = 1
         image_id_offset = 0
 
-    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0] * train_test_split,
-                                                             train_frac=train_frac,
-                                                             seed=seed)
+    all_train_ids, all_validation_ids = get_validation_split(
+        n_images=images.shape[0] * train_test_split, train_frac=train_frac, seed=seed
+    )
 
     # Initialize the Image Cache class
     cache = ImageCache(path=cached_images_path, subsample=subsample, crop=crop, img_mean=img_mean, img_std=img_std)
@@ -227,7 +239,7 @@ def monkey_static_loader(dataset,
         training_image_ids = raw_data["training_image_ids"] - image_id_offset
         testing_image_ids = raw_data["testing_image_ids"] - image_id_offset
 
-        if dataset != 'V1':
+        if dataset != "V1":
             responses_test = responses_test.transpose((2, 0, 1))
             responses_train = responses_train.transpose((2, 0, 1))
 
@@ -246,15 +258,20 @@ def monkey_static_loader(dataset,
 
         train_loader = get_cached_loader(training_image_ids, responses_train, batch_size=batch_size, image_cache=cache)
         val_loader = get_cached_loader(validation_image_ids, responses_val, batch_size=batch_size, image_cache=cache)
-        test_loader = get_cached_loader(testing_image_ids, responses_test, batch_size=1, shuffle=False,
-                                                image_cache=cache, repeat_condition=testing_image_ids)
+        test_loader = get_cached_loader(
+            testing_image_ids,
+            responses_test,
+            batch_size=1,
+            shuffle=False,
+            image_cache=cache,
+            repeat_condition=testing_image_ids,
+        )
 
         dataloaders["train"][data_key] = train_loader
         dataloaders["validation"][data_key] = val_loader
         dataloaders["test"][data_key] = test_loader
 
     return dataloaders
-
 
 
 class NamedTensorDataset(utils.Dataset):
@@ -266,15 +283,19 @@ class NamedTensorDataset(utils.Dataset):
     Arguments:
         *tensors (Tensor): tensors that have the same size of the first dimension.
     """
-    def __init__(self, *tensors, names=('inputs','targets')):
+
+    def __init__(self, *tensors, names=("inputs", "targets")):
         if not all(tensors[0].size(0) == tensor.size(0) for tensor in tensors):
             raise ValueError(
-                'The tensors of the dataset have unequal lenghts. The first dim of all tensors has to match exactly.')
+                "The tensors of the dataset have unequal lenghts. The first dim of all tensors has to match exactly."
+            )
         if not len(tensors) == len(names):
-            raise ValueError('Number of tensors and names provided have to match.  If there are more than two tensors,'
-                             'names have to be passed to the TensorDataset')
+            raise ValueError(
+                "Number of tensors and names provided have to match.  If there are more than two tensors,"
+                "names have to be passed to the TensorDataset"
+            )
         self.tensors = tensors
-        self.DataPoint = namedtuple('DataPoint', names)
+        self.DataPoint = namedtuple("DataPoint", names)
 
     def __getitem__(self, index):
         return self.DataPoint(*[tensor[index] for tensor in self.tensors])
@@ -283,10 +304,19 @@ class NamedTensorDataset(utils.Dataset):
         return self.tensors[0].size(0)
 
 
-def csrf_v1(datafiles, imagepath, batch_size, seed,
-            train_frac=0.8, subsample=1, crop=65,
-            time_bins_sum=tuple(range(12)), avg=False,
-            crop_h=None, crop_w=None):
+def csrf_v1(
+    datafiles,
+    imagepath,
+    batch_size,
+    seed,
+    train_frac=0.8,
+    subsample=1,
+    crop=65,
+    time_bins_sum=tuple(range(12)),
+    avg=False,
+    crop_h=None,
+    crop_w=None,
+):
     """
     Function that returns the dataloaders for the Center Surround Visual Field V1 Experiment.
         Data recorded by George and Kelli at BCM, Houston.
@@ -323,7 +353,7 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
         time_bins_sum = tuple(range(time_bins_sum))
 
     # initialize dataloaders as empty dict
-    dataloaders = {'train': {}, 'validation': {}, 'test': {}}
+    dataloaders = {"train": {}, "validation": {}, "test": {}}
 
     if imagepath:
         with open(imagepath, "rb") as pkl:
@@ -333,21 +363,19 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
     _, h, w = images.shape[:3]
 
     if crop_h is None and crop_w is None:
-        images_cropped = images[:, crop:h - crop:subsample, crop:w - crop:subsample, :]
+        images_cropped = images[:, crop : h - crop : subsample, crop : w - crop : subsample, :]
     else:
-        images_cropped = images[:, crop_h[0]:h - crop_h[1]:subsample, crop_w[0]:w - crop_w[1]:subsample, :]
+        images_cropped = images[:, crop_h[0] : h - crop_h[1] : subsample, crop_w[0] : w - crop_w[1] : subsample, :]
 
     img_mean = np.mean(images_cropped)
     img_std = np.std(images_cropped)
 
-    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0],
-                                                                train_frac=train_frac,
-                                                                seed=seed)
+    all_train_ids, all_validation_ids = get_validation_split(n_images=images.shape[0], train_frac=train_frac, seed=seed)
 
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(datafiles):
 
-        #Extract Session ID from the pickle filename
+        # Extract Session ID from the pickle filename
 
         with open(datapath, "rb") as pkl:
             raw_data = pickle.load(pkl)
@@ -397,8 +425,7 @@ def csrf_v1(datafiles, imagepath, batch_size, seed,
     return dataloaders
 
 
-def sysident_v1(datafiles, imagepath, batch_size, seed,
-                train_frac=0.8, subsample=2, crop=30):
+def sysident_v1(datafiles, imagepath, batch_size, seed, train_frac=0.8, subsample=2, crop=30):
     """
     Function that returns the dataloaders for the SysIdent V1 Experiment.
         Data recorded by Stantiago Cadena at BCM, Houston.
@@ -426,7 +453,7 @@ def sysident_v1(datafiles, imagepath, batch_size, seed,
     """
 
     # initialize dataloaders as empty dict
-    dataloaders = {'train': {}, 'validation': {}, 'test': {}}
+    dataloaders = {"train": {}, "validation": {}, "test": {}}
 
     if imagepath:
         with open(imagepath, "rb") as pkl:
@@ -434,16 +461,14 @@ def sysident_v1(datafiles, imagepath, batch_size, seed,
 
     images = images[:, :, :, None]
     _, h, w = images.shape[:3]
-    images_cropped = images[:, crop:h - crop:subsample, crop:w - crop:subsample, :]
+    images_cropped = images[:, crop : h - crop : subsample, crop : w - crop : subsample, :]
     img_mean = np.mean(images_cropped)
     img_std = np.std(images_cropped)
 
     # hard Coded Parameter used in the amadeus.pickle file
-    n_train_images = int(images.shape[0]*0.8)
+    n_train_images = int(images.shape[0] * 0.8)
 
-    all_train_ids, all_validation_ids = get_validation_split(n_images=n_train_images,
-                                                                train_frac=train_frac,
-                                                                seed=seed)
+    all_train_ids, all_validation_ids = get_validation_split(n_images=n_train_images, train_frac=train_frac, seed=seed)
     # cycling through all datafiles to fill the dataloaders with an entry per session
     for i, datapath in enumerate(datafiles):
 
@@ -463,8 +488,8 @@ def sysident_v1(datafiles, imagepath, batch_size, seed,
         training_image_ids = raw_data["training_image_ids"] - 1
         testing_image_ids = raw_data["testing_image_ids"] - 1
 
-        images_train = images[training_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
-        images_test = images[testing_image_ids, crop:h - crop:subsample, crop:w - crop:subsample]
+        images_train = images[training_image_ids, crop : h - crop : subsample, crop : w - crop : subsample]
+        images_test = images[testing_image_ids, crop : h - crop : subsample, crop : w - crop : subsample]
         images_train = (images_train - img_mean) / img_std
         images_test = (images_test - img_mean) / img_std
 
@@ -500,8 +525,9 @@ def get_validation_split(n_images, train_frac, seed):
     Returns: Two arrays, containing image IDs of the whole imageset, split into train and validation
 
     """
-    if seed: np.random.seed(seed)
-    train_idx, val_idx = np.split(np.random.permutation(int(n_images)), [int(n_images*train_frac)])
+    if seed:
+        np.random.seed(seed)
+    train_idx, val_idx = np.split(np.random.permutation(int(n_images)), [int(n_images * train_frac)])
     assert not np.any(np.isin(train_idx, val_idx)), "train_set and val_set are overlapping sets"
 
     return train_idx, val_idx

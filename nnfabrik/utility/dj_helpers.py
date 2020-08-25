@@ -1,4 +1,4 @@
- # helper functions for use with DataJoint tables
+# helper functions for use with DataJoint tables
 
 import warnings
 from datetime import datetime
@@ -113,7 +113,7 @@ def check_repo_commit(repo_path):
     err_msg = need_to_commit(repo, repo_name=repo_name)
 
     if err_msg:
-        return '{}_error_msg'.format(repo_name), err_msg
+        return "{}_error_msg".format(repo_name), err_msg
 
     else:
         sha1, branch = repo.head.commit.name_rev.split()
@@ -121,9 +121,17 @@ def check_repo_commit(repo_path):
         committer_name = repo.head.commit.committer.name
         committer_email = repo.head.commit.committer.email
 
-        return repo_name, {"sha1": sha1, "branch": branch, "commit_date": commit_date,
-                          "committer_name": committer_name, "committer_email": committer_email,
-                          "origin_url": origin_url}
+        return (
+            repo_name,
+            {
+                "sha1": sha1,
+                "branch": branch,
+                "commit_date": commit_date,
+                "committer_name": committer_name,
+                "committer_email": committer_email,
+                "origin_url": origin_url,
+            },
+        )
 
 
 def gitlog(repos=()):
@@ -141,6 +149,7 @@ def gitlog(repos=()):
         ...
 
     """
+
     def gitlog_wrapper(cls):
         # if repos list is empty, skip the modification alltogether
         if len(repos) == 0:
@@ -157,11 +166,11 @@ def gitlog(repos=()):
             commits_info = {name: info for name, info in [check_repo_commit(repo) for repo in repos]}
             assert len(commits_info) == len(repos)
 
-            if any(['error_msg' in name for name in commits_info.keys()]):
+            if any(["error_msg" in name for name in commits_info.keys()]):
                 err_msgs = ["You have uncommited changes."]
-                err_msgs.extend([info for name, info in commits_info.items() if 'error_msg' in name])
+                err_msgs.extend([info for name, info in commits_info.items() if "error_msg" in name])
                 err_msgs.append("\nPlease commit the changes before running populate.\n")
-                raise RuntimeError('\n'.join(err_msgs))
+                raise RuntimeError("\n".join(err_msgs))
 
             return commits_info
 
@@ -196,7 +205,9 @@ def gitlog(repos=()):
     return gitlog_wrapper
 
 
-def create_param_expansion(f_name, container_table, fn_field=None, config_field=None, resolver=None, suffix='Param', default_to_str=False):
+def create_param_expansion(
+    f_name, container_table, fn_field=None, config_field=None, resolver=None, suffix="Param", default_to_str=False
+):
     """
     Given a function name `f_name` as would be found in the `container_table` class, this will create
     a new DataJoint computed table subclass with the correct definition to expand blobs corresponding to
@@ -218,10 +229,10 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
     """
 
     if fn_field is None:
-        fn_field = next(v for v in container_table.heading.attributes.keys() if v.endswith('_fn'))
+        fn_field = next(v for v in container_table.heading.attributes.keys() if v.endswith("_fn"))
 
     if config_field is None:
-        config_field = next(v for v in container_table.heading.attributes.keys() if v.endswith('_config'))
+        config_field = next(v for v in container_table.heading.attributes.keys() if v.endswith("_config"))
 
     resolver = resolver or (lambda x: container_table.resolve_fn(x))
     f = resolver(f_name)
@@ -233,7 +244,9 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
         -> {}
         ---
         {}
-        """.format(container_table.__name__, def_str)
+        """.format(
+            container_table.__name__, def_str
+        )
 
         @property
         def key_source(self):
@@ -244,16 +257,16 @@ def create_param_expansion(f_name, container_table, fn_field=None, config_field=
             entries = cleanup_numpy_scalar(entries)
             key = dict(key, **entries)
             if default_to_str:
-                for k,v in key.items():
+                for k, v in key.items():
                     if type(v) in [list, tuple]:
-                        key[k]=str(v)
+                        key[k] = str(v)
             self.insert1(key, ignore_extra_fields=True)
 
     NewTable.__name__ = to_camel_case(f.__name__) + suffix
     return NewTable
 
 
-def make_definition(f, exclude=('model', 'dataloaders', 'seed'), default_to_str=False):
+def make_definition(f, exclude=("model", "dataloaders", "seed"), default_to_str=False):
     """
     Given a function `f`, creates a table definition string to house all arguments. The types
     of the arguments are inferred from (1) type annotation and (2) type of the default value if present,
@@ -262,19 +275,19 @@ def make_definition(f, exclude=('model', 'dataloaders', 'seed'), default_to_str=
     Arguments matching values in the exclude list will not be included in the definition.
     """
     type_lut = {
-        int: 'int',
-        float: 'float',
-        str: 'varchar(255)',
-        date: 'DATE',
-        datetime: 'DATETIME',
-        object: 'longblob',
-        bool: 'bool',
+        int: "int",
+        float: "float",
+        str: "varchar(255)",
+        date: "DATE",
+        datetime: "DATETIME",
+        object: "longblob",
+        bool: "bool",
     }
     argspec = inspect.getfullargspec(f)
     total_def = []
     def_lut = {}
     if argspec.defaults is not None:
-        def_lut = {k: (d if d is not None else 'NULL') for k, d in zip(argspec.args[::-1], argspec.defaults[::-1])}
+        def_lut = {k: (d if d is not None else "NULL") for k, d in zip(argspec.args[::-1], argspec.defaults[::-1])}
 
     for v in argspec.args:
         # skip arguments found in the exclude list
@@ -296,15 +309,15 @@ def make_definition(f, exclude=('model', 'dataloaders', 'seed'), default_to_str=
                     t = object
         else:
             t = object
-        field = type_lut.get(t, 'longblob')  # default to longblob if no match found
+        field = type_lut.get(t, "longblob")  # default to longblob if no match found
         # if boolean field, turn default value into an integer
-        if field == 'bool' and v in def_lut:
+        if field == "bool" and v in def_lut:
             def_lut[v] = int(def_lut[v])
 
-        default_clause = '={!r}'.format(def_lut[v]) if v in def_lut else ''
-        spec_str = '{}{}: {}   # autogenerated column - {}'.format(v, default_clause, field, field)
+        default_clause = "={!r}".format(def_lut[v]) if v in def_lut else ""
+        spec_str = "{}{}: {}   # autogenerated column - {}".format(v, default_clause, field, field)
         total_def.append(spec_str)
-    return '\n'.join(total_def)
+    return "\n".join(total_def)
 
 
 class CustomSchema(Schema):
@@ -315,8 +328,10 @@ class CustomSchema(Schema):
             if attr[0].isupper():
                 part = getattr(cls, attr)
                 if inspect.isclass(part) and issubclass(part, dj.Part):
+
                     class WrappedPartTable(part):
                         pass
+
                     WrappedPartTable.__name__ = attr
                     setattr(cls, attr, WrappedPartTable)
             return super().__call__(cls, context=context)
