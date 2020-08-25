@@ -1,18 +1,16 @@
-import warnings
 import numpy as np
-import torch
 from ax.service.managed_loop import optimize
-from .dj_helpers import make_hash
 from .nnf_helper import split_module_name, dynamic_import
 from nnfabrik.main import *
+import datajoint as dj
 
 
-class Bayesian():
+class Bayesian:
     """
     A hyperparamter optimization tool based on Facebook Ax (https://ax.dev/), integrated with nnfabrik.
-    This tool, iteratively, optimizes for hyperparameters that imporove a specific score representing 
-    model performance (the same score used in TrainedModel table). In every iteration (after every training), 
-    it automatically adds an entry to the corresponding tables, and populated the trained model table (i.e. 
+    This tool, iteratively, optimizes for hyperparameters that imporove a specific score representing
+    model performance (the same score used in TrainedModel table). In every iteration (after every training),
+    it automatically adds an entry to the corresponding tables, and populated the trained model table (i.e.
     trains the model) for that specific entry.
 
     Args:
@@ -22,24 +20,33 @@ class Bayesian():
         model_fn (str): name of the model function
         model_config (dict): dictionary of arguments for model function that are fixed
         model_config_auto (dict): dictionary of arguments for model function that are to be optimized
-        trainer_fn (dict): name of the trainer function
+        trainer_fn (str): name of the trainer function
         trainer_config (dict): dictionary of arguments for trainer function that are fixed
         trainer_config_auto (dict): dictionary of arguments for trainer function that are to be optimized
-        architect (dict): Name of the contributor that added this entry
-        trained_model_table (dict): name (importable) of the trained_model_table
+        architect (str): Name of the contributor that added this entry
+        trained_model_table (str): name (importable) of the trained_model_table
         total_trials (int, optional): Number of experiments (i.e. training) to run. Defaults to 5.
         arms_per_trial (int, optional): Number of different configurations used for training (for more details check https://ax.dev/docs/glossary.html#trial). Defaults to 1.
         comment (str, optional): Comments about this optimization round. It will be used to fill up the comment entry of dataset, model, and trainer table. Defaults to "Bayesian optimization of Hyper params.".
     """
-    def __init__(self,
-                 dataset_fn, dataset_config, dataset_config_auto,
-                 model_fn, model_config, model_config_auto,
-                 trainer_fn, trainer_config, trainer_config_auto,
-                 architect,
-                 trained_model_table,
-                 total_trials=5,
-                 arms_per_trial=1,
-                 comment="Bayesian optimization of Hyper params."):
+
+    def __init__(
+        self,
+        dataset_fn,
+        dataset_config,
+        dataset_config_auto,
+        model_fn,
+        model_config,
+        model_config_auto,
+        trainer_fn,
+        trainer_config,
+        trainer_config_auto,
+        architect,
+        trained_model_table,
+        total_trials=5,
+        arms_per_trial=1,
+        comment="Bayesian optimization of Hyper params.",
+    ):
 
         self.fns = dict(dataset=dataset_fn, model=model_fn, trainer=trainer_fn)
         self.fixed_params = self.get_fixed_params(dataset_config, model_config, trainer_config)
@@ -54,7 +61,7 @@ class Bayesian():
         self.trained_model_table = dynamic_import(module_path, class_name)
 
     @staticmethod
-    def get_fixed_params(datase_config, model_config, trainer_config):
+    def get_fixed_params(dataset_config, model_config, trainer_config):
         """
         Returs a single dictionary including the fixed parameters for dataset, model, and trainer.
 
@@ -64,19 +71,19 @@ class Bayesian():
             trainer_config (dict): dictionary of arguments for trainer function that are fixed
 
         Returns:
-            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values 
+            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values
             are the corresponding dictionary of fixed arguments.
-        """        
-        return dict(dataset=datase_config, model=model_config, trainer=trainer_config)
+        """
+        return dict(dataset=dataset_config, model=model_config, trainer=trainer_config)
 
     @staticmethod
     def get_auto_params(dataset_config_auto, model_config_auto, trainer_config_auto):
         """
-        Changes the parameters to be optimized to a ax-friendly format, i.e. a list of dictionaries where 
+        Changes the parameters to be optimized to a ax-friendly format, i.e. a list of dictionaries where
         each entry of the list corresponds to a single parameter.
 
         Ax requires a list of parameters (to be optimized) including the name and other specifications.
-        Here we provide that list while keeping the arguments still separated by adding "dataset", 
+        Here we provide that list while keeping the arguments still separated by adding "dataset",
         "model", or "trainer" to the beginning of the parameter name.
 
         Args:
@@ -86,7 +93,7 @@ class Bayesian():
 
         Returns:
             list: list of dictionaries where each dictionary specifies a single parameter to be optimized.
-        """        
+        """
         dataset_params = []
         for k, v in dataset_config_auto.items():
             dd = {"name": "dataset.{}".format(k)}
@@ -107,31 +114,29 @@ class Bayesian():
 
         return dataset_params + model_params + trainer_params
 
-
     @staticmethod
     def _combine_params(auto_params, fixed_params):
         """
-        Combining the auto (to-be-optimized) and fixed parameters (to have a single object representing all the arguments 
+        Combining the auto (to-be-optimized) and fixed parameters (to have a single object representing all the arguments
         used for a specific function)
 
         Args:
-            auto_params (dict): dictionary of to-be-optimized parameters, i.e. A dictionary of dictionaries where keys are 
+            auto_params (dict): dictionary of to-be-optimized parameters, i.e. A dictionary of dictionaries where keys are
             dataset, model, and trainer and the values are the corresponding dictionary of to-be-optimized arguments.
-            fixed_params (dict): dictionary of fixed parameters, i.e. A dictionary of dictionaries where keys are dataset, 
+            fixed_params (dict): dictionary of fixed parameters, i.e. A dictionary of dictionaries where keys are dataset,
             model, and trainer and the values are the corresponding dictionary of fixed arguments.
 
         Returns:
-            dict: dictionary of parameters (fixed and to-be-optimized), i.e. A dictionary of dictionaries where keys are 
+            dict: dictionary of parameters (fixed and to-be-optimized), i.e. A dictionary of dictionaries where keys are
             dataset, model, and trainer and the values are the corresponding dictionary of arguments.
-        """        
-        keys = ['dataset', 'model', 'trainer']
+        """
+        keys = ["dataset", "model", "trainer"]
         params = {}
         for key in keys:
             params[key] = fixed_params[key]
             params[key].update(auto_params[key])
 
-        return {key:params[key] for key in keys}
-
+        return {key: params[key] for key in keys}
 
     @staticmethod
     def _split_config(params):
@@ -140,67 +145,70 @@ class Bayesian():
         dataset, model, and trainer and the values are a dictionary of the corresponding argumetns)
 
         Args:
-            params (list): list of dictionaries where each dictionary specifies a single parameter to be optimized.
+            params (dict): dictionary of dictionaries where each dictionary specifies a single parameter to be optimized.
 
         Returns:
-            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values are the 
+            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values are the
             corresponding dictionary of to-be-optimized arguments.
-        """        
+        """
         config = dict(dataset={}, model={}, trainer={}, others={})
         for k, v in params.items():
             config[k.split(".")[0]][k.split(".")[1]] = v
 
         return config
 
-    @staticmethod
-    def _add_entry(Table, fn, config):
-        entry_hash = make_hash(config)
-        entry_exists = {"configurator": "{}".format(fn)} in Table() and {"config_hash": "{}".format(entry_hash)} in Table()
-        if not entry_exists:
-            Table().add_entry(fn, config,
-                              model_fabrikant=self.architect,
-                              model_comment="AutoMLing")
-        return fn, entry_hash
-
     def train_evaluate(self, auto_params):
         """
-        For a given set of parameters, add an entry to the corresponding tables, and populated the trained model 
+        For a given set of parameters, add an entry to the corresponding tables, and populated the trained model
         table for that specific entry.
 
         Args:
-            auto_params (list): list of dictionaries where each dictionary specifies a single parameter to be optimized.
+            auto_params (dict): dictionary of dictionaries where each dictionary specifies a single parameter to be optimized.
 
         Returns:
             float: the score of the trained model for the specific entry in trained model table
-        """        
+        """
         config = self._combine_params(self._split_config(auto_params), self.fixed_params)
 
         # insert the stuff into their corresponding tables
-        dataset_hash = make_hash(config['dataset'])
-        entry_exists = {"dataset_fn": "{}".format(self.fns['dataset'])} in self.trained_model_table.dataset_table() and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
+        dataset_hash = make_hash(config["dataset"])
+        entry_exists = (
+            {"dataset_fn": "{}".format(self.fns["dataset"])} in self.trained_model_table.dataset_table()
+            and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
+        )
         if not entry_exists:
-            self.trained_model_table.dataset_table().add_entry(self.fns['dataset'], config['dataset'],
-                                dataset_fabrikant=self.architect,
-                                dataset_comment=self.comment)
+            self.trained_model_table.dataset_table().add_entry(
+                self.fns["dataset"], config["dataset"], dataset_fabrikant=self.architect, dataset_comment=self.comment
+            )
 
-        model_hash = make_hash(config['model'])
-        entry_exists = {"model_fn": "{}".format(self.fns['model'])} in self.trained_model_table.model_table() and {"model_hash": "{}".format(model_hash)} in self.trained_model_table.model_table()
+        model_hash = make_hash(config["model"])
+        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table.model_table() and {
+            "model_hash": "{}".format(model_hash)
+        } in self.trained_model_table.model_table()
         if not entry_exists:
-            self.trained_model_table.model_table().add_entry(self.fns['model'], config['model'],
-                              model_fabrikant=self.architect,
-                              model_comment=self.comment)
+            self.trained_model_table.model_table().add_entry(
+                self.fns["model"], config["model"], model_fabrikant=self.architect, model_comment=self.comment
+            )
 
-        trainer_hash = make_hash(config['trainer'])
-        entry_exists = {"trainer_fn": "{}".format(self.fns['trainer'])} in self.trained_model_table.trainer_table() and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
+        trainer_hash = make_hash(config["trainer"])
+        entry_exists = (
+            {"trainer_fn": "{}".format(self.fns["trainer"])} in self.trained_model_table.trainer_table()
+            and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
+        )
         if not entry_exists:
-            self.trained_model_table.trainer_table().add_entry(self.fns['trainer'], config['trainer'],
-                                trainer_fabrikant=self.architect,
-                                trainer_comment=self.comment)
+            self.trained_model_table.trainer_table().add_entry(
+                self.fns["trainer"], config["trainer"], trainer_fabrikant=self.architect, trainer_comment=self.comment
+            )
 
         # get the primary key values for all those entries
-        restriction = ('dataset_fn in ("{}")'.format(self.fns['dataset']), 'dataset_hash in ("{}")'.format(dataset_hash),
-                       'model_fn in ("{}")'.format(self.fns['model']), 'model_hash in ("{}")'.format(model_hash),
-                       'trainer_fn in ("{}")'.format(self.fns['trainer']), 'trainer_hash in ("{}")'.format(trainer_hash),)
+        restriction = (
+            'dataset_fn in ("{}")'.format(self.fns["dataset"]),
+            'dataset_hash in ("{}")'.format(dataset_hash),
+            'model_fn in ("{}")'.format(self.fns["model"]),
+            'model_hash in ("{}")'.format(model_hash),
+            'trainer_fn in ("{}")'.format(self.fns["trainer"]),
+            'trainer_hash in ("{}")'.format(trainer_hash),
+        )
 
         # populate the table for those primary keys
         self.trained_model_table().populate(*restriction)
@@ -216,11 +224,11 @@ class Bayesian():
 
         Returns:
             tuple: The returned values are similar to that of Ax (refer to https://ax.dev/docs/api.html)
-        """        
+        """
         best_parameters, values, experiment, model = optimize(
             parameters=self.auto_params,
             evaluation_function=self.train_evaluate,
-            objective_name='val_corr',
+            objective_name="val_corr",
             minimize=False,
             total_trials=self.total_trials,
             arms_per_trial=self.arms_per_trial,
@@ -229,11 +237,11 @@ class Bayesian():
         return self._split_config(best_parameters), values, experiment, model
 
 
-class Random():
+class Random:
     """
     Random hyperparameter search, integrated with nnfabrik.
-    Similar to Bayesian optimization tool, but instead of optimizing for hyperparamters to maximize a score, 
-    in every iteration (after every training), it randomly samples new value for the specified parameters, adds an 
+    Similar to Bayesian optimization tool, but instead of optimizing for hyperparamters to maximize a score,
+    in every iteration (after every training), it randomly samples new value for the specified parameters, adds an
     entry to the corresponding tables, and populated the trained model table (i.e. trains the model) for that specific entry.
 
     Args:
@@ -243,31 +251,37 @@ class Random():
         model_fn (str): name of the model function
         model_config (dict): dictionary of arguments for model function that are fixed
         model_config_auto (dict): dictionary of arguments for model function that are to be randomly sampled
-        trainer_fn (dict): name of the trainer function
+        trainer_fn (str): name of the trainer function
         trainer_config (dict): dictionary of arguments for trainer function that are fixed
         trainer_config_auto (dict): dictionary of arguments for trainer function that are to be randomly sampled
-        architect (dict): Name of the contributor that added this entry
-        trained_model_table (dict): name (importable) of the trained_model_table
+        architect (str): Name of the contributor that added this entry
+        trained_model_table (str): name (importable) of the trained_model_table
         total_trials (int, optional): Number of experiments (i.e. training) to run. Defaults to 5.
         comment (str, optional): Comments about this optimization round. It will be used to fill up the comment entry of dataset, model, and trainer table. Defaults to "Bayesian optimization of Hyper params.".
     """
 
-    def __init__(self,
-                 dataset_fn, dataset_config, dataset_config_auto,
-                 model_fn, model_config, model_config_auto,
-                 trainer_fn, trainer_config, trainer_config_auto,
-                 architect,
-                 trained_model_table,
-                 total_trials=5,
-                 arms_per_trial=1, #TODO: remove this argument (it is not used)
-                 comment="Random search for hyper params."):
+    def __init__(
+        self,
+        dataset_fn,
+        dataset_config,
+        dataset_config_auto,
+        model_fn,
+        model_config,
+        model_config_auto,
+        trainer_fn,
+        trainer_config,
+        trainer_config_auto,
+        architect,
+        trained_model_table,
+        total_trials=5,
+        comment="Random search for hyper params.",
+    ):
 
         self.fns = dict(dataset=dataset_fn, model=model_fn, trainer=trainer_fn)
         self.fixed_params = self.get_fixed_params(dataset_config, model_config, trainer_config)
         self.auto_params = self.get_auto_params(dataset_config_auto, model_config_auto, trainer_config_auto)
         self.architect = architect
         self.total_trials = total_trials
-        self.arms_per_trial = arms_per_trial
         self.comment = comment
 
         # import TrainedModel definition
@@ -275,7 +289,7 @@ class Random():
         self.trained_model_table = dynamic_import(module_path, class_name)
 
     @staticmethod
-    def get_fixed_params(datase_config, model_config, trainer_config):
+    def get_fixed_params(dataset_config, model_config, trainer_config):
         """
         Returs a single dictionary including the fixed parameters for dataset, model, and trainer.
 
@@ -285,16 +299,16 @@ class Random():
             trainer_config (dict): dictionary of arguments for trainer function that are fixed
 
         Returns:
-            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values are the corresponding 
+            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values are the corresponding
             dictionary of fixed arguments.
-        """   
-        return dict(dataset=datase_config, model=model_config, trainer=trainer_config)
+        """
+        return dict(dataset=dataset_config, model=model_config, trainer=trainer_config)
 
     @staticmethod
     def get_auto_params(dataset_config_auto, model_config_auto, trainer_config_auto):
         """
         Returns the parameters, which are to be randomly sampled, in a list.
-        Here we followed the same convension as in the Bayesian class, to have the API as similar as possible.
+        Here we followed the same convention as in the Bayesian class, to have the API as similar as possible.
 
         Args:
             dataset_config_auto (dict): dictionary of arguments for dataset function that are to be randomly sampled
@@ -324,42 +338,40 @@ class Random():
 
         return dataset_params + model_params + trainer_params
 
-
     @staticmethod
     def _combine_params(auto_params, fixed_params):
         """
         Combining the auto and fixed parameters (to have a single object representing all the arguments used for a specific function)
 
         Args:
-            auto_params (dict): dictionary of to-be-sampled parameters, i.e. A dictionary of dictionaries where keys are dataset, 
+            auto_params (dict): dictionary of to-be-sampled parameters, i.e. A dictionary of dictionaries where keys are dataset,
             model, and trainer and the values are the corresponding dictionary of to-be-sampled arguments.
-            fixed_params (dict): dictionary of fixed parameters, i.e. A dictionary of dictionaries where keys are dataset, model, 
+            fixed_params (dict): dictionary of fixed parameters, i.e. A dictionary of dictionaries where keys are dataset, model,
             and trainer and the values are the corresponding dictionary of fixed arguments.
 
         Returns:
-            dict: dictionary of parameters (fixed and to-be-sampled), i.e. A dictionary of dictionaries where keys are dataset, 
+            dict: dictionary of parameters (fixed and to-be-sampled), i.e. A dictionary of dictionaries where keys are dataset,
             model, and trainer and the values are the corresponding dictionary of arguments.
         """
-        keys = ['dataset', 'model', 'trainer']
+        keys = ["dataset", "model", "trainer"]
         params = {}
         for key in keys:
             params[key] = fixed_params[key]
             params[key].update(auto_params[key])
 
-        return {key:params[key] for key in keys}
-
+        return {key: params[key] for key in keys}
 
     @staticmethod
     def _split_config(params):
         """
-        Reverses the operation of `get_auto_params` (from a list of parameters (ax-friendly format) to a dictionary of 
+        Reverses the operation of `get_auto_params` (from a list of parameters (ax-friendly format) to a dictionary of
         dictionaries where keys are dataset, model, and trainer and the values are a dictionary of the corresponding argumetns)
 
         Args:
-            params (list): list of dictionaries where each dictionary specifies a single parameter to be sampled.
+            params (dict): list of dictionaries where each dictionary specifies a single parameter to be sampled.
 
         Returns:
-            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values are the corresponding 
+            dict: A dictionary of dictionaries where keys are dataset, model, and trainer and the values are the corresponding
             dictionary of to-be-sampled arguments.
         """
         config = dict(dataset={}, model={}, trainer={}, others={})
@@ -368,48 +380,59 @@ class Random():
 
         return config
 
-
     def train_evaluate(self, auto_params):
         """
-        For a given set of parameters, add an entry to the corresponding tables, and populated the trained model 
+        For a given set of parameters, add an entry to the corresponding tables, and populated the trained model
         table for that specific entry.
 
         Args:
-            auto_params (list): list of dictionaries where each dictionary specifies a single parameter to be sampled.
+            auto_params (dict): list of dictionaries where each dictionary specifies a single parameter to be sampled.
 
         """
         config = self._combine_params(self._split_config(auto_params), self.fixed_params)
 
         # insert the stuff into their corresponding tables
-        dataset_hash = make_hash(config['dataset'])
-        entry_exists = {"dataset_fn": "{}".format(self.fns['dataset'])} in self.trained_model_table.dataset_table() and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
+        dataset_hash = make_hash(config["dataset"])
+        entry_exists = (
+            {"dataset_fn": "{}".format(self.fns["dataset"])} in self.trained_model_table.dataset_table()
+            and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
+        )
         if not entry_exists:
-            self.trained_model_table.dataset_table().add_entry(self.fns['dataset'], config['dataset'],
-                                dataset_fabrikant=self.architect,
-                                dataset_comment=self.comment)
+            self.trained_model_table.dataset_table().add_entry(
+                self.fns["dataset"], config["dataset"], dataset_fabrikant=self.architect, dataset_comment=self.comment
+            )
 
-        model_hash = make_hash(config['model'])
-        entry_exists = {"model_fn": "{}".format(self.fns['model'])} in self.trained_model_table.model_table() and {"model_hash": "{}".format(model_hash)} in self.trained_model_table.model_table()
+        model_hash = make_hash(config["model"])
+        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table.model_table() and {
+            "model_hash": "{}".format(model_hash)
+        } in self.trained_model_table.model_table()
         if not entry_exists:
-            self.trained_model_table.model_table().add_entry(self.fns['model'], config['model'],
-                              model_fabrikant=self.architect,
-                              model_comment=self.comment)
+            self.trained_model_table.model_table().add_entry(
+                self.fns["model"], config["model"], model_fabrikant=self.architect, model_comment=self.comment
+            )
 
-        trainer_hash = make_hash(config['trainer'])
-        entry_exists = {"trainer_fn": "{}".format(self.fns['trainer'])} in self.trained_model_table.trainer_table() and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
+        trainer_hash = make_hash(config["trainer"])
+        entry_exists = (
+            {"trainer_fn": "{}".format(self.fns["trainer"])} in self.trained_model_table.trainer_table()
+            and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
+        )
         if not entry_exists:
-            self.trained_model_table.trainer_table().add_entry(self.fns['trainer'], config['trainer'],
-                                trainer_fabrikant=self.architect,
-                                trainer_comment=self.comment)
+            self.trained_model_table.trainer_table().add_entry(
+                self.fns["trainer"], config["trainer"], trainer_fabrikant=self.architect, trainer_comment=self.comment
+            )
 
         # get the primary key values for all those entries
-        restriction = ('dataset_fn in ("{}")'.format(self.fns['dataset']), 'dataset_hash in ("{}")'.format(dataset_hash),
-                       'model_fn in ("{}")'.format(self.fns['model']), 'model_hash in ("{}")'.format(model_hash),
-                       'trainer_fn in ("{}")'.format(self.fns['trainer']), 'trainer_hash in ("{}")'.format(trainer_hash),)
+        restriction = (
+            'dataset_fn in ("{}")'.format(self.fns["dataset"]),
+            'dataset_hash in ("{}")'.format(dataset_hash),
+            'model_fn in ("{}")'.format(self.fns["model"]),
+            'model_hash in ("{}")'.format(model_hash),
+            'trainer_fn in ("{}")'.format(self.fns["trainer"]),
+            'trainer_hash in ("{}")'.format(trainer_hash),
+        )
 
         # populate the table for those primary keys
         self.trained_model_table().populate(*restriction)
-
 
     def gen_params_value(self):
         """
@@ -417,24 +440,23 @@ class Random():
 
         Returns:
             dict: A dictionary containing the parameters whose values should be sampled.
-        """        
+        """
         np.random.seed(None)
         auto_params_val = {}
         for param in self.auto_params:
-            if param['type'] == 'fixed':
-                auto_params_val.update({param['name']: param['value']})
-            elif param['type'] == 'choice':
-                auto_params_val.update({param['name']: np.random.choice(param['values'])})
-            elif param['type'] == 'range':
-                auto_params_val.update({param['name']: np.random.uniform(*param['bounds'])})
+            if param["type"] == "fixed":
+                auto_params_val.update({param["name"]: param["value"]})
+            elif param["type"] == "choice":
+                auto_params_val.update({param["name"]: np.random.choice(param["values"])})
+            elif param["type"] == "range":
+                auto_params_val.update({param["name"]: np.random.uniform(*param["bounds"])})
 
         return auto_params_val
-
 
     def run(self):
         """
         Runs the random hyperparameter seach, for as many trials as specified.
-        """        
+        """
         n_trials = len(self.trained_model_table.seed_table()) * self.total_trials
         init_len = len(self.trained_model_table())
         while len(self.trained_model_table()) - init_len < n_trials:
