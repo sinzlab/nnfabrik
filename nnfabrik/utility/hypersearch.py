@@ -7,8 +7,8 @@ import datajoint as dj
 
 class Bayesian:
     """
-    A hyperparamter optimization tool based on Facebook Ax (https://ax.dev/), integrated with nnfabrik.
-    This tool, iteratively, optimizes for hyperparameters that imporove a specific score representing
+    A hyperparameter optimization tool based on Facebook Ax (https://ax.dev/), integrated with nnfabrik.
+    This tool, iteratively, optimizes for hyperparameters that improve a specific score representing
     model performance (the same score used in TrainedModel table). In every iteration (after every training),
     it automatically adds an entry to the corresponding tables, and populated the trained model table (i.e.
     trains the model) for that specific entry.
@@ -63,7 +63,7 @@ class Bayesian:
     @staticmethod
     def get_fixed_params(dataset_config, model_config, trainer_config):
         """
-        Returs a single dictionary including the fixed parameters for dataset, model, and trainer.
+        Returns a single dictionary including the fixed parameters for dataset, model, and trainer.
 
         Args:
             dataset_config (dict): dictionary of arguments for dataset function that are fixed
@@ -142,7 +142,7 @@ class Bayesian:
     def _split_config(params):
         """
         Reverses the operation of `get_auto_params` (from ax-friendly format to a dictionary of dictionaries where keys are
-        dataset, model, and trainer and the values are a dictionary of the corresponding argumetns)
+        dataset, model, and trainer and the values are a dictionary of the corresponding arguments)
 
         Args:
             params (dict): dictionary of dictionaries where each dictionary specifies a single parameter to be optimized.
@@ -220,7 +220,7 @@ class Bayesian:
 
     def run(self):
         """
-        Runs Bayesian optimiation.
+        Runs Bayesian optimization.
 
         Returns:
             tuple: The returned values are similar to that of Ax (refer to https://ax.dev/docs/api.html)
@@ -240,7 +240,7 @@ class Bayesian:
 class Random:
     """
     Random hyperparameter search, integrated with nnfabrik.
-    Similar to Bayesian optimization tool, but instead of optimizing for hyperparamters to maximize a score,
+    Similar to Bayesian optimization tool, but instead of optimizing for hyperparameters to maximize a score,
     in every iteration (after every training), it randomly samples new value for the specified parameters, adds an
     entry to the corresponding tables, and populated the trained model table (i.e. trains the model) for that specific entry.
 
@@ -365,7 +365,7 @@ class Random:
     def _split_config(params):
         """
         Reverses the operation of `get_auto_params` (from a list of parameters (ax-friendly format) to a dictionary of
-        dictionaries where keys are dataset, model, and trainer and the values are a dictionary of the corresponding argumetns)
+        dictionaries where keys are dataset, model, and trainer and the values are a dictionary of the corresponding arguments)
 
         Args:
             params (dict): list of dictionaries where each dictionary specifies a single parameter to be sampled.
@@ -455,7 +455,7 @@ class Random:
 
     def run(self):
         """
-        Runs the random hyperparameter seach, for as many trials as specified.
+        Runs the random hyperparameter search, for as many trials as specified.
         """
         n_trials = len(self.trained_model_table.seed_table()) * self.total_trials
         init_len = len(self.trained_model_table())
