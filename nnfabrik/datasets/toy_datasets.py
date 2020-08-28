@@ -14,14 +14,9 @@ def toy_dataset_fn(seed: int, **config) -> Dict:
         data_loaders (dict): containing "train", "validation" and "test" data loaders
     """
     np.random.seed(seed)
-    x, y = (
-        np.random.rand(1000, 5).astype(np.float32),
-        np.random.rand(1000, 1).astype(np.float32),
-    )
+    x, y = (np.random.rand(1000, 5).astype(np.float32), np.random.rand(1000, 1).astype(np.float32))
     train_dataset = TensorDataset(torch.from_numpy(x[:800]), torch.from_numpy(y[:800]))
-    dev_dataset = TensorDataset(
-        torch.from_numpy(x[800:900]), torch.from_numpy(y[800:900])
-    )
+    dev_dataset = TensorDataset(torch.from_numpy(x[800:900]), torch.from_numpy(y[800:900]))
     test_dataset = TensorDataset(torch.from_numpy(x[900:]), torch.from_numpy(y[900:]))
 
     return {

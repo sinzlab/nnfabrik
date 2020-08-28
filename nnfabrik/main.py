@@ -9,18 +9,18 @@ from .utility.nnf_helper import cleanup_numpy_scalar
 
 
 # set external store based on env vars
-if not 'stores' in dj.config:
-    dj.config['stores'] = {}
-dj.config['stores']['minio'] = {  # store in s3
-    'protocol': 's3',
-    'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
-    'bucket': 'nnfabrik',
-    'location': 'dj-store',
-    'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
-    'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
+if not "stores" in dj.config:
+    dj.config["stores"] = {}
+dj.config["stores"]["minio"] = {  # store in s3
+    "protocol": "s3",
+    "endpoint": os.environ.get("MINIO_ENDPOINT", "DUMMY_ENDPOINT"),
+    "bucket": "nnfabrik",
+    "location": "dj-store",
+    "access_key": os.environ.get("MINIO_ACCESS_KEY", "FAKEKEY"),
+    "secret_key": os.environ.get("MINIO_SECRET_KEY", "FAKEKEY"),
 }
 
-schema = CustomSchema(dj.config.get('schema_name', 'nnfabrik_core'))
+schema = CustomSchema(dj.config.get("schema_name", "nnfabrik_core"))
 
 
 @schema
@@ -39,10 +39,10 @@ class Fabrikant(dj.Manual):
         Lookup the fabrikant_name in Fabrikant corresponding to the currently logged in DataJoint user
         Returns: fabrikant_name if match found, else None
         """
-        username = cls.connection.get_user().split('@')[0]
-        entry = (Fabrikant & dict(dj_username=username))
+        username = cls.connection.get_user().split("@")[0]
+        entry = Fabrikant & dict(dj_username=username)
         if entry:
-            return entry.fetch1('fabrikant_name')
+            return entry.fetch1("fabrikant_name")
 
 
 @schema
@@ -59,7 +59,7 @@ class Model(dj.Manual):
 
     @property
     def fn_config(self):
-        model_fn, model_config = self.fetch1('model_fn', 'model_config')
+        model_fn, model_config = self.fetch1("model_fn", "model_config")
         model_config = cleanup_numpy_scalar(model_config)
         return model_fn, model_config
 
@@ -67,7 +67,7 @@ class Model(dj.Manual):
     def resolve_fn(fn_name):
         return resolve_model(fn_name)
 
-    def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment='', skip_duplicates=False):
+    def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment="", skip_duplicates=False):
         """
         Add a new entry to the model.
 
@@ -85,23 +85,28 @@ class Model(dj.Manual):
         try:
             resolve_model(model_fn)
         except (NameError, TypeError) as e:
-            warnings.warn(str(e) + '\nTable entry rejected')
+            warnings.warn(str(e) + "\nTable entry rejected")
             return
 
         if model_fabrikant is None:
             model_fabrikant = Fabrikant.get_current_user()
 
         model_hash = make_hash(model_config)
-        key = dict(model_fn=model_fn, model_hash=model_hash, model_config=model_config,
-                   model_fabrikant=model_fabrikant, model_comment=model_comment)
+        key = dict(
+            model_fn=model_fn,
+            model_hash=model_hash,
+            model_config=model_config,
+            model_fabrikant=model_fabrikant,
+            model_comment=model_comment,
+        )
 
         existing = self.proj() & key
         if existing:
             if skip_duplicates:
-                warnings.warn('Corresponding entry found. Skipping...')
+                warnings.warn("Corresponding entry found. Skipping...")
                 key = (self & (existing)).fetch1()
             else:
-                raise ValueError('Corresponding entry already exists')
+                raise ValueError("Corresponding entry already exists")
         else:
             self.insert1(key)
 
@@ -124,10 +129,12 @@ class Model(dj.Manual):
             A PyTorch module.
         """
         if dataloaders is None and data_info is None:
-            raise ValueError("dataloaders and data_info can not both be None. To build the model, either dataloaders or"
-                             "data_info have to be passed.")
+            raise ValueError(
+                "dataloaders and data_info can not both be None. To build the model, either dataloaders or"
+                "data_info have to be passed."
+            )
 
-        print('Loading model...')
+        print("Loading model...")
         if key is None:
             key = {}
         model_fn, model_config = (self & key).fn_config
@@ -149,7 +156,7 @@ class Dataset(dj.Manual):
 
     @property
     def fn_config(self):
-        dataset_fn, dataset_config = self.fetch1('dataset_fn', 'dataset_config')
+        dataset_fn, dataset_config = self.fetch1("dataset_fn", "dataset_config")
         dataset_config = cleanup_numpy_scalar(dataset_config)
         return dataset_fn, dataset_config
 
@@ -157,7 +164,7 @@ class Dataset(dj.Manual):
     def resolve_fn(fn_name):
         return resolve_data(fn_name)
 
-    def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment='', skip_duplicates=False):
+    def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment="", skip_duplicates=False):
         """
         Add a new entry to the dataset.
 
@@ -177,23 +184,28 @@ class Dataset(dj.Manual):
         try:
             resolve_data(dataset_fn)
         except (NameError, TypeError) as e:
-            warnings.warn(str(e) + '\nTable entry rejected')
+            warnings.warn(str(e) + "\nTable entry rejected")
             return
 
         if dataset_fabrikant is None:
             dataset_fabrikant = Fabrikant.get_current_user()
 
         dataset_hash = make_hash(dataset_config)
-        key = dict(dataset_fn=dataset_fn, dataset_hash=dataset_hash,
-                   dataset_config=dataset_config, dataset_fabrikant=dataset_fabrikant, dataset_comment=dataset_comment)
+        key = dict(
+            dataset_fn=dataset_fn,
+            dataset_hash=dataset_hash,
+            dataset_config=dataset_config,
+            dataset_fabrikant=dataset_fabrikant,
+            dataset_comment=dataset_comment,
+        )
 
         existing = self.proj() & key
         if existing:
             if skip_duplicates:
-                warnings.warn('Corresponding entry found. Skipping...')
+                warnings.warn("Corresponding entry found. Skipping...")
                 key = (self & (existing)).fetch1()
             else:
-                raise ValueError('Corresponding entry already exists')
+                raise ValueError("Corresponding entry already exists")
         else:
             self.insert1(key)
 
@@ -222,7 +234,7 @@ class Dataset(dj.Manual):
         dataset_fn, dataset_config = (self & key).fn_config
 
         if seed is not None:
-            dataset_config['seed'] = seed  # override the seed if passed in
+            dataset_config["seed"] = seed  # override the seed if passed in
 
         return get_data(dataset_fn, dataset_config)
 
@@ -241,7 +253,7 @@ class Trainer(dj.Manual):
 
     @property
     def fn_config(self):
-        trainer_fn, trainer_config = self.fetch1('trainer_fn', 'trainer_config')
+        trainer_fn, trainer_config = self.fetch1("trainer_fn", "trainer_config")
         trainer_config = cleanup_numpy_scalar(trainer_config)
         return trainer_fn, trainer_config
 
@@ -249,7 +261,7 @@ class Trainer(dj.Manual):
     def resolve_fn(fn_name):
         return resolve_trainer(fn_name)
 
-    def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment='', skip_duplicates=False):
+    def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment="", skip_duplicates=False):
         """
         Add a new entry to the trainer.
 
@@ -268,24 +280,28 @@ class Trainer(dj.Manual):
         try:
             resolve_trainer(trainer_fn)
         except (NameError, TypeError) as e:
-            warnings.warn(str(e) + '\nTable entry rejected')
+            warnings.warn(str(e) + "\nTable entry rejected")
             return
 
         if trainer_fabrikant is None:
             trainer_fabrikant = Fabrikant.get_current_user()
 
         trainer_hash = make_hash(trainer_config)
-        key = dict(trainer_fn=trainer_fn, trainer_hash=trainer_hash,
-                   trainer_config=trainer_config, trainer_fabrikant=trainer_fabrikant,
-                   trainer_comment=trainer_comment)
+        key = dict(
+            trainer_fn=trainer_fn,
+            trainer_hash=trainer_hash,
+            trainer_config=trainer_config,
+            trainer_fabrikant=trainer_fabrikant,
+            trainer_comment=trainer_comment,
+        )
 
         existing = self.proj() & key
         if existing:
             if skip_duplicates:
-                warnings.warn('Corresponding entry found. Skipping...')
+                warnings.warn("Corresponding entry found. Skipping...")
                 key = (self & (existing)).fetch1()
             else:
-                raise ValueError('Corresponding entry already exists')
+                raise ValueError("Corresponding entry already exists")
         else:
             self.insert1(key)
 

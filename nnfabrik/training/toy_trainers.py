@@ -37,12 +37,7 @@ class ToyTrainer:
 
 
 def toy_trainer_fn(
-    model: torch.nn.Module,
-    dataloaders: Dict,
-    seed: Tuple,
-    uid: Tuple,
-    cb: Callable,
-    **config
+    model: torch.nn.Module, dataloaders: Dict, seed: Tuple, uid: Tuple, cb: Callable, **config
 ) -> Tuple[float, Dict, Dict]:
     """"
     Args:
