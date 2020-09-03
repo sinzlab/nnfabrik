@@ -10,3 +10,4 @@ Dockerfile
 Untitled*.ipynb
 .history.*
 .vscode/*
+_build/
