@@ -3,12 +3,9 @@
 *~
 ~*
 *.py[cod]
-ml-utils/
 .env
 docker-compose.yml
 Dockerfile
-mei
-nnvision
 .ipynb_checkpoints/
 Untitled*.ipynb
 .history.*
