@@ -19,22 +19,24 @@ def resolve_fn(fn_name, default_base):
     When successful, returns the resolved, callable object.
     """
     module_path, class_name = split_module_name(fn_name)
-    
+
     try:
-        fn_obj = dynamic_import(module_path, class_name) if module_path else eval('{}.{}'.format(default_base, class_name))
+        fn_obj = (
+            dynamic_import(module_path, class_name) if module_path else eval("{}.{}".format(default_base, class_name))
+        )
     except NameError:
         raise NameError("Function `{}` does not exist".format(class_name))
 
     if not callable(fn_obj):
         raise TypeError("The object named {} is not callable.".format(class_name))
-    
+
     return fn_obj
-        
+
 
 # provide convenience alias for resolving model, dataset, and trainer
-resolve_model = partial(resolve_fn, default_base='models')
-resolve_data = partial(resolve_fn, default_base='datasets')
-resolve_trainer = partial(resolve_fn, default_base='training')
+resolve_model = partial(resolve_fn, default_base="models")
+resolve_data = partial(resolve_fn, default_base="datasets")
+resolve_trainer = partial(resolve_fn, default_base="training")
 
 
 def get_model(model_fn, model_config, dataloaders=None, seed=None, state_dict=None, strict=True, data_info=None):
@@ -58,8 +60,11 @@ def get_model(model_fn, model_config, dataloaders=None, seed=None, state_dict=No
     if isinstance(model_fn, str):
         model_fn = resolve_model(model_fn)
 
-
-    net = model_fn(dataloaders, seed=seed, **model_config) if data_info is None else model_fn(dataloaders, data_info=data_info, seed=seed, **model_config)
+    net = (
+        model_fn(dataloaders, seed=seed, **model_config)
+        if data_info is None
+        else model_fn(dataloaders, data_info=data_info, seed=seed, **model_config)
+    )
 
     if state_dict is not None:
         load_state_dict(net, state_dict)
@@ -107,10 +112,20 @@ def get_trainer(trainer_fn, trainer_config=None):
     return trainer_fn
 
 
-def get_all_parts(dataset_fn, dataset_config, model_fn, model_config, seed=None, state_dict=None, strict=True, trainer_fn=None, trainer_config=None):
+def get_all_parts(
+    dataset_fn,
+    dataset_config,
+    model_fn,
+    model_config,
+    seed=None,
+    state_dict=None,
+    strict=True,
+    trainer_fn=None,
+    trainer_config=None,
+):
 
-    if seed is not None and 'seed' not in dataset_config:
-        dataset_config['seed'] = seed  # override the seed if passed in
+    if seed is not None and "seed" not in dataset_config:
+        dataset_config["seed"] = seed  # override the seed if passed in
 
     dataloaders = get_data(dataset_fn, dataset_config)
 
