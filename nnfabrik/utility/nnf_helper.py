@@ -20,11 +20,11 @@ class FabrikCache:
         self.base_table = base_table
         self.cache_size_limit = cache_size_limit
         self.cache = dict()
-        if hasattr(self.base_table, 'load_model'):
+        if hasattr(self.base_table, "load_model"):
             self.load_function = self.base_table().load_model
-        elif hasattr(self.base_table, 'get_dataloader'):
+        elif hasattr(self.base_table, "get_dataloader"):
             self.load_function = self.base_table().get_dataloader
-        elif hasattr(self.base_table, 'build_model'):
+        elif hasattr(self.base_table, "build_model"):
             self.load_function = self.base_table().build_model
         else:
             raise ValueError("Base table needs to have a 'load_model', 'get_dataloader', or 'build_model' method")

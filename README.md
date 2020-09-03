@@ -47,7 +47,7 @@ However, to ensure a generalized solution nnfabrik makes some minor assumptions 
   * a collection (list, tuple, or dictionary) of any other quantity 
   * the `state_dict` of the trained model.
 
-You can take a look at some examples in [toy_dataset](./nnfabrik/datasets/toy_datasets.py), [toy_model](./nnfabrik/models/toy_models.py), and [toy_trainer](./nnfabrik/training/toy_trainers.py).
+You can take a look at some examples in [toy_dataset](nnfabrik/toy_example/toy_datasets.py), [toy_model](nnfabrik/toy_example/toy_models.py), and [toy_trainer](nnfabrik/toy_example/toy_trainers.py).
 
 Once you have these three functions, all is left to do is to define the corresponding tables. Tables are structured similar to the the functions. That is, we have a `Dataset`, `Model`, and `Trainer` table. Each entry of the table corresponds to an specific instance of the corresponding function. For example one entry of the `Dataset` table refers to a specific dataset function and a specific `dataset_config`.
 
