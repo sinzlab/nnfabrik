@@ -1,6 +1,7 @@
 from typing import Dict, Tuple, Callable
 
 import numpy as np
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,31 +14,42 @@ class ToyTrainer:
         self.trainloader = dataloaders["train"]
         self.seed = seed
         self.epochs = epochs
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn = nn.NLLLoss()
         self.optimizer = optim.Adam(self.model.parameters())
 
     def train(self):
+        if hasattr(tqdm, "_instances"):
+            tqdm._instances.clear()  # To have tqdm output without line-breaks between steps
         torch.manual_seed(self.seed)
-        losses = []
+        accs = []
         for epoch in range(self.epochs):
-
-            _losses = []
-            for x, y in self.trainloader:
-
+            predicted_correct = 0
+            total = 0
+            for x, y in tqdm(self.trainloader):
+                # forward:
                 self.optimizer.zero_grad()
-                y_hat = self.model(x)
+                x_flat = x.flatten(1, -1)  # treat the images as flat vectors
+                y_hat = self.model(x_flat)
                 loss = self.loss_fn(y_hat, y)
+                # backward:
                 loss.backward()
                 self.optimizer.step()
-                _losses.append(loss.item())
+                # keep track of accuracy:
+                _, predicted = y_hat.max(1)
+                predicted_correct += predicted.eq(y).sum().item()
+                total += y.shape[0]
+            accs.append(100.0 * predicted_correct / total)
 
-        losses.append(np.mean(_losses))
-
-        return losses[-1], (losses, self.epochs), self.model.state_dict()
+        return accs[-1], (accs, self.epochs), self.model.state_dict()
 
 
-def toy_trainer_fn(
-    model: torch.nn.Module, dataloaders: Dict, seed: Tuple, uid: Tuple, cb: Callable, **config
+def mnist_trainer_fn(
+    model: torch.nn.Module,
+    dataloaders: Dict,
+    seed: Tuple,
+    uid: Tuple,
+    cb: Callable,
+    **config
 ) -> Tuple[float, Dict, Dict]:
     """"
     Args:
@@ -51,7 +63,7 @@ def toy_trainer_fn(
         output: user specified validation object based on the 'stop function'
         model_state: the full state_dict() of the trained model
     """
-    trainer = ToyTrainer(model, dataloaders, seed, epochs=config.get("epochs", 5))
+    trainer = ToyTrainer(model, dataloaders, seed, epochs=config.get("epochs", 2))
     out = trainer.train()
 
     return out
