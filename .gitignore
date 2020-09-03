@@ -13,3 +13,4 @@ nnvision
 Untitled*.ipynb
 .history.*
 .vscode/*
+_build/
