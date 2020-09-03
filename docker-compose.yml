@@ -2,47 +2,11 @@ version: '2.3'
 services:
   notebook:
     build: .
-    env_file: .env
-    ports:
-      - "5003:8888"
-    volumes:
-      - ../data:/data
-      #- /mnt/qb/data:/data
-      - /tmp:/tmp
-      - .:/src/nnfabrik
-      - ./notebooks:/notebooks
-    environment:
-      - DISPLAY=$DISPLAY
-      - NVIDIA_VISIBLE_DEVICES=0
-  gpu-server_develop:
-    build: .
     ports:
       - "8888:8888"
-    volumes:
-      - /var/lib/nova/sinz-shared:/data
-      - ../projects:/notebooks
-    env_file: .env
-    environment:
-      - DISPLAY=$DISPLAY
-    runtime: nvidia
-  server_develop:
+
+  docs:
     build: .
     ports:
-      - "8888:8888"
-    volumes:
-      - ../../../var/sinz-shared:/data
-      - ../projects:/notebooks
-    env_file: .env
-    environment:
-      - DISPLAY=$DISPLAY
-    runtime: nvidia
-  gpu_server_playground:
-    build: .
-    ports:
-      - "8888:8888"
-    volumes:
-      - /var/lib/nova/sinz-shared:/data
-    env_file: .env
-    environment:
-      - DISPLAY=$DISPLAY
-    runtime: nvidia
+      - "3000:3000"
+    entrypoint: /bin/bash -c "cd /src/nnfabrik/docs/; make html; cd _build/html; python -m http.server 3000"
