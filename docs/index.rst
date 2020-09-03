@@ -3,7 +3,12 @@ Welcome to NNFabrik's documentation!
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   
+   introduction
+   getting_started
+   tutorials
+
    :caption: Contents:
 
 
