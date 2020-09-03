@@ -7,12 +7,10 @@ services:
       - "5003:8888"
     volumes:
       - ../data:/data
-      #- /mnt/qb/data:/data
       - /tmp:/tmp
       - .:/src/nnfabrik
       - ./notebooks:/notebooks
     environment:
-      - DISPLAY=$DISPLAY
       - NVIDIA_VISIBLE_DEVICES=0
   gpu-server_develop:
     build: .
@@ -34,15 +32,5 @@ services:
       - ../projects:/notebooks
     env_file: .env
     environment:
-      - DISPLAY=$DISPLAY
-    runtime: nvidia
-  gpu_server_playground:
-    build: .
-    ports:
-      - "8888:8888"
-    volumes:
-      - /var/lib/nova/sinz-shared:/data
-    env_file: .env
-    environment:
-      - DISPLAY=$DISPLAY
+      - NVIDIA_VISIBLE_DEVICES=0
     runtime: nvidia
