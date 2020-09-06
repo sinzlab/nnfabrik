@@ -1,5 +1,4 @@
 from . import utility
-from . import training
 from . import models
 from functools import partial
 
