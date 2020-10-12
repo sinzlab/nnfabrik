@@ -6,10 +6,10 @@ here = path.abspath(path.dirname(__file__))
 
 setup(
     name="nnfabrik",
-    version="0.0.0",
+    version="0.0.1",
     description="Factory for Neural Networks",
-    author="Konstantin Willeke, Edgar. Y. Walker",
-    author_email="edgar.y.walker@mnf.uni-tuebingen.de",
+    author="Sinz Lab",
+    author_email="software@sinzlab.net",
     packages=find_packages(exclude=[]),
     install_requires=["sphinx", "pytorch_sphinx_theme", "recommonmark"],
 )
