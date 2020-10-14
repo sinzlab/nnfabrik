@@ -6,9 +6,9 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
-from mlutils.data.datasets import StaticImageSet
-from mlutils.data.transforms import Subsample, ToTensor, NeuroNormalizer, AddBehaviorAsChannels
-from mlutils.data.samplers import SubsetSequentialSampler
+from neuralpredictors.data.datasets import StaticImageSet
+from neuralpredictors.data.transforms import Subsample, ToTensor, NeuroNormalizer, AddBehaviorAsChannels
+from neuralpredictors.data.samplers import SubsetSequentialSampler
 
 from ..utility.nn_helpers import set_random_seed
 

@@ -1,4 +1,4 @@
-from mlutils.measures import PoissonLoss3d
+from neuralpredictors.measures import PoissonLoss3d
 from .utils import (
     corr,
     ptcorr,
@@ -8,7 +8,7 @@ from .utils import (
     correlation_closure,
     compute_scores,
 )
-from mlutils.training import cycle_datasets, early_stopping
+from neuralpredictors.training import cycle_datasets, early_stopping
 from tqdm import tqdm
 from logging import getLogger
 from itertools import product, repeat

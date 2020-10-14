@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from scipy import stats
 
-from mlutils.measures import PoissonLoss, corr
-from mlutils.training import eval_state
+from neuralpredictors.measures import PoissonLoss, corr
+from neuralpredictors.training import eval_state
 
 
 def model_predictions(loader, model, data_key, device):

@@ -6,7 +6,7 @@ import pickle
 # from retina.retina import warp_image
 from collections import namedtuple, Iterable
 import os
-from mlutils.data.samplers import RepeatsBatchSampler
+from neuralpredictors.data.samplers import RepeatsBatchSampler
 
 
 class ImageCache:

@@ -7,7 +7,7 @@ from torch import nn
 from torch.nn import functional as F, Parameter
 
 from .misc import DepthSeparableConv2d
-from mlutils.regularizers import LaplaceL2, LaplaceL23d
+from neuralpredictors.regularizers import LaplaceL2, LaplaceL23d
 from . import logger as log
 
 

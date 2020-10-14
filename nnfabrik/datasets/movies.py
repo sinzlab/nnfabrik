@@ -1,7 +1,7 @@
 # Mouse Movie Datasets
 import torch
-from mlutils.data.datasets import MovieSet
-from mlutils.data.transforms import Subsequence, Subsample, Normalizer, ToTensor
+from neuralpredictors.data.datasets import MovieSet
+from neuralpredictors.data.transforms import Subsequence, Subsample, Normalizer, ToTensor
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch.utils.data import DataLoader
 import numpy as np

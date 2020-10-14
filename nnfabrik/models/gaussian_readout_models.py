@@ -6,12 +6,12 @@ from torch import nn as nn
 from torch.nn import Parameter
 from torch.nn import functional as F
 from torch.nn import ModuleDict
-from mlutils.constraints import positive
-from mlutils.layers.cores import DepthSeparableConv2d, Core2d, Stacked2dCore
+from neuralpredictors.constraints import positive
+from neuralpredictors.layers.cores import DepthSeparableConv2d, Core2d, Stacked2dCore
 from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
-from mlutils import regularizers
-from mlutils.layers.readouts import PointPooled2d
-from mlutils.layers.legacy import Gaussian2d
+from neuralpredictors import regularizers
+from neuralpredictors.layers.readouts import PointPooled2d
+from neuralpredictors.layers.legacy import Gaussian2d
 from .pretrained_models import TransferLearningCore
 
 # Squeeze and Excitation Block
@@ -69,7 +69,7 @@ class SE2dCore(Core2d, nn.Module):
             input_kern:     kernel size of the first layer (i.e. the input layer)
             hidden_kern:    kernel size of each hidden layer's kernel
             layers:         number of layers
-            gamma_input:    regularizer factor for the input weights (default: LaplaceL2, see mlutils.regularizers)
+            gamma_input:    regularizer factor for the input weights (default: LaplaceL2, see neuralpredictors.regularizers)
             skip:           Adds a skip connection
             final_nonlinearity: Boolean, if true, appends an ELU layer after the last BatchNorm (if BN=True)
             bias:           Adds a bias layer. Note: bias and batch_norm can not both be true
@@ -81,7 +81,7 @@ class SE2dCore(Core2d, nn.Module):
                 the kernel size (recommended). Setting Padding to 0 is not recommended and leads to artefacts,
                 zero is the default however to recreate backwards compatibility.
             normalize_laplace_regularizer: Boolean, if set to True, will use the LaplaceL2norm function from
-                mlutils.regularizers, which returns the regularizer as |laplace(filters)| / |filters|
+                neuralpredictors.regularizers, which returns the regularizer as |laplace(filters)| / |filters|
             input_regularizer:  String that must match one of the regularizers in ..regularizers
             stack:        Int or iterable. Selects which layers of the core should be stacked for the readout.
                             default value will stack all layers on top of each other.
@@ -210,7 +210,7 @@ class DepthSeparableCore(Core2d, nn.Module):
             input_kern:     kernel size of the first layer (i.e. the input layer)
             hidden_kern:    kernel size of each hidden layer's kernel
             layers:         number of layers
-            gamma_input:    regularizer factor for the input weights (default: LaplaceL2, see mlutils.regularizers)
+            gamma_input:    regularizer factor for the input weights (default: LaplaceL2, see neuralpredictors.regularizers)
             skip:           Adds a skip connection
             final_nonlinearity: Boolean, if true, appends an ELU layer after the last BatchNorm (if BN=True)
             bias:           Adds a bias layer. Note: bias and batch_norm can not both be true
@@ -222,7 +222,7 @@ class DepthSeparableCore(Core2d, nn.Module):
                 the kernel size (recommended). Setting Padding to 0 is not recommended and leads to artefacts,
                 zero is the default however to recreate backwards compatibility.
             normalize_laplace_regularizer: Boolean, if set to True, will use the LaplaceL2norm function from
-                mlutils.regularizers, which returns the regularizer as |laplace(filters)| / |filters|
+                neuralpredictors.regularizers, which returns the regularizer as |laplace(filters)| / |filters|
             input_regularizer:  String that must match one of the regularizers in ..regularizers
             stack:        Int or iterable. Selects which layers of the core should be stacked for the readout.
                             default value will stack all layers on top of each other.
@@ -390,7 +390,7 @@ def se_core_gauss_readout(
     depth_separable=False,
 ):
     """
-    Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
+    Model class of a stacked2dCore (from neuralpredictors) and a pointpooled (spatial transformer) readout
 
     Args:
         dataloaders: a dictionary of dataloaders, one loader per session
@@ -398,8 +398,8 @@ def se_core_gauss_readout(
         seed: random seed
         elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
 
-        all other args: See Documentation of Stacked2dCore in mlutils.layers.cores and
-            PointPooled2D in mlutils.layers.readouts
+        all other args: See Documentation of Stacked2dCore in neuralpredictors.layers.cores and
+            PointPooled2D in neuralpredictors.layers.readouts
 
     Returns: An initialized model which consists of model.core and model.readout
     """
@@ -434,7 +434,7 @@ def se_core_gauss_readout(
 
     set_random_seed(seed)
 
-    # get a stacked2D core from mlutils
+    # get a stacked2D core from neuralpredictors
     core = SE2dCore(
         input_channels=input_channels[0],
         hidden_channels=hidden_channels,
@@ -501,7 +501,7 @@ def ds_core_gauss_readout(
     stack=None,
 ):
     """
-    Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
+    Model class of a stacked2dCore (from neuralpredictors) and a pointpooled (spatial transformer) readout
 
     Args:
         dataloaders: a dictionary of dataloaders, one loader per session
@@ -509,8 +509,8 @@ def ds_core_gauss_readout(
         seed: random seed
         elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
 
-        all other args: See Documentation of Stacked2dCore in mlutils.layers.cores and
-            PointPooled2D in mlutils.layers.readouts
+        all other args: See Documentation of Stacked2dCore in neuralpredictors.layers.cores and
+            PointPooled2D in neuralpredictors.layers.readouts
 
     Returns: An initialized model which consists of model.core and model.readout
     """
@@ -545,7 +545,7 @@ def ds_core_gauss_readout(
 
     set_random_seed(seed)
 
-    # get a stacked2D core from mlutils
+    # get a stacked2D core from neuralpredictors
     core = DepthSeparableCore(
         input_channels=input_channels[0],
         hidden_channels=hidden_channels,
@@ -611,7 +611,7 @@ def ds_core_point_readout(
     stack=None,
 ):
     """
-    Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
+    Model class of a stacked2dCore (from neuralpredictors) and a pointpooled (spatial transformer) readout
 
     Args:
         dataloaders: a dictionary of dataloaders, one loader per session
@@ -619,8 +619,8 @@ def ds_core_point_readout(
         seed: random seed
         elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
 
-        all other args: See Documentation of Stacked2dCore in mlutils.layers.cores and
-            PointPooled2D in mlutils.layers.readouts
+        all other args: See Documentation of Stacked2dCore in neuralpredictors.layers.cores and
+            PointPooled2D in neuralpredictors.layers.readouts
 
     Returns: An initialized model which consists of model.core and model.readout
     """
@@ -653,7 +653,7 @@ def ds_core_point_readout(
 
     set_random_seed(seed)
 
-    # get a stacked2D core from mlutils
+    # get a stacked2D core from neuralpredictors
     core = DepthSeparableCore(
         input_channels=input_channels[0],
         hidden_channels=hidden_channels,
@@ -719,7 +719,7 @@ def stacked2d_core_gaussian_readout(
     stack=None,
 ):
     """
-    Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
+    Model class of a stacked2dCore (from neuralpredictors) and a pointpooled (spatial transformer) readout
 
     Args:
         dataloaders: a dictionary of dataloaders, one loader per session
@@ -727,8 +727,8 @@ def stacked2d_core_gaussian_readout(
         seed: random seed
         elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
 
-        all other args: See Documentation of Stacked2dCore in mlutils.layers.cores and
-            PointPooled2D in mlutils.layers.readouts
+        all other args: See Documentation of Stacked2dCore in neuralpredictors.layers.cores and
+            PointPooled2D in neuralpredictors.layers.readouts
 
     Returns: An initialized model which consists of model.core and model.readout
     """
@@ -761,7 +761,7 @@ def stacked2d_core_gaussian_readout(
 
     set_random_seed(seed)
 
-    # get a stacked2D core from mlutils
+    # get a stacked2D core from neuralpredictors
     core = Stacked2dCore(
         input_channels=input_channels[0],
         hidden_channels=hidden_channels,

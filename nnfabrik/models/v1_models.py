@@ -2,9 +2,9 @@ import numpy as np
 from torch import nn as nn
 from torch.nn import functional as F
 
-from mlutils.layers.readouts import PointPooled2d
-from mlutils.layers.cores import Stacked2dCore
-from mlutils.training import eval_state
+from neuralpredictors.layers.readouts import PointPooled2d
+from neuralpredictors.layers.cores import Stacked2dCore
+from neuralpredictors.training import eval_state
 
 from .pretrained_models import TransferLearningCore
 from ..utility.nn_helpers import get_io_dims, get_module_output, set_random_seed, get_dims_for_loader_dict
@@ -76,7 +76,7 @@ def stacked2d_core_point_readout(
     use_avg_reg=False,
 ):
     """
-    Model class of a stacked2dCore (from mlutils) and a pointpooled (spatial transformer) readout
+    Model class of a stacked2dCore (from neuralpredictors) and a pointpooled (spatial transformer) readout
 
     Args:
         dataloaders: a dictionary of dataloaders, one loader per session
@@ -84,8 +84,8 @@ def stacked2d_core_point_readout(
         seed: random seed
         elu_offset: Offset for the output non-linearity [F.elu(x + self.offset)]
 
-        all other args: See Documentation of Stacked2dCore in mlutils.layers.cores and
-            PointPooled2D in mlutils.layers.readouts
+        all other args: See Documentation of Stacked2dCore in neuralpredictors.layers.cores and
+            PointPooled2D in neuralpredictors.layers.readouts
 
     Returns: An initialized model which consists of model.core and model.readout
     """
@@ -135,7 +135,7 @@ def stacked2d_core_point_readout(
 
     set_random_seed(seed)
 
-    # get a stacked2D core from mlutils
+    # get a stacked2D core from neuralpredictors
     core = Stacked2dCore(
         input_channels=input_channels[0],
         hidden_channels=hidden_channels,

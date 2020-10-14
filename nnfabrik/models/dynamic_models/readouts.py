@@ -1,6 +1,6 @@
 from pprint import pformat
 
-from mlutils.layers.readouts import SpatialTransformerPooled3d
+from neuralpredictors.layers.readouts import SpatialTransformerPooled3d
 from torch.nn import ModuleDict
 
 from . import logger as log
