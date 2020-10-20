@@ -7,7 +7,7 @@ import torch
 import os
 from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
 from nnfabrik.builder import get_all_parts, get_model, get_trainer
-from nnfabrik.template import TrainedModelBase
+from nnfabrik.templates.trained_model import TrainedModelBase
 from nnfabrik.utility.dj_helpers import make_hash, clone_conn, CustomSchema
 from nnfabrik.builder import resolve_data
 from datajoint.fetch import DataJointError
@@ -72,6 +72,8 @@ class TrainedModelChkptBase(TrainedModelBase):
             best_checkpoints = sorted(
                 checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score
             )
+            for c in checkpoints:
+                del c["score"]  # restricting with a float is not a good idea -> remove
             keep_checkpoints += best_checkpoints[:keep_best_n]
             last_checkpoints = sorted(
                 checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True
