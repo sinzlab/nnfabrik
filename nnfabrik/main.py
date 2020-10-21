@@ -3,7 +3,14 @@ import warnings
 
 import datajoint as dj
 
-from .builder import resolve_model, resolve_data, resolve_trainer, get_data, get_model, get_trainer
+from .builder import (
+    resolve_model,
+    resolve_data,
+    resolve_trainer,
+    get_data,
+    get_model,
+    get_trainer,
+)
 from .utility.dj_helpers import make_hash, CustomSchema
 from .utility.nnf_helper import cleanup_numpy_scalar
 
@@ -20,7 +27,7 @@ dj.config["stores"]["minio"] = {  # store in s3
     "secret_key": os.environ.get("MINIO_SECRET_KEY", "FAKEKEY"),
 }
 
-schema = CustomSchema(dj.config.get("schema_name", "nnfabrik_core"))
+schema = CustomSchema(dj.config.get("nnfabrik.schema_name", "nnfabrik_core"))
 
 
 @schema
@@ -67,7 +74,14 @@ class Model(dj.Manual):
     def resolve_fn(fn_name):
         return resolve_model(fn_name)
 
-    def add_entry(self, model_fn, model_config, model_fabrikant=None, model_comment="", skip_duplicates=False):
+    def add_entry(
+        self,
+        model_fn,
+        model_config,
+        model_fabrikant=None,
+        model_comment="",
+        skip_duplicates=False,
+    ):
         """
         Add a new entry to the model.
 
@@ -139,7 +153,13 @@ class Model(dj.Manual):
             key = {}
         model_fn, model_config = (self & key).fn_config
 
-        return get_model(model_fn, model_config, dataloaders=dataloaders, seed=seed, data_info=data_info)
+        return get_model(
+            model_fn,
+            model_config,
+            dataloaders=dataloaders,
+            seed=seed,
+            data_info=data_info,
+        )
 
 
 @schema
@@ -164,7 +184,14 @@ class Dataset(dj.Manual):
     def resolve_fn(fn_name):
         return resolve_data(fn_name)
 
-    def add_entry(self, dataset_fn, dataset_config, dataset_fabrikant=None, dataset_comment="", skip_duplicates=False):
+    def add_entry(
+        self,
+        dataset_fn,
+        dataset_config,
+        dataset_fabrikant=None,
+        dataset_comment="",
+        skip_duplicates=False,
+    ):
         """
         Add a new entry to the dataset.
 
@@ -261,7 +288,14 @@ class Trainer(dj.Manual):
     def resolve_fn(fn_name):
         return resolve_trainer(fn_name)
 
-    def add_entry(self, trainer_fn, trainer_config, trainer_fabrikant=None, trainer_comment="", skip_duplicates=False):
+    def add_entry(
+        self,
+        trainer_fn,
+        trainer_config,
+        trainer_fabrikant=None,
+        trainer_comment="",
+        skip_duplicates=False,
+    ):
         """
         Add a new entry to the trainer.
 

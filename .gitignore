@@ -1,3 +1,5 @@
+# Packaging related materials
+*.egg-info/
 .idea/
 .DS_Store
 *~
