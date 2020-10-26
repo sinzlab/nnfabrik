@@ -25,6 +25,9 @@ class TrainedModelBase(dj.Computed):
     user_table = Fabrikant
     data_info_table = DataInfoBase
 
+    # storage for the ModelStorage table
+    storage = "minio"
+
     # delimitter to use when concatenating comments from model, dataset, and trainer tables
     comment_delimitter = "."
 
@@ -51,8 +54,6 @@ class TrainedModelBase(dj.Computed):
         return definition
 
     class ModelStorage(dj.Part):
-        storage = "minio"
-
         @property
         def definition(self):
             definition = """
@@ -61,7 +62,7 @@ class TrainedModelBase(dj.Computed):
             ---
             model_state:            attach@{storage}
             """.format(
-                storage=self.storage
+                storage=self._master.storage
             )
             return definition
 
