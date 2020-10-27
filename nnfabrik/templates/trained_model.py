@@ -7,6 +7,7 @@ from nnfabrik.builder import get_all_parts, get_model, get_trainer
 from nnfabrik.utility.dj_helpers import gitlog, make_hash
 from .utility import DataInfoBase
 from datajoint.fetch import DataJointError
+import warnings
 
 
 class TrainedModelBase(dj.Computed):
@@ -24,6 +25,9 @@ class TrainedModelBase(dj.Computed):
     seed_table = Seed
     user_table = Fabrikant
     data_info_table = DataInfoBase
+
+    # storage for the ModelStorage table
+    storage = "minio"
 
     # delimitter to use when concatenating comments from model, dataset, and trainer tables
     comment_delimitter = "."
@@ -51,8 +55,6 @@ class TrainedModelBase(dj.Computed):
         return definition
 
     class ModelStorage(dj.Part):
-        storage = "minio"
-
         @property
         def definition(self):
             definition = """
@@ -61,7 +63,7 @@ class TrainedModelBase(dj.Computed):
             ---
             model_state:            attach@{storage}
             """.format(
-                storage=self.storage
+                storage=self._master.storage
             )
             return definition
 
@@ -174,7 +176,7 @@ class TrainedModelBase(dj.Computed):
                 )
 
             except (TypeError, AttributeError, DataJointError):
-                print(
+                warnings.warn(
                     "Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
                     "Make sure to have an The 'model_fn' also has to be able to"
                     "accept 'data_info' as an input arg, and use that over the dataloader to build the model."
