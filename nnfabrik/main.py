@@ -1,5 +1,5 @@
-import os
 import warnings
+import types
 
 import datajoint as dj
 
@@ -351,3 +351,61 @@ class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
+
+
+def custom_nnfabrik(
+    schema, use_common_fabrikant=True, module_name=None, spawn_existing_tables=False
+):
+    """
+    Create a custom nnfabrik module under specified DataJoint schema,
+    instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
+    is set to True, the new tables will depend on the common Fabrikant table. 
+    Otherwise, a separate copy of Fabrikant table will also be prepared.
+
+    Args:
+        schema (str or dj.Schema): Name of schema or dj.Schema object
+        use_common_fabrikant (bool, optional): If True, new tables will depend on the
+           common Fabrikant table. If False, new copy of Fabrikant will be created and used. 
+           Defaults to True.
+        module_name (str, optional): Name property of the returned Python module object.
+            Defaults to None, in which case the name of the schema will be used.
+        spawn_existing_tables (bool, optional): If True, perform `spawn_missing_tables` operation
+            onto the newly created table. Defaults to False.
+
+    Returns:
+        Python Module object: A new Python module containing nnfabrik tables defined under
+            the schema. The module's schema property points to the schema object as well.
+    """
+    if isinstance(schema, str):
+        schema = CustomSchema(schema)
+
+    tables = [Fabrikant, Model, Dataset, Trainer]
+
+    module_name = schema.database if module_name is None else module_name
+    module = types.ModuleType(module_name)
+    setattr(module, "schema", schema)
+
+    # spawn all existing tables into the module
+    # TODO: replace with a cheaper check operation
+    if spawn_existing_tables:
+        context = module.__dict__
+    else:
+        context = {}
+
+    schema.spawn_missing_classes(context)
+
+    if use_common_fabrikant:
+        if "Fabrikant" in context:
+            warnings.warn(
+                "The schema already contained Fabrikant table. Using that table instead of the common one!"
+            )
+        else:
+            setattr(module, "Fabrikant", Fabrikant)
+            # skip creating Fabrikant table
+            tables.pop(0)
+
+    for table in tables:
+        new_table = type(table.__name__, (table,), dict(__doc__=table.__doc__))
+        setattr(module, table.__name__, schema(new_table, context=module.__dict__))
+
+    return module
