@@ -356,6 +356,7 @@ class Seed(dj.Manual):
 def custom_nnfabrik(
     schema,
     use_common_fabrikant=True,
+    use_common_seed=False,
     module_name=None,
     context=None,
     spawn_existing_tables=False,
@@ -371,6 +372,9 @@ def custom_nnfabrik(
         use_common_fabrikant (bool, optional): If True, new tables will depend on the
            common Fabrikant table. If False, new copy of Fabrikant will be created and used. 
            Defaults to True.
+        use_common_seed (bool, optional): If True, new tables will depend on the
+           common Seed table. If False, new copy of Seed will be created and used. 
+           Defaults to False.
         module_name (str, optional): Name property of the returned Python module object.
             Defaults to None, in which case the name of the schema will be used.
         context (dict, optional): If non None value is provided, then a module is not created and
@@ -387,6 +391,9 @@ def custom_nnfabrik(
         schema = CustomSchema(schema)
 
     tables = [Fabrikant, Model, Dataset, Trainer]
+
+    if not use_common_seed:
+        tables.append(Seed)
 
     module = None
     if context is None:
@@ -409,7 +416,7 @@ def custom_nnfabrik(
         else:
             context["Fabrikant"] = Fabrikant
             # skip creating Fabrikant table
-            tables.pop(0)
+            tables.remove(Fabrikant)
 
     for table in tables:
         new_table = type(table.__name__, (table,), dict(__doc__=table.__doc__))
