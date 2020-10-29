@@ -1,5 +1,7 @@
 import warnings
 import types
+from typing import Union, Optional, MutableMapping
+
 
 import datajoint as dj
 
@@ -354,13 +356,13 @@ class Seed(dj.Manual):
 
 
 def mein_nnfabrik(
-    schema,
-    use_common_fabrikant=True,
-    use_common_seed=False,
-    module_name=None,
-    context=None,
-    spawn_existing_tables=False,
-):
+    schema: Union[str, CustomSchema],
+    use_common_fabrikant: bool=True,
+    use_common_seed: bool=False,
+    module_name: Optional[str]=None,
+    context: Optional[MutableMapping]=None,
+    spawn_existing_tables: bool=False,
+) -> Optional[type.ModuleType]:
     """
     Create a custom nnfabrik module under specified DataJoint schema,
     instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
@@ -434,7 +436,8 @@ def mein_nnfabrik(
 
     if use_common_fabrikant:
         if "Fabrikant" in temp_context:
-            raise ValueError("The schema already contains a Fabrikant table despite setting use_common_fabrikant=True. Either rerun with use_common_fabrikant=False or remove the Fabrikant table in the schema")
+            raise ValueError("The schema already contains a Fabrikant table despite setting use_common_fabrikant=True. "
+                             "Either rerun with use_common_fabrikant=False or remove the Fabrikant table in the schema")
         else:
             context["Fabrikant"] = Fabrikant
             # skip creating Fabrikant table
