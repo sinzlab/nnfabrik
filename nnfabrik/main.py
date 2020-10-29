@@ -444,6 +444,6 @@ def custom_nnfabrik(
         new_table = type(table.__name__, (table,), dict(__doc__=table.__doc__))
         context[table.__name__] = schema(new_table, context=context)
 
-    # this return None if context was set
+    # this returns None if context was set
     return module
 
