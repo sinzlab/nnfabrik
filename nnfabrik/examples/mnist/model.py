@@ -14,8 +14,8 @@ class ToyModel(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
-        out = self.nl(self.fc1(x))
-        return self.softmax(self.fc2(out))
+        x = self.nl(self.fc1(x))
+        return self.softmax(self.fc2(x))
 
 
 def mnist_model_fn(dataloaders: Dict, seed: int, **config) -> torch.nn.Module:
