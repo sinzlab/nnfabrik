@@ -4,6 +4,7 @@ from typing import Union, Optional, MutableMapping
 
 
 import datajoint as dj
+from datajoint.schema import Schema
 
 from .builder import (
     resolve_model,
@@ -356,7 +357,7 @@ class Seed(dj.Manual):
 
 
 def my_nnfabrik(
-    schema: Union[str, CustomSchema],
+    schema: Union[str, Schema],
     use_common_fabrikant: bool = True,
     use_common_seed: bool = False,
     module_name: Optional[str] = None,
