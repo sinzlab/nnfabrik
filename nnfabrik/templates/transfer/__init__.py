@@ -84,6 +84,8 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     # if it exists add that entry to the list of recipes (relevant for a specific transfer step)
                     transfer_recipe.append(tr & f"transfer_step = {transfer_step}")
 
+            if not transfer_recipe:
+                return []
             # join all the recipes (and their post_restr)
             joined = transfer_recipe[0]
             if len(transfer_recipe) > 1:

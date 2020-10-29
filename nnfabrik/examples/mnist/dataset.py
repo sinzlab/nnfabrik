@@ -15,17 +15,22 @@ def mnist_dataset_fn(seed: int, **config) -> Dict:
     """
     np.random.seed(seed)
 
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,)),  # (mean,std) of MNIST train set
-        ]
+    transform_list = [
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),  # (mean,std) of MNIST train set
+    ]
+    if config.get("apply_augmentation"):
+        transform_list.append(transforms.RandomHorizontalFlip())
+    transform = transforms.Compose(transform_list)
+    train_dataset = datasets.MNIST(
+        "../data", train=True, download=True, transform=transform
     )
-    train_dataset = datasets.MNIST("../data", train=True, download=True, transform=transform)
     validation_dataset = datasets.MNIST(
         "../data", train=False, download=True, transform=transform
     )  # for simplicity, we use the test set for validation
-    test_dataset = datasets.MNIST("../data", train=False, download=True, transform=transform)
+    test_dataset = datasets.MNIST(
+        "../data", train=False, download=True, transform=transform
+    )
     batch_size = config.get("batch_size", 64)
     return {
         "train": DataLoader(train_dataset, batch_size=batch_size),
