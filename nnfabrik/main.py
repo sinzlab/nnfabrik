@@ -357,12 +357,12 @@ class Seed(dj.Manual):
 
 def my_nnfabrik(
     schema: Union[str, CustomSchema],
-    use_common_fabrikant: bool=True,
-    use_common_seed: bool=False,
-    module_name: Optional[str]=None,
-    context: Optional[MutableMapping]=None,
-    spawn_existing_tables: bool=False,
-) -> Optional[type.ModuleType]:
+    use_common_fabrikant: bool = True,
+    use_common_seed: bool = False,
+    module_name: Optional[str] = None,
+    context: Optional[MutableMapping] = None,
+    spawn_existing_tables: bool = False,
+) -> Optional[types.ModuleType]:
     """
     Create a custom nnfabrik module under specified DataJoint schema,
     instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
@@ -406,7 +406,8 @@ def my_nnfabrik(
 
     Raises:
         ValueError: If `use_common_fabrikant` is True but the target `schema` already contains its own
-            copy of `Fabrikant` table.
+            copy of `Fabrikant` table, or if `use_common_seed` is True but the target `schema` already
+            contains its own copy of `Seed` table.
 
     Returns:
         Python Module object or None: If `context` was None, a new Python module containing 
@@ -416,10 +417,7 @@ def my_nnfabrik(
     if isinstance(schema, str):
         schema = CustomSchema(schema)
 
-    tables = [Fabrikant, Model, Dataset, Trainer]
-
-    if not use_common_seed:
-        tables.append(Seed)
+    tables = [Seed, Fabrikant, Model, Dataset, Trainer]
 
     module = None
     if context is None:
@@ -436,12 +434,23 @@ def my_nnfabrik(
 
     if use_common_fabrikant:
         if "Fabrikant" in temp_context:
-            raise ValueError("The schema already contains a Fabrikant table despite setting use_common_fabrikant=True. "
-                             "Either rerun with use_common_fabrikant=False or remove the Fabrikant table in the schema")
-        else:
-            context["Fabrikant"] = Fabrikant
-            # skip creating Fabrikant table
-            tables.remove(Fabrikant)
+            raise ValueError(
+                "The schema already contains a Fabrikant table despite setting use_common_fabrikant=True. "
+                "Either rerun with use_common_fabrikant=False or remove the Fabrikant table in the schema"
+            )
+        context["Fabrikant"] = Fabrikant
+        # skip creating Fabrikant table
+        tables.remove(Fabrikant)
+
+    if use_common_seed:
+        if "Seed" in temp_context:
+            raise ValueError(
+                "The schema already contains a Seed table despite setting use_common_seed=True. "
+                "Either rerun with use_common_seed=False or remove the Seed table in the schema"
+            )
+        context["Seed"] = Seed
+        # skip creating Seed table
+        tables.remove(Seed)
 
     for table in tables:
         new_table = type(table.__name__, (table,), dict(__doc__=table.__doc__))
