@@ -353,7 +353,7 @@ class Seed(dj.Manual):
     """
 
 
-def custom_nnfabrik(
+def mein_nnfabrik(
     schema,
     use_common_fabrikant=True,
     use_common_seed=False,
@@ -376,16 +376,16 @@ def custom_nnfabrik(
         >>> from nnfabrik import main # importing nnfabrik tables
 
         do this instead:
-        >>> from nnfabrik.main import custom_nnfabrik
-        >>> main = custom_nnfabrik('my_schema')    # this has the same effect as defining nnfabrik tables in schema `my_schema`
+        >>> from nnfabrik.main import mein_nnfabrik
+        >>> main = mein_nnfabrik('my_schema')    # this has the same effect as defining nnfabrik tables in schema `my_schema`
 
         Also, you can achieve the equivalent of:
         >>> dj.config['nfabrik.schema_name'] = 'my_schema'
         >>> from nnfabrik.main import *
 
         by doing
-        >>> from nnfabrik.main import custom_nnfabrik
-        >>> custom_nnfabrik('my_schema', context=locals())
+        >>> from nnfabrik.main import mein_nnfabrik
+        >>> mein_nnfabrik('my_schema', context=locals())
 
     Args:
         schema (str or dj.Schema): Name of schema or dj.Schema object
