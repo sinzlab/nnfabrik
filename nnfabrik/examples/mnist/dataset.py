@@ -16,14 +16,17 @@ def mnist_dataset_fn(seed: int, **config) -> Dict:
     np.random.seed(seed)
 
     transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),  # (mean,std) of MNIST train set
+        ]
     )
     train_dataset = datasets.MNIST(
         "../data", train=True, download=True, transform=transform
     )
     validation_dataset = datasets.MNIST(
         "../data", train=False, download=True, transform=transform
-    )
+    )  # for simplicity, we use the test set for validation
     test_dataset = datasets.MNIST(
         "../data", train=False, download=True, transform=transform
     )
