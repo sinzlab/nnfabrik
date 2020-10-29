@@ -4,7 +4,7 @@ import torch
 import os
 from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
 from nnfabrik.utility.dj_helpers import gitlog, make_hash
-from .trained_model import TrainedModelBase
+from nnfabrik.templates.trained_model import TrainedModelBase
 
 
 class TransferredTrainedModelBase(TrainedModelBase):
@@ -56,7 +56,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         The combination is transfer-step-specific, meaning only the recipes relevant for a specific transfer step would be combined.
 
         Combining recipes are pretty easy and the user does not need to interact with this method directly. Below is an example:
-        Let us assume you have two recipe tables: TrainerRecipe and ModelRecipe, the you can attach all this recipes to your
+        Let us assume you have two recipe tables: TrainerRecipe and ModelRecipe, the you can attach all these recipes to your
         TransferTrainedModel table as follow:
 
         ``` Python
@@ -74,7 +74,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
         if isinstance(self.transfer_recipe, list):
 
-            # get the recipes that have a entry for a specific transfer step
+            # get the recipes that have an entry for a specific transfer step
             # transfer_recipe = [tr & f"transfer_step = {transfer_step}" for tr in self.transfer_recipe if tr & f"transfer_step = {transfer_step}"]
             transfer_recipe = []
             # loop over the transfer recipes
@@ -86,12 +86,12 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
             # join all the recipes (and their post_restr)
             joined = transfer_recipe[0]
-
             if len(transfer_recipe) > 1:
                 for t in transfer_recipe[1:]:
-                    joined *= t
-
-                joined.post_restr = dj.AndList([recipe.post_restr for recipe in self.transfer_recipe])
+                    joined *= t  # all combination of recipes
+                joined.post_restr = dj.AndList(
+                    [recipe.post_restr for recipe in self.transfer_recipe]
+                )
 
             return joined
 
@@ -103,7 +103,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
         if hasattr(self, "transfer_recipe"):
 
-            # project (rename) attributes of the existing transfereedmodel table to the same name but with prefix "prev"
+            # project (rename) attributes of the existing transferredmodel table to the same name but with prefix "prev"
             prev_transferredmodel = self.proj(
                 prev_model_fn="current_model_fn",
                 prev_model_hash="current_model_hash",
@@ -124,7 +124,11 @@ class TransferredTrainedModelBase(TrainedModelBase):
             )
 
             # get the current transfer step
-            transfer_step = prev_transferredmodel.fetch("transfer_step").max() if prev_transferredmodel else 0
+            transfer_step = (
+                prev_transferredmodel.fetch("transfer_step").max()
+                if prev_transferredmodel
+                else 0
+            )
 
             if transfer_step:
 
@@ -142,8 +146,10 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     & prev_transferredmodel
                 )
 
-                # get the entries that match the one in TransferRecipe (for specification of previous)
-                transfer_from = prev_transferredmodel * self._transfer_recipe(transfer_step)
+                # get the entries that match the one in TransferRecipe (all entries that have matching "prev_...")
+                transfer_from = prev_transferredmodel * self._transfer_recipe(
+                    transfer_step
+                )
 
                 transfers = (
                     dj.U(
@@ -162,60 +168,40 @@ class TransferredTrainedModelBase(TrainedModelBase):
                         "prev_trainer_fn",
                         "prev_trainer_hash",
                     )
-                    & Model * Dataset * Trainer * Seed * transfer_from
-                    & self._transfer_recipe(transfer_step).post_restr
+                    & Model
+                    * Dataset
+                    * Trainer
+                    * Seed
+                    * transfer_from  # combine recipe restriction with all possible training combinations
+                    & self._transfer_recipe(
+                        transfer_step
+                    ).post_restr  # restrict with post_rest
                 )
 
                 return transfers.proj()
 
-            else:
+        # normal entries as a combination of Dataset, Model, Trainer, and Seed tables
+        step_0 = Model * Dataset * Trainer * Seed
 
-                # set of models to be trained from scratch (I arbitrary chose to only train if trainer_id + model_id < 3)
-                step_0 = Model * Dataset * Trainer * Seed
-
-                # add transfer_step and prev_hash as prim keys
-                base = dj.U(
-                    "transfer_step",
-                    "prev_model_fn",
-                    "prev_model_hash",
-                    "prev_dataset_fn",
-                    "prev_dataset_hash",
-                    "prev_trainer_fn",
-                    "prev_trainer_hash",
-                ) * step_0.proj(
-                    transfer_step="0",
-                    prev_model_fn='""',
-                    prev_model_hash='""',
-                    prev_dataset_fn='""',
-                    prev_dataset_hash='""',
-                    prev_trainer_fn='""',
-                    prev_trainer_hash='""',
-                )
-                return base.proj()
-
-        else:
-            # normal entries as a combinatio of Dataset, Model, Trainer, and Seed tables
-            step_0 = Model * Dataset * Trainer * Seed
-
-            # add transfer_step and prev_hash as prim keys
-            base = dj.U(
-                "transfer_step",
-                "prev_model_fn",
-                "prev_model_hash",
-                "prev_dataset_fn",
-                "prev_dataset_hash",
-                "prev_trainer_fn",
-                "prev_trainer_hash",
-            ) * step_0.proj(
-                transfer_step="0",
-                prev_model_fn='""',
-                prev_model_hash='""',
-                prev_dataset_fn='""',
-                prev_dataset_hash='""',
-                prev_trainer_fn='""',
-                prev_trainer_hash='""',
-            )
-            return base.proj()
+        # add transfer_step and prev_hash as prim keys
+        base = dj.U(
+            "transfer_step",
+            "prev_model_fn",
+            "prev_model_hash",
+            "prev_dataset_fn",
+            "prev_dataset_hash",
+            "prev_trainer_fn",
+            "prev_trainer_hash",
+        ) * step_0.proj(
+            transfer_step="0",
+            prev_model_fn='""',
+            prev_model_hash='""',
+            prev_dataset_fn='""',
+            prev_dataset_hash='""',
+            prev_trainer_fn='""',
+            prev_trainer_hash='""',
+        )  # train with "prev_"-entries empty
+        return base.proj()
 
     def make(self, key):
         """
@@ -228,7 +214,9 @@ class TransferredTrainedModelBase(TrainedModelBase):
         seed = (Seed & key).fetch1("seed")
 
         # load everything
-        dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
+        dataloaders, model, trainer = self.load_model(
+            key, include_trainer=True, include_state_dict=False, seed=seed
+        )
 
         # define callback with pinging
         def call_back(**kwargs):
@@ -236,7 +224,9 @@ class TransferredTrainedModelBase(TrainedModelBase):
             self.call_back(**kwargs)
 
         # model training
-        score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
+        score, output, model_state = trainer(
+            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
+        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key) + ".pth.tar"
@@ -252,13 +242,15 @@ class TransferredTrainedModelBase(TrainedModelBase):
             comments.append((self.dataset_table & key).fetch1("dataset_comment"))
             key["comment"] = self.comment_delimitter.join(comments)
 
-            key["current_model_fn"], key["current_model_hash"] = (Model & key).fetch1("model_fn", "model_hash")
-            key["current_dataset_fn"], key["current_dataset_hash"] = (Dataset & key).fetch1(
-                "dataset_fn", "dataset_hash"
+            key["current_model_fn"], key["current_model_hash"] = (Model & key).fetch1(
+                "model_fn", "model_hash"
             )
-            key["current_trainer_fn"], key["current_trainer_hash"] = (Trainer & key).fetch1(
-                "trainer_fn", "trainer_hash"
-            )
+            key["current_dataset_fn"], key["current_dataset_hash"] = (
+                Dataset & key
+            ).fetch1("dataset_fn", "dataset_hash")
+            key["current_trainer_fn"], key["current_trainer_hash"] = (
+                Trainer & key
+            ).fetch1("trainer_fn", "trainer_hash")
 
             self.insert1(key)
 
