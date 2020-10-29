@@ -1,7 +1,10 @@
-import os
 import warnings
+import types
+from typing import Union, Optional, MutableMapping
+
 
 import datajoint as dj
+from datajoint.schema import Schema
 
 from .builder import (
     resolve_model,
@@ -351,3 +354,109 @@ class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
+
+
+def my_nnfabrik(
+    schema: Union[str, Schema],
+    use_common_fabrikant: bool = True,
+    use_common_seed: bool = False,
+    module_name: Optional[str] = None,
+    context: Optional[MutableMapping] = None,
+    spawn_existing_tables: bool = False,
+) -> Optional[types.ModuleType]:
+    """
+    Create a custom nnfabrik module under specified DataJoint schema,
+    instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
+    is set to True, the new tables will depend on the common Fabrikant table. 
+    Otherwise, a separate copy of Fabrikant table will also be prepared.
+
+    Examples:
+        Use of this function should replace any existing use of `nnfabrik` tables done via modifying the 
+        `nnfabrik.schema_name` property in `dj.config`. 
+        
+        As an example, if you previously had a code like this:
+        >>> dj.config['nfabrik.schema_name'] = 'my_schema'
+        >>> from nnfabrik import main # importing nnfabrik tables
+
+        do this instead:
+        >>> from nnfabrik.main import my_nnfabrik
+        >>> main = my_nnfabrik('my_schema')    # this has the same effect as defining nnfabrik tables in schema `my_schema`
+
+        Also, you can achieve the equivalent of:
+        >>> dj.config['nfabrik.schema_name'] = 'my_schema'
+        >>> from nnfabrik.main import *
+
+        by doing
+        >>> from nnfabrik.main import my_nnfabrik
+        >>> my_nnfabrik('my_schema', context=locals())
+
+    Args:
+        schema (str or dj.Schema): Name of schema or dj.Schema object
+        use_common_fabrikant (bool, optional): If True, new tables will depend on the
+           common Fabrikant table. If False, new copy of Fabrikant will be created and used. 
+           Defaults to True.
+        use_common_seed (bool, optional): If True, new tables will depend on the
+           common Seed table. If False, new copy of Seed will be created and used. 
+           Defaults to False.
+        module_name (str, optional): Name property of the returned Python module object.
+            Defaults to None, in which case the name of the schema will be used.
+        context (dict, optional): If non None value is provided, then a module is not created and
+            instead the tables are defined inside the context.
+        spawn_existing_tables (bool, optional): If True, perform `spawn_missing_tables` operation
+            onto the newly created table. Defaults to False.
+
+    Raises:
+        ValueError: If `use_common_fabrikant` is True but the target `schema` already contains its own
+            copy of `Fabrikant` table, or if `use_common_seed` is True but the target `schema` already
+            contains its own copy of `Seed` table.
+
+    Returns:
+        Python Module object or None: If `context` was None, a new Python module containing 
+            nnfabrik tables defined under the schema. The module's schema property points 
+            to the schema object as well. Otherwise, nothing is returned.
+    """
+    if isinstance(schema, str):
+        schema = CustomSchema(schema)
+
+    tables = [Seed, Fabrikant, Model, Dataset, Trainer]
+
+    module = None
+    if context is None:
+        module_name = schema.database if module_name is None else module_name
+        module = types.ModuleType(module_name)
+        context = module.__dict__
+
+    context["schema"] = schema
+
+    # spawn all existing tables into the module
+    # TODO: replace with a cheaper check operation
+    temp_context = context if spawn_existing_tables else {}
+    schema.spawn_missing_classes(temp_context)
+
+    if use_common_fabrikant:
+        if "Fabrikant" in temp_context:
+            raise ValueError(
+                "The schema already contains a Fabrikant table despite setting use_common_fabrikant=True. "
+                "Either rerun with use_common_fabrikant=False or remove the Fabrikant table in the schema"
+            )
+        context["Fabrikant"] = Fabrikant
+        # skip creating Fabrikant table
+        tables.remove(Fabrikant)
+
+    if use_common_seed:
+        if "Seed" in temp_context:
+            raise ValueError(
+                "The schema already contains a Seed table despite setting use_common_seed=True. "
+                "Either rerun with use_common_seed=False or remove the Seed table in the schema"
+            )
+        context["Seed"] = Seed
+        # skip creating Seed table
+        tables.remove(Seed)
+
+    for table in tables:
+        new_table = type(table.__name__, (table,), dict(__doc__=table.__doc__))
+        context[table.__name__] = schema(new_table, context=context)
+
+    # this returns None if context was set
+    return module
+
