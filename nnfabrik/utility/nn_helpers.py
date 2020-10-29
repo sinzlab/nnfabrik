@@ -2,9 +2,8 @@
 
 import torch
 from torch import nn
-from torch.backends import cudnn
 
-from mlutils.training import eval_state
+from neuralpredictors.training import eval_state
 import numpy as np
 import random
 
@@ -61,19 +60,28 @@ def get_module_output(model, input_shape):
 
 def set_random_seed(seed: int, deterministic: bool = True):
     """
-    Sets all random seeds
+    Set random generator seed for Python interpreter, NumPy and PyTorch. When setting the seed for PyTorch,
+    if CUDA device is available, manual seed for CUDA will also be set. Finally, if `deterministic=True`,
+    and CUDA device is available, PyTorch CUDNN backend will be configured to `benchmark=False` and `deterministic=True`
+    to yield as deterministic result as possible. For more details, refer to 
+    PyTorch documentation on reproducibility: https://pytorch.org/docs/stable/notes/randomness.html
 
-    :param seed: (int) seed to be set
-    :param deterministic: (bool) activates cudnn.deterministic, which might slow down things
+    Beware that the seed setting is a "best effort" towards deterministic run. However, as detailed in the above documentation,
+    there are certain PyTorch CUDA opertaions that are inherently non-deterministic, and there is no simple way to control for them.
+    Thus, it is best to assume that when CUDA is utilized, operation of the PyTorch module will not be deterministic and thus
+    not completely reproducible.
+
+    Args:
+        seed (int): seed value to be set
+        deterministic (bool, optional): If True, CUDNN backend (if available) is set to be deterministic. Defaults to True. Note that if set
+            to False, the CUDNN properties remain untouched and it NOT explicitly set to False.
     """
-    np.random.seed(seed)
     random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        if deterministic:
-            cudnn.benchmark = False
-            cudnn.deterministic = True
-        torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    if deterministic:
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+    torch.manual_seed(seed)  # this sets both CPU and CUDA seeds for PyTorch
 
 
 def move_to_device(model, gpu=True, multi_gpu=True):
@@ -128,6 +136,7 @@ def load_state_dict(
     ignore_unused: bool = False,
     match_names: bool = False,
     ignore_dim_mismatch: bool = False,
+    prefix_agreement: float = 0.66,
 ):
     """
     Loads given state_dict into model, but allows for some more flexible loading.
@@ -139,12 +148,13 @@ def load_state_dict(
                         by finding and removing a common prefix from the keys in each dict
     :param ignore_dim_mismatch: if True ignores parameters in `state_dict` that don't fit the shape in `model`
     """
+
     model_dict = model.state_dict()
     # 0. Try to match names by adding or removing prefix:
     if match_names:
         # find prefix keys of each state dict:
-        s_pref, s_idx = find_prefix(list(state_dict.keys()))
-        m_pref, m_idx = find_prefix(list(model_dict.keys()))
+        s_pref, s_idx = find_prefix(list(state_dict.keys()), p_agree=prefix_agreement)
+        m_pref, m_idx = find_prefix(list(model_dict.keys()), p_agree=prefix_agreement)
         # switch prefixes:
         stripped_state_dict = {}
         for k, v in state_dict.items():
@@ -152,7 +162,7 @@ def load_state_dict(
                 stripped_key = ".".join(k.split(".")[s_idx:])
             else:
                 stripped_key = k
-            new_key = m_pref + stripped_key
+            new_key = m_pref + "." + stripped_key if m_pref else stripped_key
             stripped_state_dict[new_key] = v
         state_dict = stripped_state_dict
 
@@ -162,12 +172,16 @@ def load_state_dict(
     if unused and ignore_unused:
         print("Ignored unnecessary keys in pretrained dict:\n" + "\n".join(unused))
     elif unused:
-        raise RuntimeError("Error in loading state_dict: Unused keys:\n" + "\n".join(unused))
+        raise RuntimeError(
+            "Error in loading state_dict: Unused keys:\n" + "\n".join(unused)
+        )
     missing = set(model_dict.keys()) - set(filtered_state_dict.keys())
     if missing and ignore_missing:
         print("Ignored Missing keys:\n" + "\n".join(missing))
     elif missing:
-        raise RuntimeError("Error in loading state_dict: Missing keys:\n" + "\n".join(missing))
+        raise RuntimeError(
+            "Error in loading state_dict: Missing keys:\n" + "\n".join(missing)
+        )
 
     # 2. overwrite entries in the existing state dict
     updated_model_dict = {}
@@ -177,7 +191,9 @@ def load_state_dict(
                 print("Ignored shape-mismatched parameter:", k)
                 continue
             else:
-                raise RuntimeError("Error in loading state_dict: Shape-mismatch for key {}".format(k))
+                raise RuntimeError(
+                    "Error in loading state_dict: Shape-mismatch for key {}".format(k)
+                )
         updated_model_dict[k] = v
 
     # 3. load the new state dict

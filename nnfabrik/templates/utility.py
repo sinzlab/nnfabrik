@@ -6,8 +6,8 @@ from nnfabrik.builder import resolve_data
 class DataInfoBase(dj.Computed):
     """
     Inherit from this class and decorate with your own schema to create a functional
-    DataInfo table. By default, this will inherit from the Dataset as found in nnfabrik.main.
-    To change this behavior, overwrite the dataset_table` property.
+    DataInfo table. By default, this will depend on Dataset table as found in nnfabrik.main.
+    To change this behavior, overwrite the `dataset_table` property of this class.
     """
 
     dataset_table = Dataset
@@ -26,7 +26,9 @@ class DataInfoBase(dj.Computed):
 
             ->[nullable] self.user_table
             datainfo_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-            """.format(table_comment=self.table_comment)
+            """.format(
+            table_comment=self.table_comment
+        )
         return definition
 
     def make(self, key):
@@ -50,6 +52,6 @@ class DataInfoBase(dj.Computed):
 
         fabrikant_name = self.user_table.get_current_user()
 
-        key['fabrikant_name'] = fabrikant_name
-        key['data_info'] = data_info
+        key["fabrikant_name"] = fabrikant_name
+        key["data_info"] = data_info
         self.insert1(key)

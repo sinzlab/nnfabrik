@@ -7,6 +7,7 @@ from nnfabrik.builder import get_all_parts, get_model, get_trainer
 from nnfabrik.utility.dj_helpers import gitlog, make_hash
 from .utility import DataInfoBase
 from datajoint.fetch import DataJointError
+import warnings
 
 
 class TrainedModelBase(dj.Computed):
@@ -25,8 +26,11 @@ class TrainedModelBase(dj.Computed):
     user_table = Fabrikant
     data_info_table = DataInfoBase
 
+    # storage for the ModelStorage table
+    storage = "minio"
+
     # delimitter to use when concatenating comments from model, dataset, and trainer tables
-    comment_delimitter = '.'
+    comment_delimitter = "."
 
     # table level comment
     table_comment = "Trained models"
@@ -45,12 +49,12 @@ class TrainedModelBase(dj.Computed):
         output:                            longblob     # trainer object's output
         ->[nullable] self.user_table
         trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-        """.format(table_comment=self.table_comment)
+        """.format(
+            table_comment=self.table_comment
+        )
         return definition
 
     class ModelStorage(dj.Part):
-        storage = 'minio'
-
         @property
         def definition(self):
             definition = """
@@ -58,9 +62,10 @@ class TrainedModelBase(dj.Computed):
             -> master
             ---
             model_state:            attach@{storage}
-            """.format(storage=self.storage)
+            """.format(
+                storage=self._master.storage
+            )
             return definition
-
 
     def get_full_config(self, key=None, include_state_dict=True, include_trainer=True):
         """
@@ -77,29 +82,41 @@ class TrainedModelBase(dj.Computed):
             include_trainer (bool): If False, then trainer configuration is skipped. Usually desirable when you want to simply retrieve trained model.
         """
         if key is None:
-            key = self.fetch1('KEY')
+            key = self.fetch1("KEY")
 
         model_fn, model_config = (self.model_table & key).fn_config
         dataset_fn, dataset_config = (self.dataset_table & key).fn_config
 
-
-        ret = dict(model_fn=model_fn, model_config=model_config,
-                   dataset_fn=dataset_fn, dataset_config=dataset_config)
+        ret = dict(
+            model_fn=model_fn,
+            model_config=model_config,
+            dataset_fn=dataset_fn,
+            dataset_config=dataset_config,
+        )
 
         if include_trainer:
             trainer_fn, trainer_config = (self.trainer_table & key).fn_config
-            ret['trainer_fn'] = trainer_fn
-            ret['trainer_config'] = trainer_config
+            ret["trainer_fn"] = trainer_fn
+            ret["trainer_config"] = trainer_config
 
         # if trained model exist and include_state_dict is True
         if include_state_dict and (self.ModelStorage & key):
             with tempfile.TemporaryDirectory() as temp_dir:
-                state_dict_path = (self.ModelStorage & key).fetch1('model_state', download_path=temp_dir)
-                ret['state_dict'] = torch.load(state_dict_path)
+                state_dict_path = (self.ModelStorage & key).fetch1(
+                    "model_state", download_path=temp_dir
+                )
+                ret["state_dict"] = torch.load(state_dict_path)
 
         return ret
 
-    def load_model(self, key=None, include_dataloader=True, include_trainer=False, include_state_dict=True, seed:int=None):
+    def load_model(
+        self,
+        key=None,
+        include_dataloader=True,
+        include_trainer=False,
+        include_state_dict=True,
+        seed: int = None,
+    ):
         """
         Load a single entry of the model. If state_dict is available, the model will be loaded with state_dict as well.
         By default the trainer is skipped. Set `include_trainer=True` to also retrieve the trainer function
@@ -123,30 +140,47 @@ class TrainedModelBase(dj.Computed):
             trainer - Loaded trainer function. This is not returned if include_trainer=False.
         """
         if key is None:
-            key = self.fetch1('KEY')
+            key = self.fetch1("KEY")
 
+        # if no explicit seed is provided and there is already a corresponding entry in the seed_table
+        # use that seed value
         if seed is None and len(self.seed_table & key) == 1:
-            seed = (self.seed_table & key).fetch1('seed')
+            seed = (self.seed_table & key).fetch1("seed")
 
-        config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
+        config_dict = self.get_full_config(
+            key, include_trainer=include_trainer, include_state_dict=include_state_dict
+        )
 
         if not include_dataloader:
             try:
-                data_info = (self.data_info_table & key).fetch1('data_info')
-                model_config_dict = dict(model_fn=config_dict["model_fn"],
-                                         model_config=config_dict["model_config"],
-                                         data_info=data_info,
-                                         seed=seed,
-                                         state_dict=config_dict.get("state_dict", None),
-                                         strict=False)
+                data_info = (self.data_info_table & key).fetch1("data_info")
+                model_config_dict = dict(
+                    model_fn=config_dict["model_fn"],
+                    model_config=config_dict["model_config"],
+                    data_info=data_info,
+                    seed=seed,
+                    state_dict=config_dict.get("state_dict", None),
+                    strict=False,
+                )
 
                 net = get_model(**model_config_dict)
-                return (net, get_trainer(config_dict["trainer_fn"], config_dict["trainer_config"])) if include_trainer else net
+                return (
+                    (
+                        net,
+                        get_trainer(
+                            config_dict["trainer_fn"], config_dict["trainer_config"]
+                        ),
+                    )
+                    if include_trainer
+                    else net
+                )
 
             except (TypeError, AttributeError, DataJointError):
-                print("Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
-                      "Make sure to have an The 'model_fn' also has to be able to"
-                      "accept 'data_info' as an input arg, and use that over the dataloader to build the model.")
+                warnings.warn(
+                    "Model could not be built without the dataloader. Dataloader will be built in order to create the model. "
+                    "Make sure to have an The 'model_fn' also has to be able to"
+                    "accept 'data_info' as an input arg, and use that over the dataloader to build the model."
+                )
 
             ret = get_all_parts(**config_dict, seed=seed)
             return ret[1:] if include_trainer else ret[1]
@@ -173,10 +207,12 @@ class TrainedModelBase(dj.Computed):
         """
         # lookup the fabrikant corresponding to the current DJ user
         fabrikant_name = self.user_table.get_current_user()
-        seed = (self.seed_table & key).fetch1('seed')
+        seed = (self.seed_table & key).fetch1("seed")
 
         # load everything
-        dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
+        dataloaders, model, trainer = self.load_model(
+            key, include_trainer=True, include_state_dict=False, seed=seed
+        )
 
         # define callback with pinging
         def call_back(**kwargs):
@@ -184,24 +220,26 @@ class TrainedModelBase(dj.Computed):
             self.call_back(**kwargs)
 
         # model training
-        score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
+        score, output, model_state = trainer(
+            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
+        )
 
         # save resulting model_state into a temporary file to be attached
         with tempfile.TemporaryDirectory() as temp_dir:
-            filename = make_hash(key) + '.pth.tar'
+            filename = make_hash(key) + ".pth.tar"
             filepath = os.path.join(temp_dir, filename)
             torch.save(model_state, filepath)
 
-            key['score'] = score
-            key['output'] = output
-            key['fabrikant_name'] = fabrikant_name
+            key["score"] = score
+            key["output"] = output
+            key["fabrikant_name"] = fabrikant_name
             comments = []
             comments.append((self.trainer_table & key).fetch1("trainer_comment"))
             comments.append((self.model_table & key).fetch1("model_comment"))
             comments.append((self.dataset_table & key).fetch1("dataset_comment"))
-            key['comment'] = self.comment_delimitter.join(comments)
+            key["comment"] = self.comment_delimitter.join(comments)
             self.insert1(key)
 
-            key['model_state'] = filepath
+            key["model_state"] = filepath
 
             self.ModelStorage.insert1(key, ignore_extra_fields=True)
