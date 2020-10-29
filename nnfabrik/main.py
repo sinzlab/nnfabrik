@@ -367,6 +367,26 @@ def custom_nnfabrik(
     is set to True, the new tables will depend on the common Fabrikant table. 
     Otherwise, a separate copy of Fabrikant table will also be prepared.
 
+    Examples:
+        Use of this function should replace any existing use of `nnfabrik` tables done via modifying the 
+        `nnfabrik.schema_name` property in `dj.config`. 
+        
+        As an example, if you previously had a code like this:
+        >>> dj.config['nfabrik.schema_name'] = 'my_schema'
+        >>> from nnfabrik import main # importing nnfabrik tables
+
+        do this instead:
+        >>> from nnfabrik.main import custom_nnfabrik
+        >>> main = custom_nnfabrik('my_schema')    # this has the same effect as defining nnfabrik tables in schema `my_schema`
+
+        Also, you can achieve the equivalent of:
+        >>> dj.config['nfabrik.schema_name'] = 'my_schema'
+        >>> from nnfabrik.main import *
+
+        by doing
+        >>> from nnfabrik.main import custom_nnfabrik
+        >>> custom_nnfabrik('my_schema', context=locals())
+
     Args:
         schema (str or dj.Schema): Name of schema or dj.Schema object
         use_common_fabrikant (bool, optional): If True, new tables will depend on the
@@ -381,6 +401,10 @@ def custom_nnfabrik(
             instead the tables are defined inside the context.
         spawn_existing_tables (bool, optional): If True, perform `spawn_missing_tables` operation
             onto the newly created table. Defaults to False.
+
+    Raises:
+        ValueError: If `use_common_fabrikant` is True but the target `schema` already contains its own
+            copy of `Fabrikant` table.
 
     Returns:
         Python Module object or None: If `context` was None, a new Python module containing 
@@ -410,9 +434,7 @@ def custom_nnfabrik(
 
     if use_common_fabrikant:
         if "Fabrikant" in temp_context:
-            warnings.warn(
-                "The schema already contained Fabrikant table. Using that table instead of the common one!"
-            )
+            raise ValueError("The schema already contains a Fabrikant table despite setting use_common_fabrikant=True. Either rerun with use_common_fabrikant=False or remove the Fabrikant table in the schema")
         else:
             context["Fabrikant"] = Fabrikant
             # skip creating Fabrikant table
