@@ -26,10 +26,61 @@ class Fabrikant(dj.Manual):
     definition = """
     fabrikant_name: varchar(32)       # Name of the contributor that added this entry
     ---
-    email: varchar(64)      # e-mail address
-    affiliation: varchar(32) # conributor's affiliation
-    dj_username: varchar(64) # DataJoint username
+    full_name="": varchar(128) # full name of the person
+    email: varchar(64)         # e-mail address
+    affiliation: varchar(32)   # conributor's affiliation (e.g. Sinz Lab)
+    dj_username: varchar(64)   # DataJoint username
     """
+
+    def add_entry(
+        self,
+        name,
+        email,
+        affiliation,
+        full_name="",
+        dj_username=None,
+        skip_duplicates=False,
+        return_key_only=True,
+    ):
+        """
+        Add a new entry into Fabrikant table. If `dj_username` is omitted, then the current
+        database connection user is used.
+
+        Args:
+            name (str): A short name to identify yourself.
+            email (str): Email address
+            affiliation (str): Lab or institutional affiliation
+            full_name (str, optional): Full name
+            dj_username (str, optional): DataJoint username. Defaults to None, in which case
+                the username of the current connection is used.
+            return_key_only (bool, optional): If True, only return the primary key. Defaults to True.
+        """
+        if dj_username is None:
+            dj_username = self.connection.get_user().split("@")[0]
+
+        key = dict(
+            fabrikant_name=name,
+            full_name=full_name,
+            email=email,
+            affiliation=affiliation,
+            dj_username=dj_username,
+        )
+
+        # overlap in DJ username is not allowed either
+        existing = self.proj() & key or self.proj() & dict(dj_username=dj_username)
+        if existing:
+            key = (self & (existing)).fetch1()
+            if skip_duplicates:
+                warnings.warn("Corresponding entry found. Skipping...")
+            else:
+                raise ValueError("Corresponding entry already exists: {}".format(key))
+        else:
+            self.insert1(key)
+
+        if return_key_only:
+            key = {k: key[k] for k in self.heading.primary_key}
+
+        return key
 
     @classmethod
     def get_current_user(cls):
@@ -69,24 +120,29 @@ class Model(dj.Manual):
         self,
         model_fn,
         model_config,
-        model_fabrikant=None,
         model_comment="",
+        model_fabrikant=None,
         skip_duplicates=False,
+        return_key_only=True,
     ):
         """
         Add a new entry to the model.
 
         Args:
-            model_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+            model_fn (str, Callable) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             model_config (dict) - Python dictionary containing keyword arguments for the model_fn
-            model_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
             model_comment - Optional comment for the entry.
+            model_fabrikant (str) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
             skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
 
         Returns:
             key - key in the table corresponding to the entry.
         """
+        if not isinstance(model_fn, str):
+            # infer the full path to the callable
+            model_fn = model_fn.__module__ + "." + model_fn.__name__
+
         try:
             resolve_model(model_fn)
         except (NameError, TypeError) as e:
@@ -115,6 +171,9 @@ class Model(dj.Manual):
         else:
             self.insert1(key)
 
+        if return_key_only:
+            key = {k: key[k] for k in self.heading.primary_key}
+
         return key
 
     def build_model(self, dataloaders=None, seed=None, key=None, data_info=None):
@@ -139,7 +198,7 @@ class Model(dj.Manual):
                 "data_info have to be passed."
             )
 
-        print("Loading model...")
+        print("Building model...")
         if key is None:
             key = {}
         model_fn, model_config = (self & key).fn_config
@@ -179,25 +238,31 @@ class Dataset(dj.Manual):
         self,
         dataset_fn,
         dataset_config,
-        dataset_fabrikant=None,
         dataset_comment="",
+        dataset_fabrikant=None,
         skip_duplicates=False,
+        return_key_only=True,
     ):
         """
         Add a new entry to the dataset.
 
         Args:
-            dataset_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+            dataset_fn (string, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
-            dataset_config (dict) - Python dictionary containing keyword arguments for the dataset_fn
-            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
+            dataset_config (dict): Python dictionary containing keyword arguments for the dataset_fn
+            dataset_comment (str, optional):  Comment for the entry. Defaults to "" (emptry string)
+            dataset_fabrikant (string): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
-            dataset_comment - Optional comment for the entry.
-            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire entry is returned.
+                Defaults to True.
 
         Returns:
-            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
+        if not isinstance(dataset_fn, str):
+            # infer the full path to the callable
+            dataset_fn = dataset_fn.__module__ + "." + dataset_fn.__name__
 
         try:
             resolve_data(dataset_fn)
@@ -226,6 +291,9 @@ class Dataset(dj.Manual):
                 raise ValueError("Corresponding entry already exists")
         else:
             self.insert1(key)
+
+        if return_key_only:
+            key = {k: key[k] for k in self.heading.primary_key}
 
         return key
 
@@ -283,9 +351,10 @@ class Trainer(dj.Manual):
         self,
         trainer_fn,
         trainer_config,
-        trainer_fabrikant=None,
         trainer_comment="",
+        trainer_fabrikant=None,
         skip_duplicates=False,
+        return_key_only=True,
     ):
         """
         Add a new entry to the trainer.
@@ -294,14 +363,18 @@ class Trainer(dj.Manual):
             trainer_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
             trainer_config (dict) - Python dictionary containing keyword arguments for the trainer_fn.
+            trainer_comment - Optional comment for the entry.
             trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
-            trainer_comment - Optional comment for the entry.
             skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
 
         Returns:
             key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
+        if not isinstance(trainer_fn, str):
+            # infer the full path to the callable
+            trainer_fn = trainer_fn.__module__ + "." + trainer_fn.__name__
+
         try:
             resolve_trainer(trainer_fn)
         except (NameError, TypeError) as e:
@@ -329,6 +402,9 @@ class Trainer(dj.Manual):
                 raise ValueError("Corresponding entry already exists")
         else:
             self.insert1(key)
+
+        if return_key_only:
+            key = {k: key[k] for k in self.heading.primary_key}
 
         return key
 
