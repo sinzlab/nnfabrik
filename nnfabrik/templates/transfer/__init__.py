@@ -30,6 +30,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         prev_dataset_hash:                 varchar(64)
         prev_trainer_fn:                   varchar(64)
         prev_trainer_hash:                 varchar(64)
+        collapsed_history:                 varchar(64)
         ---
         comment='':                        varchar(768) # short description 
         score:                             float        # loss
@@ -49,6 +50,38 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
     class ModelStorage(TrainedModelBase.ModelStorage):
         pass
+
+    class CollapsedHistory(dj.Part):
+        """
+        For the result of two or more transfer steps to be uniquely identifiable,
+        we compress its entire history (the keys of all previous steps) into a single hash (`collapsed_history`).
+        This table keeps track of this process and can be used to recursively retrieve the transfer history.
+        """
+
+        definition = """
+        collapsed_history:                 varchar(64)
+        prev_model_fn:                     varchar(64)
+        prev_model_hash:                   varchar(64)
+        prev_dataset_fn:                   varchar(64)
+        prev_dataset_hash:                 varchar(64)
+        prev_trainer_fn:                   varchar(64)
+        prev_trainer_hash:                 varchar(64)
+        prev_collapsed_history:             varchar(64)
+        """
+
+        @classmethod
+        def add_entry(cls, key):
+            key = {
+                "prev_model_fn": key["prev_model_fn"],
+                "prev_model_hash": key["prev_model_hash"],
+                "prev_dataset_fn": key["prev_dataset_fn"],
+                "prev_dataset_hash": key["prev_dataset_hash"],
+                "prev_trainer_fn": key["prev_trainer_fn"],
+                "prev_trainer_hash": key["prev_trainer_hash"],
+                "prev_collapsed_history": key["collapsed_history"],
+            }
+            key["collapsed_history"] = make_hash(key)
+            cls.insert1(key)
 
     def _transfer_recipe(self, transfer_step):
         """
@@ -73,9 +106,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         """
 
         if isinstance(self.transfer_recipe, list):
-
             # get the recipes that have an entry for a specific transfer step
-            # transfer_recipe = [tr & f"transfer_step = {transfer_step}" for tr in self.transfer_recipe if tr & f"transfer_step = {transfer_step}"]
             transfer_recipe = []
             # loop over the transfer recipes
             for tr in self.transfer_recipe:
@@ -94,19 +125,28 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 joined.post_restr = dj.AndList(
                     [recipe.post_restr for recipe in self.transfer_recipe]
                 )
-
             return joined
-
         else:
             return self.transfer_recipe
 
     @property
     def key_source(self):
-
         if hasattr(self, "transfer_recipe"):
-
+            # map "prev_"-attributes and "collapsed_history" to their corresponding (updated) collapsed history
+            with_collapsed_history = (
+                self.proj(
+                    "current_model_fn",
+                    "current_model_hash",
+                    "current_dataset_fn",
+                    "current_dataset_hash",
+                    "current_trainer_fn",
+                    "current_trainer_hash",
+                    prev_collapsed_history="collapsed_history",
+                )
+                * self.CollapsedHistory
+            )
             # project (rename) attributes of the existing transferredmodel table to the same name but with prefix "prev"
-            prev_transferredmodel = self.proj(
+            prev_transferred_model = with_collapsed_history.proj(
                 prev_model_fn="current_model_fn",
                 prev_model_hash="current_model_hash",
                 prev_dataset_fn="current_dataset_fn",
@@ -115,6 +155,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 prev_trainer_hash="current_trainer_hash",
                 prev_step="transfer_step",
                 transfer_step="transfer_step + 1",
+                collapsed_history="collapsed_history",
             ) * dj.U(
                 "transfer_step",  # make these attributes primary keys
                 "prev_model_fn",
@@ -123,19 +164,20 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 "prev_dataset_hash",
                 "prev_trainer_fn",
                 "prev_trainer_hash",
+                "collapsed_history",
             )
 
             # get the current transfer step
             transfer_step = (
-                prev_transferredmodel.fetch("transfer_step").max()
-                if prev_transferredmodel
+                prev_transferred_model.fetch("transfer_step").max()
+                if prev_transferred_model
                 else 0
             )
 
             if transfer_step:
 
                 # get the necessay attributes to filter the prev_transferredmodel with the transfer recipe
-                prev_transferredmodel = (
+                prev_transferred_model = (
                     dj.U(
                         "transfer_step",
                         "prev_model_fn",
@@ -144,12 +186,13 @@ class TransferredTrainedModelBase(TrainedModelBase):
                         "prev_dataset_hash",
                         "prev_trainer_fn",
                         "prev_trainer_hash",
+                        "collapsed_history",
                     )
-                    & prev_transferredmodel
+                    & prev_transferred_model
                 )
 
                 # get the entries that match the one in TransferRecipe (all entries that have matching "prev_...")
-                transfer_from = prev_transferredmodel * self._transfer_recipe(
+                transfer_from = prev_transferred_model * self._transfer_recipe(
                     transfer_step
                 )
 
@@ -169,6 +212,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                         "prev_dataset_hash",
                         "prev_trainer_fn",
                         "prev_trainer_hash",
+                        "collapsed_history",
                     )
                     & Model
                     * Dataset
@@ -179,7 +223,6 @@ class TransferredTrainedModelBase(TrainedModelBase):
                         transfer_step
                     ).post_restr  # restrict with post_rest
                 )
-
                 return transfers.proj()
 
         # normal entries as a combination of Dataset, Model, Trainer, and Seed tables
@@ -194,6 +237,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             "prev_dataset_hash",
             "prev_trainer_fn",
             "prev_trainer_hash",
+            "collapsed_history",
         ) * step_0.proj(
             transfer_step="0",
             prev_model_fn='""',
@@ -202,8 +246,47 @@ class TransferredTrainedModelBase(TrainedModelBase):
             prev_dataset_hash='""',
             prev_trainer_fn='""',
             prev_trainer_hash='""',
+            collapsed_history='""',
         )  # train with "prev_"-entries empty
         return base.proj()
+
+    def get_full_config(self, key=None, include_state_dict=True, include_trainer=True):
+        ret = super().get_full_config(
+            key=key,
+            include_state_dict=include_state_dict,
+            include_trainer=include_trainer,
+        )
+        if key["transfer_step"] > 0:
+            # retrieve previous key
+            prev_prev_key = (
+                self.CollapsedHistory & {"collapsed_history": key["collapsed_history"]}
+            ).fetch1()
+            prev_key = {
+                "transfer_step": key["transfer_step"] - 1,
+                "model_fn": key["prev_model_fn"],
+                "model_hash": key["prev_model_hash"],
+                "dataset_fn": key["prev_dataset_fn"],
+                "dataset_hash": key["prev_dataset_hash"],
+                "trainer_fn": key["prev_trainer_fn"],
+                "trainer_hash": key["prev_trainer_hash"],
+                "prev_model_fn": prev_prev_key["prev_model_fn"],
+                "prev_model_hash": prev_prev_key["prev_model_hash"],
+                "prev_dataset_fn": prev_prev_key["prev_dataset_fn"],
+                "prev_dataset_hash": prev_prev_key["prev_dataset_hash"],
+                "prev_trainer_fn": prev_prev_key["prev_trainer_fn"],
+                "prev_trainer_hash": prev_prev_key["prev_trainer_hash"],
+                "collapsed_history": prev_prev_key["prev_collapsed_history"],
+                "seed": key["seed"],
+            }
+
+            # retrieve corresponding model state (and overwrite possibly retrieved state)
+            if include_state_dict and (self.ModelStorage & prev_key):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    state_dict_path = (self.ModelStorage & prev_key).fetch1(
+                        "model_state", download_path=temp_dir
+                    )
+                    ret["state_dict"] = torch.load(state_dict_path)
+        return ret
 
     def make(self, key):
         """
@@ -217,7 +300,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
         # load everything
         dataloaders, model, trainer = self.load_model(
-            key, include_trainer=True, include_state_dict=False, seed=seed
+            key, include_trainer=True, include_state_dict=True, seed=seed
         )
 
         # define callback with pinging
@@ -259,3 +342,4 @@ class TransferredTrainedModelBase(TrainedModelBase):
             key["model_state"] = filepath
 
             self.ModelStorage.insert1(key, ignore_extra_fields=True)
+            self.CollapsedHistory.add_entry(key)

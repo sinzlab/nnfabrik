@@ -20,7 +20,7 @@ def mnist_dataset_fn(seed: int, **config) -> Dict:
         transforms.Normalize((0.1307,), (0.3081,)),  # (mean,std) of MNIST train set
     ]
     if config.get("apply_augmentation"):
-        transform_list.append(transforms.RandomHorizontalFlip())
+        transform_list = [transforms.RandomHorizontalFlip()] + transform_list
     transform = transforms.Compose(transform_list)
     train_dataset = datasets.MNIST(
         "../data", train=True, download=True, transform=transform
