@@ -19,6 +19,8 @@ class TrainedModelBase(dj.Computed):
     properties.
     """
 
+    database = ""  # hack to suppress DJ error
+
     model_table = Model
     dataset_table = Dataset
     trainer_table = Trainer
