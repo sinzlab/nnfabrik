@@ -67,7 +67,7 @@ class Fabrikant(dj.Manual):
         )
 
         # overlap in DJ username is not allowed either
-        existing = self.proj() & key or self.proj() & dict(dj_username=dj_username)
+        existing = self.proj() & key or (self & dict(dj_username=dj_username)).proj()
         if existing:
             key = (self & (existing)).fetch1()
             if skip_duplicates:
@@ -75,7 +75,7 @@ class Fabrikant(dj.Manual):
             else:
                 raise ValueError("Corresponding entry already exists: {}".format(key))
         else:
-            self.insert1(key)
+            self.insert1(key, ignore_extra_fields=True)
 
         if return_key_only:
             key = {k: key[k] for k in self.heading.primary_key}
