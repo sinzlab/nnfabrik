@@ -3,19 +3,31 @@ import tempfile
 import torch
 import os
 from ..builder import get_all_parts, get_model, get_trainer
+from . import main
 from ..utility.dj_helpers import make_hash
 from datajoint.fetch import DataJointError
 import warnings
 from types import ModuleType
+from typing import Optional, Union
 
 
 class TrainedModelBase(dj.Computed):
     """
-    Inherit from this class and decorate with your own schema to create a functional
-    TrainedModel table. By default, this will inherit from following
-    Model, Dataset, Trainer and Seed as found in nnfabrik.main, and also point to . To change this behavior,
-    overwrite the `model_table`, `dataset_table`, `trainer_table` and `seed_table` class
-    properties.
+    Base class for defining TrainedModel table used to tigger training of models in nnfabrik.
+
+    To use this class, define a new class inheriting from this base class, and decorate with your own
+    schema. Furthermore, you have to do one of the following for the class to be functional:
+    * Set the class property `nnfabrik` to point to a module or a dictionary context that contains classes
+        for tables corresponding to `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer`. Most commonly, you
+        would want to simply pass the resulting module object from `my_nnfabrikant` output.
+    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to 
+        `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer` as found inside `main` module directly. Note that
+        this will therefore depend on the shared "core" tables of nnfabrik.
+    * Set the values of the following class properties to individually specify the DataJoint table to use:
+        `user_table`, `seed_table`, `dataset_table`, `model_table` and `trainer_table` to specify equivalent
+        of `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer`, respectively. You could also set the
+        value of `nnfabrik` to a module or "core" as stated above, and specifically override a target table
+        via setting one of the table class property as well.
     """
 
     database = ""  # hack to suppress DJ error
@@ -23,7 +35,33 @@ class TrainedModelBase(dj.Computed):
     nnfabrik = None
 
     @staticmethod
-    def find_object(context, attribute, prop_name=None):
+    def find_object(
+        context: Union[ModuleType, dict], attribute: str, prop_name: str = None
+    ):
+        """
+        Helper function to resolve an object matching the name attribute
+        inside the context. If it's not found, throws ValueError suggesting
+        the user to override the `nnfabrik` class property or to a specific
+        class property for the table.
+
+        Args:
+            context (Union[ModuleType, dict]): A context object in which the name attribute would be checked.
+                Can either be a module object or a dictionary.
+            attribute (str): Name of object being sought.
+            prop_name (str, optional): The property name under which this object is being sought. Defaults to None,
+                in which case the name is infered to be lower(attribute) + '_table'. E.g. `model_table` for attribute
+                'Model'.
+
+        Raises:
+            ValueError: if an object with name `attribute` is not found inside the context.
+
+        Returns:
+            Any: the object with name `attribute` found inside the context.
+        """
+        # if context of string "core" given, then use the core main module as the context
+        if context == "core":
+            context = main
+
         if prop_name is None:
             prop_name = attribute.lower() + "_table"
 
