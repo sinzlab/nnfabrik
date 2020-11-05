@@ -1,5 +1,5 @@
 from typing import Dict
-
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -11,13 +11,14 @@ class ToyModel(nn.Module):
         self.fc1 = nn.Linear(in_dim, h_dim)
         self.fc2 = nn.Linear(h_dim, out_dim)
         self.nl = nn.ReLU()
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
-        out = self.nl(self.fc1(x))
-        return self.nl(self.fc2(out))
+        x = self.nl(self.fc1(x))
+        return self.softmax(self.fc2(x))
 
 
-def toy_model_fn(dataloaders: Dict, seed: int, **config) -> torch.nn.Module:
+def mnist_model_fn(dataloaders: Dict, seed: int, **config) -> torch.nn.Module:
     """
     Builds a model object for the given config
     Args:
@@ -27,8 +28,9 @@ def toy_model_fn(dataloaders: Dict, seed: int, **config) -> torch.nn.Module:
         Instance of torch.nn.Module
     """
     # get the input and output dimension for the model
-    in_dim = dataloaders.dataset.tensors[0].shape[1]
-    out_dim = dataloaders.dataset.tensors[1].shape[1]
+    first_input, first_output = next(iter(dataloaders["train"]))
+    in_dim = np.prod(first_input.shape[1:])
+    out_dim = 10
 
     torch.manual_seed(seed)  # for reproducibility (almost)
     model = ToyModel(in_dim, out_dim, h_dim=config.get("h_dim", 5))
