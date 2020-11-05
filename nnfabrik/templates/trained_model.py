@@ -3,7 +3,7 @@ import tempfile
 import torch
 import os
 from ..builder import get_all_parts, get_model, get_trainer
-from . import main
+from .. import main
 from ..utility.dj_helpers import make_hash
 from datajoint.fetch import DataJointError
 import warnings
