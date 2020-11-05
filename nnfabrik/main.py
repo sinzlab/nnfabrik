@@ -48,12 +48,17 @@ class Fabrikant(dj.Manual):
 
         Args:
             name (str): A short name to identify yourself.
-            email (str): Email address
-            affiliation (str): Lab or institutional affiliation
-            full_name (str, optional): Full name
+            email (str): Email address.
+            affiliation (str): Lab or institutional affiliation.
+            full_name (str, optional): Full name. Defaults to "".
             dj_username (str, optional): DataJoint username. Defaults to None, in which case
                 the username of the current connection is used.
-            return_key_only (bool, optional): If True, only return the primary key. Defaults to True.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+                entry is returned. Defaults to True.
+
+        Returns:
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
         if dj_username is None:
             dj_username = self.connection.get_user().split("@")[0]
@@ -129,15 +134,17 @@ class Model(dj.Manual):
         Add a new entry to the model.
 
         Args:
-            model_fn (str, Callable) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+            model_fn (str, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
-            model_config (dict) - Python dictionary containing keyword arguments for the model_fn
+            model_config (dict): Python dictionary containing keyword arguments for the model_fn
             model_comment - Optional comment for the entry.
-            model_fabrikant (str) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
-            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+            model_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+                entry is returned. Defaults to True.
 
         Returns:
-            key - key in the table corresponding to the entry.
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
         if not isinstance(model_fn, str):
             # infer the full path to the callable
@@ -254,8 +261,8 @@ class Dataset(dj.Manual):
             dataset_fabrikant (string): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire entry is returned.
-                Defaults to True.
+            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+                entry is returned. Defaults to True.
 
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
@@ -360,16 +367,18 @@ class Trainer(dj.Manual):
         Add a new entry to the trainer.
 
         Args:
-            trainer_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+            trainer_fn (str): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
-            trainer_config (dict) - Python dictionary containing keyword arguments for the trainer_fn.
-            trainer_comment - Optional comment for the entry.
-            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
+            trainer_config (dict): Python dictionary containing keyword arguments for the trainer_fn.
+            trainer_comment (str, optional): Optional comment for the entry. Defaults to "" (empty string).
+            trainer_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
-            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+                entry is returned. Defaults to True.
 
         Returns:
-            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
         if not isinstance(trainer_fn, str):
             # infer the full path to the callable

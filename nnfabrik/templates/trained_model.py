@@ -19,7 +19,7 @@ class TrainedModelBase(dj.Computed):
     schema. Furthermore, you have to do one of the following for the class to be functional:
     * Set the class property `nnfabrik` to point to a module or a dictionary context that contains classes
         for tables corresponding to `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer`. Most commonly, you
-        would want to simply pass the resulting module object from `my_nnfabrikant` output.
+        would want to simply pass the resulting module object from `my_nnfabrik` output.
     * Set the class property `nnfabrik` to "core" -- this will then make this table refer to 
         `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer` as found inside `main` module directly. Note that
         this will therefore depend on the shared "core" tables of nnfabrik.
