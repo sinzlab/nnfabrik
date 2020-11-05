@@ -33,7 +33,9 @@ def mnist_dataset_fn(seed: int, **config) -> Dict:
     )
     batch_size = config.get("batch_size", 64)
     return {
-        "train": DataLoader(train_dataset, batch_size=batch_size),
+        "train": DataLoader(
+            train_dataset, batch_size=batch_size, shuffle=config.get("shuffle", True)
+        ),
         "validation": DataLoader(validation_dataset, batch_size=batch_size),
         "test": DataLoader(test_dataset, batch_size=batch_size),
     }
