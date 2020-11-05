@@ -2,12 +2,11 @@ import datajoint as dj
 import tempfile
 import torch
 import os
-from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
-from nnfabrik.builder import get_all_parts, get_model, get_trainer
-from nnfabrik.utility.dj_helpers import gitlog, make_hash
-from .utility import DataInfoBase
+from ..builder import get_all_parts, get_model, get_trainer
+from ..utility.dj_helpers import make_hash
 from datajoint.fetch import DataJointError
 import warnings
+from types import ModuleType
 
 
 class TrainedModelBase(dj.Computed):
@@ -21,12 +20,48 @@ class TrainedModelBase(dj.Computed):
 
     database = ""  # hack to suppress DJ error
 
-    model_table = Model
-    dataset_table = Dataset
-    trainer_table = Trainer
-    seed_table = Seed
-    user_table = Fabrikant
-    data_info_table = DataInfoBase
+    nnfabrik = None
+
+    @staticmethod
+    def find_object(context, attribute, prop_name=None):
+        if prop_name is None:
+            prop_name = attribute.lower() + "_table"
+
+        if context is None:
+            raise ValueError(
+                "Please specify either `nnfabrik` or `{}` property for the class".format(
+                    prop_name
+                )
+            )
+
+        if isinstance(context, ModuleType):
+            context = context.__dict__
+
+        return context[attribute]
+
+    @property
+    def model_table(self):
+        return self.find_object(self.nnfabrik, "Model")
+
+    @property
+    def dataset_table(self):
+        return self.find_object(self.nnfabrik, "Dataset")
+
+    @property
+    def trainer_table(self):
+        return self.find_object(self.nnfabrik, "Trainer")
+
+    @property
+    def seed_table(self):
+        return self.find_object(self.nnfabrik, "Seed")
+
+    @property
+    def user_table(self):
+        return self.find_object(self.nnfabrik, "Fabrikant", "user_table")
+
+    @property
+    def data_info_table(self):
+        return self.find_object(self.nnfabrik, "DataInfo", "data_info_table")
 
     # storage for the ModelStorage table
     storage = "minio"
@@ -41,15 +76,15 @@ class TrainedModelBase(dj.Computed):
     def definition(self):
         definition = """
         # {table_comment}
-        -> self.model_table
-        -> self.dataset_table
-        -> self.trainer_table
-        -> self.seed_table
+        -> self().model_table
+        -> self().dataset_table
+        -> self().trainer_table
+        -> self().seed_table
         ---
         comment='':                        varchar(768) # short description 
         score:                             float        # loss
         output:                            longblob     # trainer object's output
-        ->[nullable] self.user_table
+        ->[nullable] self().user_table
         trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
         """.format(
             table_comment=self.table_comment
