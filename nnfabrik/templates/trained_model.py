@@ -3,12 +3,10 @@ import tempfile
 import torch
 import os
 from ..builder import get_all_parts, get_model, get_trainer
-from .. import main
 from ..utility.dj_helpers import make_hash
 from datajoint.fetch import DataJointError
 import warnings
-from types import ModuleType
-from typing import Optional, Union
+from .utility import find_object
 
 
 class TrainedModelBase(dj.Computed):
@@ -34,72 +32,29 @@ class TrainedModelBase(dj.Computed):
 
     nnfabrik = None
 
-    @staticmethod
-    def find_object(
-        context: Union[ModuleType, dict], attribute: str, prop_name: str = None
-    ):
-        """
-        Helper function to resolve an object matching the name attribute
-        inside the context. If it's not found, throws ValueError suggesting
-        the user to override the `nnfabrik` class property or to a specific
-        class property for the table.
-
-        Args:
-            context (Union[ModuleType, dict]): A context object in which the name attribute would be checked.
-                Can either be a module object or a dictionary.
-            attribute (str): Name of object being sought.
-            prop_name (str, optional): The property name under which this object is being sought. Defaults to None,
-                in which case the name is infered to be lower(attribute) + '_table'. E.g. `model_table` for attribute
-                'Model'.
-
-        Raises:
-            ValueError: if an object with name `attribute` is not found inside the context.
-
-        Returns:
-            Any: the object with name `attribute` found inside the context.
-        """
-        # if context of string "core" given, then use the core main module as the context
-        if context == "core":
-            context = main
-
-        if prop_name is None:
-            prop_name = attribute.lower() + "_table"
-
-        if context is None:
-            raise ValueError(
-                "Please specify either `nnfabrik` or `{}` property for the class".format(
-                    prop_name
-                )
-            )
-
-        if isinstance(context, ModuleType):
-            context = context.__dict__
-
-        return context[attribute]
-
     @property
     def model_table(self):
-        return self.find_object(self.nnfabrik, "Model")
+        return find_object(self.nnfabrik, "Model")
 
     @property
     def dataset_table(self):
-        return self.find_object(self.nnfabrik, "Dataset")
+        return find_object(self.nnfabrik, "Dataset")
 
     @property
     def trainer_table(self):
-        return self.find_object(self.nnfabrik, "Trainer")
+        return find_object(self.nnfabrik, "Trainer")
 
     @property
     def seed_table(self):
-        return self.find_object(self.nnfabrik, "Seed")
+        return find_object(self.nnfabrik, "Seed")
 
     @property
     def user_table(self):
-        return self.find_object(self.nnfabrik, "Fabrikant", "user_table")
+        return find_object(self.nnfabrik, "Fabrikant", "user_table")
 
     @property
     def data_info_table(self):
-        return self.find_object(self.nnfabrik, "DataInfo", "data_info_table")
+        return find_object(self.nnfabrik, "DataInfo", "data_info_table")
 
     # storage for the ModelStorage table
     storage = "minio"
@@ -318,3 +273,74 @@ class TrainedModelBase(dj.Computed):
             key["model_state"] = filepath
 
             self.ModelStorage.insert1(key, ignore_extra_fields=True)
+
+
+class DataInfoBase(dj.Computed):
+    """
+    Inherit from this class and decorate with your own schema to create a functional
+    DataInfo table.
+
+    Furthermore, you have to do one of the following for the class to be functional:
+    * Set the class property `nnfabrik` to point to a module or a dictionary context that contains classes
+        for tables corresponding to `Fabrikant` and `Dataset`. Most commonly, you
+        would want to simply pass the resulting module object from `my_nnfabrik` output.
+    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to 
+        `Fabrikant` and `Dataset` as found inside `main` module directly. Note that
+        this will therefore depend on the shared "core" tables of nnfabrik.
+    * Set the values of the following class properties to individually specify the DataJoint table to use:
+        `user_table` and `dataset_table` to specify equivalent
+        of `Fabrikant` and `Dataset` respectively. You could also set the
+        value of `nnfabrik` to a module or "core" as stated above, and specifically override a target table
+        via setting one of the table class property as well.
+    """
+
+    nnfabrik = None
+
+    @property
+    def dataset_table(self):
+        return find_object(self.nnfabrik, "Dataset")
+
+    @property
+    def user_table(self):
+        return find_object(self.nnfabrik, "Fabrikant", "user_table")
+
+    # table level comment
+    table_comment = "Table containing information about i/o dimensions and statistics, per data_key in dataset"
+
+    @property
+    def definition(self):
+        definition = """
+            # {table_comment}
+            -> self().dataset_table
+            ---
+            data_info:                     longblob     # Dictionary of data_keys and i/o information
+
+            ->[nullable] self().user_table
+            datainfo_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+            """.format(
+            table_comment=self.table_comment
+        )
+        return definition
+
+    def make(self, key):
+        """
+        Given a dataset from nnfabrik, extracts the necessary information for building a model in nnfabrik.
+        'data_info' is expected to be a dictionary of dictionaries, similar to the dataloaders object.
+        For example:
+            data_info = {
+                        'data_key_0': dict(input_dimensions=[N,c,h,w, ...],
+                                           input_channels=[c],
+                                           output_dimension=[o, ...],
+                                           img_mean=mean_train_images,
+                                           img_std=std_train_images),
+                        'data_key_1':  ...
+                        }
+        """
+        dataset_fn, dataset_config = (self.dataset_table & key).fn_config
+        data_info = dataset_fn(**dataset_config, return_data_info=True)
+
+        fabrikant_name = self.user_table.get_current_user()
+
+        key["fabrikant_name"] = fabrikant_name
+        key["data_info"] = data_info
+        self.insert1(key)

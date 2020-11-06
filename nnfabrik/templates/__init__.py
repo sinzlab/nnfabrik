@@ -1,4 +1,3 @@
-from .trained_model import TrainedModelBase
+from .trained_model import TrainedModelBase, DataInfoBase
 from .scoring import ScoringBase
 from .transfer import TransferredTrainedModelBase
-from .utility import DataInfoBase
