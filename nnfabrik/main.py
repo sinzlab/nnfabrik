@@ -40,7 +40,7 @@ class Fabrikant(dj.Manual):
         full_name="",
         dj_username=None,
         skip_duplicates=False,
-        return_key_only=True,
+        return_pk_only=True,
     ):
         """
         Add a new entry into Fabrikant table. If `dj_username` is omitted, then the current
@@ -54,7 +54,7 @@ class Fabrikant(dj.Manual):
             dj_username (str, optional): DataJoint username. Defaults to None, in which case
                 the username of the current connection is used.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
                 entry is returned. Defaults to True.
 
         Returns:
@@ -82,7 +82,7 @@ class Fabrikant(dj.Manual):
         else:
             self.insert1(key, ignore_extra_fields=True)
 
-        if return_key_only:
+        if return_pk_only:
             key = {k: key[k] for k in self.heading.primary_key}
 
         return key
@@ -128,7 +128,7 @@ class Model(dj.Manual):
         model_comment="",
         model_fabrikant=None,
         skip_duplicates=False,
-        return_key_only=True,
+        return_pk_only=True,
     ):
         """
         Add a new entry to the model.
@@ -140,7 +140,7 @@ class Model(dj.Manual):
             model_comment - Optional comment for the entry.
             model_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
                 entry is returned. Defaults to True.
 
         Returns:
@@ -178,7 +178,7 @@ class Model(dj.Manual):
         else:
             self.insert1(key)
 
-        if return_key_only:
+        if return_pk_only:
             key = {k: key[k] for k in self.heading.primary_key}
 
         return key
@@ -248,7 +248,7 @@ class Dataset(dj.Manual):
         dataset_comment="",
         dataset_fabrikant=None,
         skip_duplicates=False,
-        return_key_only=True,
+        return_pk_only=True,
     ):
         """
         Add a new entry to the dataset.
@@ -261,7 +261,7 @@ class Dataset(dj.Manual):
             dataset_fabrikant (string): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
                 entry is returned. Defaults to True.
 
         Returns:
@@ -299,7 +299,7 @@ class Dataset(dj.Manual):
         else:
             self.insert1(key)
 
-        if return_key_only:
+        if return_pk_only:
             key = {k: key[k] for k in self.heading.primary_key}
 
         return key
@@ -361,7 +361,7 @@ class Trainer(dj.Manual):
         trainer_comment="",
         trainer_fabrikant=None,
         skip_duplicates=False,
-        return_key_only=True,
+        return_pk_only=True,
     ):
         """
         Add a new entry to the trainer.
@@ -374,7 +374,7 @@ class Trainer(dj.Manual):
             trainer_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_key_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
                 entry is returned. Defaults to True.
 
         Returns:
@@ -412,7 +412,7 @@ class Trainer(dj.Manual):
         else:
             self.insert1(key)
 
-        if return_key_only:
+        if return_pk_only:
             key = {k: key[k] for k in self.heading.primary_key}
 
         return key
