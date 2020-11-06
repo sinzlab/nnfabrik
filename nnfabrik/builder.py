@@ -19,7 +19,9 @@ def resolve_fn(fn_name, default_base):
 
     try:
         fn_obj = (
-            dynamic_import(module_path, class_name) if module_path else eval("{}.{}".format(default_base, class_name))
+            dynamic_import(module_path, class_name)
+            if module_path
+            else eval("{}.{}".format(default_base, class_name))
         )
     except NameError:
         raise NameError("Function `{}` does not exist".format(class_name))
@@ -36,7 +38,15 @@ resolve_data = partial(resolve_fn, default_base="datasets")
 resolve_trainer = partial(resolve_fn, default_base="training")
 
 
-def get_model(model_fn, model_config, dataloaders=None, seed=None, state_dict=None, strict=True, data_info=None):
+def get_model(
+    model_fn,
+    model_config,
+    dataloaders=None,
+    seed=None,
+    state_dict=None,
+    strict=True,
+    data_info=None,
+):
     """
     Resolves `model_fn` and invokes the resolved function with `model_config` keyword arguments as well as the `dataloader` and `seed`.
     Note that the resolved `model_fn` is expected to accept the `dataloader` as the first positional argument and `seed` as a keyword argument.
@@ -126,7 +136,14 @@ def get_all_parts(
 
     dataloaders = get_data(dataset_fn, dataset_config)
 
-    model = get_model(model_fn, model_config, dataloaders, seed=seed, state_dict=state_dict, strict=strict)
+    model = get_model(
+        model_fn,
+        model_config,
+        dataloaders,
+        seed=seed,
+        state_dict=state_dict,
+        strict=strict,
+    )
 
     if trainer_fn is not None:
         trainer = get_trainer(trainer_fn, trainer_config)

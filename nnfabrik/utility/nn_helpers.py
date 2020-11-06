@@ -10,49 +10,69 @@ import random
 
 def get_io_dims(data_loader):
     """
-    gets the input and output dimensions from the dataloader.
-    :Args
-        dataloader: is expected to be a pytorch Dataloader object
-            each loader should have as first argument the input in the form of
-                [batch_size, channels, px_x, px_y, ...]
-            each loader should have as second argument the output in the form of
-                [batch_size, output_units, ...]
-    :return:
-        input_dim: input dimensions, expected to be a tuple in the form of input.shape.
-                    for example: (batch_size, channels, px_x, px_y, ...)
-        output_dim: out dimensions, expected to be a tuple in the form of output.shape.
-                    for example: (batch_size, output_units, ...)
+    Returns the shape of the dataset for each item within an entry returned by the `data_loader`
+    The DataLoader object must return either a namedtuple, dictionary or a plain tuple. 
+    If `data_loader` entry is a namedtuple or a dictionary, a dictionary with the same keys as the 
+    namedtuple/dict item is returned, where values are the shape of the entry. Otherwise, a tuple of 
+    shape information is returned.
+
+    Note that the first dimension is always the batch dim with size depending on the data_loader configuration.
+
+    Args:
+        data_loader (torch.DataLoader): is expected to be a pytorch Dataloader object returning
+            either a namedtuple, dictionary, or a plain tuple.
+    Returns:
+        dict or tuple: If data_loader element is either namedtuple or dictionary, a ditionary 
+            of shape information, keyed for each entry of dataset is returned. Otherwise, a tuple
+            of shape information is returned. The first dimension is always the batch dim
+            with size depending on the data_loader configuration.
     """
     items = next(iter(data_loader))
-    return {k: v.shape for k, v in items._asdict().items()}
+    if hasattr(items, "_asdict"):  # if it's a named tuple
+        items = items._asdict()
+
+    if hasattr(items, "items"):  # if dict like
+        return {k: v.shape for k, v in items.items()}
+    else:
+        return (v.shape for v in items)
 
 
 def get_dims_for_loader_dict(dataloaders):
     """
-    gets the input and outpout dimensions for all dictionary entries of the dataloader
+    Given a dictionary of DataLoaders, returns a dictionary with same keys as the
+    input and shape information (as returned by `get_io_dims`) on each keyed DataLoader. 
 
-    :param dataloaders: dictionary of dataloaders. Each entry corresponds to a session
-    :return: a dictionary with the sessionkey and it's corresponding dimensions
+    Args:
+        dataloaders (dict of DataLoader): Dictionary of dataloaders. 
+    
+    Returns:
+        dict: A dict containing the result of calling `get_io_dims` for each entry of the input dict
     """
     return {k: get_io_dims(v) for k, v in dataloaders.items()}
 
 
-def get_module_output(model, input_shape):
+def get_module_output(model, input_shape, use_cuda=True):
     """
-    Gets the output dimensions of the convolutional core
-        by passing an input image through all convolutional layers
+    Returns the output shape of the model when fed in an array of `input_shape`.
+    Note that a zero array of shape `input_shape` is fed into the model and the
+    shape of the output of the model is returned.
 
-    :param core: convolutional core of the DNN, which final dimensions
-        need to be passed on to the readout layer
-    :param input_shape: the dimensions of the input
+    Args:
+        model (nn.Module): PyTorch module for which to compute the output shape
+        input_shape (tuple): Shape specification for the input array into the model
+        use_cuda (bool, optional): If True, model will be evaluated on CUDA if available. Othewrise
+            model evaluation will take place on CPU. Defaults to True.
 
-    :return: output dimensions of the core
+    Returns:
+        tuple: output shape of the model
+
     """
-    initial_device = "cuda" if next(iter(model.parameters())).is_cuda else "cpu"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # infer the original device
+    initial_device = next(iter(model.parameters())).device
+    device = "cuda" if torch.cuda.is_available() and use_cuda else "cpu"
     with eval_state(model):
         with torch.no_grad():
-            input = torch.zeros(1, *input_shape[1:]).to(device)
+            input = torch.zeros(1, *input_shape[1:], device=device)
             output = model.to(device)(input)
     model.to(initial_device)
     return output.shape
