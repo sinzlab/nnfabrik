@@ -14,12 +14,50 @@ from datajoint.fetch import DataJointError
 from nnfabrik.main import schema
 
 
+conn_clone = clone_conn(dj.conn())
+schema_clone = CustomSchema(
+    dj.config.get("schema_name", "nnfabrik_core"), connection=conn_clone
+)
+
+
+@schema_clone
+class Checkpoint(dj.Manual):
+    storage = "minio"
+
+    @property
+    def definition(self):
+        definition = """
+        # Checkpoint table
+        -> Trainer
+        -> Dataset
+        -> Model
+        -> Seed
+        epoch:                             int          # epoch of creation
+        ---
+        score:                             float        # current score at epoch
+        state:                             attach@{storage}  # current state
+        ->[nullable] Fabrikant
+        trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+        """.format(
+            storage=self.storage
+        )
+        return definition
+
+
 class TrainedModelChkptBase(TrainedModelBase):
+    checkpoint_table = Checkpoint
+    keys = [
+        "model_fn",
+        "model_hash",
+        "dataset_fn",
+        "dataset_hash",
+        "trainer_fn",
+        "trainer_hash",
+    ]
+
     def call_back(self, uid=None, epoch=None, model=None, state=None):
         """
-        Override this implementation to get periodic calls during the training
-        by the trainer.
-
+        This method is periodically called by the trainer and is used to save the training state in a remote table.
         Args:
             uid - Unique identifier for the trained model entry
             epoch - the iteration count
@@ -38,10 +76,13 @@ class TrainedModelChkptBase(TrainedModelBase):
             keep_best_n = state.pop("keep_best_n", 1)
             keep_last_n = state.pop("keep_last_n", 1)
             keep_selection = state.pop("keep_selection", ())
+
+            # add to checkpoint table
             with tempfile.TemporaryDirectory() as temp_dir:
                 key = copy.deepcopy(uid)
-                if "collapsed_key" not in key:
-                    key["collapsed_key"] = ""
+                for k in self.keys:
+                    if k not in key:
+                        key[k] = ""
                 key["epoch"] = epoch
                 key["score"] = score
                 filename = make_hash(uid) + ".pth.tar"
@@ -51,47 +92,41 @@ class TrainedModelChkptBase(TrainedModelBase):
                     state, filepath,
                 )
                 key["state"] = filepath
-                Checkpoint.insert1(
+                self.checkpoint_table.insert1(
                     key
                 )  # this is NOT in transaction and thus immediately completes!
 
-            checkpoints = (Checkpoint & uid).fetch(
-                "collapsed_key",
-                "model_fn",
-                "model_hash",
-                "dataset_fn",
-                "dataset_hash",
-                "trainer_fn",
-                "trainer_hash",
-                "seed",
-                "score",
-                "epoch",
-                as_dict=True,
+            # fetch all fitting entries from checkpoint table
+            checkpoints = (self.checkpoint_table & uid).fetch(
+                *self.keys, "seed", "score", "epoch", as_dict=True,
             )
+
+            # select checkpoints to be kept
             keep_checkpoints = []
             best_checkpoints = sorted(
                 checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score
             )
             for c in checkpoints:
                 del c["score"]  # restricting with a float is not a good idea -> remove
-            keep_checkpoints += best_checkpoints[:keep_best_n]
+            keep_checkpoints += best_checkpoints[:keep_best_n]  # w.r.t. performance
             last_checkpoints = sorted(
                 checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True
             )
-            keep_checkpoints += last_checkpoints[:keep_last_n]
+            keep_checkpoints += last_checkpoints[:keep_last_n]  # w.r.t. temporal order
             for chkpt in checkpoints:
                 if chkpt["epoch"] in keep_selection:
-                    keep_checkpoints.append(chkpt)
+                    keep_checkpoints.append(chkpt)  # keep selected epochs
+
+            # delete the others
             safe_mode = dj.config["safemode"]
             dj.config["safemode"] = False
-            ((Checkpoint & uid) - keep_checkpoints).delete(verbose=False)
+            ((self.checkpoint_table & uid) - keep_checkpoints).delete(verbose=False)
             dj.config["safemode"] = safe_mode
-        else:
-            checkpoints = (Checkpoint & uid).fetch(
-                "score",
-                "epoch",
-                "state",
-                as_dict=True,
+
+        else:  # restore existing epoch
+            # retrieve all fitting entries from checkpoint table
+            checkpoints = (self.checkpoint_table & uid).fetch(
+                "score", "epoch", "state", as_dict=True,
             )
             if not checkpoints:
                 return
@@ -107,6 +142,8 @@ class TrainedModelChkptBase(TrainedModelBase):
                     reverse=maximize_score,
                 )
                 checkpoint = best_checkpoints[0]
+
+            # restore the training state
             state["epoch"] = checkpoint["epoch"]
             state["score"] = checkpoint["score"]
             loaded_state = torch.load(checkpoint["state"])
@@ -124,37 +161,6 @@ class TrainedModelChkptBase(TrainedModelBase):
         if not trainer_config.get("keep_checkpoints"):
             safe_mode = dj.config["safemode"]
             dj.config["safemode"] = False
-            (Checkpoint & orig_key).delete(verbose=False)
+            (self.checkpoint_table & orig_key).delete(verbose=False)
             print("Deleting intermediate checkpoints...")
             dj.config["safemode"] = safe_mode
-
-
-conn_clone = clone_conn(dj.conn())
-schema_clone = CustomSchema(
-    dj.config.get("schema_name", "nnfabrik_core"), connection=conn_clone
-)
-
-
-@schema_clone
-class Checkpoint(dj.Manual):
-    storage = "minio"
-
-    @property
-    def definition(self):
-        definition = """
-        # Checkpoint table
-        collapsed_key:                     varchar(64)  # transfer         
-        -> Model
-        -> Dataset
-        -> Trainer
-        -> Seed
-        epoch:                             int          # epoch of creation
-        ---
-        score:                             float        # current score at epoch
-        state:                             attach@{storage}  # current state
-        ->[nullable] Fabrikant
-        trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-        """.format(
-            storage=self.storage
-        )
-        return definition
