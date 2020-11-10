@@ -4,7 +4,6 @@ from typing import Union, Optional, MutableMapping
 
 
 import datajoint as dj
-from datajoint.schema import Schema
 
 from .builder import (
     resolve_model,
@@ -14,7 +13,7 @@ from .builder import (
     get_model,
     get_trainer,
 )
-from .utility.dj_helpers import make_hash, CustomSchema
+from .utility.dj_helpers import make_hash, CustomSchema, Schema
 from .utility.nnf_helper import cleanup_numpy_scalar
 
 
