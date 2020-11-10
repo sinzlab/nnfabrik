@@ -1,57 +1,47 @@
-import datajoint as dj
-from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
-from nnfabrik.builder import resolve_data
+from .. import main
+from types import ModuleType
+from typing import Union
 
 
-class DataInfoBase(dj.Computed):
+def find_object(
+    context: Union[ModuleType, dict], attribute: str, prop_name: str = None
+):
     """
-    Inherit from this class and decorate with your own schema to create a functional
-    DataInfo table. By default, this will depend on Dataset table as found in nnfabrik.main.
-    To change this behavior, overwrite the `dataset_table` property of this class.
-    """
+        Helper function to resolve an object matching the name attribute
+        inside the context. If it's not found, throws ValueError suggesting
+        the user to override the `nnfabrik` class property or to a specific
+        class property for the table.
 
-    dataset_table = Dataset
-    user_table = Fabrikant
+        Args:
+            context (Union[ModuleType, dict]): A context object in which the name attribute would be checked.
+                Can either be a module object or a dictionary.
+            attribute (str): Name of object being sought.
+            prop_name (str, optional): The property name under which this object is being sought. Defaults to None,
+                in which case the name is infered to be lower(attribute) + '_table'. E.g. `model_table` for attribute
+                'Model'.
 
-    # table level comment
-    table_comment = "Table containing information about i/o dimensions and statistics, per data_key in dataset"
+        Raises:
+            ValueError: if an object with name `attribute` is not found inside the context.
 
-    @property
-    def definition(self):
-        definition = """
-            # {table_comment}
-            -> self.dataset_table
-            ---
-            data_info:                     longblob     # Dictionary of data_keys and i/o information
+        Returns:
+            Any: the object with name `attribute` found inside the context.
+        """
+    # if context of string "core" given, then use the core main module as the context
+    if context == "core":
+        context = main
 
-            ->[nullable] self.user_table
-            datainfo_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-            """.format(
-            table_comment=self.table_comment
+    if prop_name is None:
+        prop_name = attribute.lower() + "_table"
+
+    if context is None:
+        raise ValueError(
+            "Please specify either `nnfabrik` or `{}` property for the class".format(
+                prop_name
+            )
         )
-        return definition
 
-    def make(self, key):
-        """
-        Given a dataset from nnfabrik, extracts the necessary information for building a model in nnfabrik.
-        'data_info' is expected to be a dictionary of dictionaries, similar to the dataloaders object.
-        For example:
-            data_info = {
-                        'data_key_0': dict(input_dimensions=[N,c,h,w, ...],
-                                           input_channels=[c],
-                                           output_dimension=[o, ...],
-                                           img_mean=mean_train_images,
-                                           img_std=std_train_images),
-                        'data_key_1':  ...
-                        }
-        """
+    if isinstance(context, ModuleType):
+        context = context.__dict__
 
-        dataset_fn = resolve_data(key["dataset_fn"])
-        dataset_config = (self.dataset_table & key).fetch1("dataset_config")
-        data_info = dataset_fn(**dataset_config, return_data_info=True)
+    return context[attribute]
 
-        fabrikant_name = self.user_table.get_current_user()
-
-        key["fabrikant_name"] = fabrikant_name
-        key["data_info"] = data_info
-        self.insert1(key)
