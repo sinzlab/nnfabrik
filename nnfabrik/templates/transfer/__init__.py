@@ -4,6 +4,7 @@ import os
 import datajoint as dj
 import numpy as np
 from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
+from nnfabrik.templates.checkpoint import TrainedModelChkptBase
 from nnfabrik.utility.dj_helpers import gitlog, make_hash
 from nnfabrik.templates.trained_model import TrainedModelBase
 
@@ -151,6 +152,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         return self._key_source(transfer_step=0)
 
     def _key_source(self, transfer_step=0):
+        print("transfer_step", transfer_step)
         return_empty = False
         if hasattr(self, "transfer_recipe"):
             # map "prev_"-attributes and "collapsed_history" to their corresponding (updated) collapsed history
@@ -214,7 +216,6 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     & prev_transferred_model
                 )
 
-
                 # get the entries that match the one in TransferRecipe (all entries that have matching "prev_...")
                 recipe = self._transfer_recipe(transfer_step)
                 post_restr = recipe.post_restr if recipe else dj.AndList([])
@@ -244,8 +245,13 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     & post_restr  # restrict with post_rest
                 )
                 if transfers:
+                    print("transfers.proj()\n", transfers.proj())
                     return transfers.proj()
                 else:
+                    print(
+                        "inner self._key_source(transfer_step=transfer_step + 1)\n",
+                        self._key_source(transfer_step=transfer_step + 1),
+                    )
                     return self._key_source(transfer_step=transfer_step + 1)
             else:
                 return_empty = transfer_step > max_transfer_step
@@ -283,8 +289,18 @@ class TransferredTrainedModelBase(TrainedModelBase):
             )  # new entries
             or return_empty
         ):
+            print("base.proj()\n", base.proj())
             return base.proj()
-        else:
+        elif transfer_step > 0 and not hasattr(
+            self, "transfer_recipe"
+        ):  # nothing to run and no recipes for higher transfer steps
+            print("self.proj() - self \n", self.proj() - self)
+            return self.proj() - self
+        else:  # go to the next transfer step
+            print(
+                "outer self._key_source(transfer_step=transfer_step + 1)\n",
+                self._key_source(transfer_step=transfer_step + 1),
+            )
             return self._key_source(transfer_step=(transfer_step + 1))
 
     def get_full_config(self, key=None, include_state_dict=True, include_trainer=True):
