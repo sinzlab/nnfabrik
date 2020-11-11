@@ -38,11 +38,11 @@ class ChkptTrainer(MNISTTrainer):
             uid=self.uid, epoch=epoch, model=self.model, state=state,
         )  # save model
 
-    def restore(self, restore_only_model=False):
-        loaded_state = {"state": {"maximize_score": True,}}
-        if not restore_only_model:
-            loaded_state["state"]["tracker"] = self.accs
-            loaded_state["optimizer"] = self.optimizer.state_dict()
+    def restore(self):
+        loaded_state = {
+            "state": {"maximize_score": True, "tracker": self.accs},
+            "optimizer": self.optimizer.state_dict(),
+        }
         self.call_back(
             uid=self.uid, epoch=-1, model=self.model, state=loaded_state
         )  # load the last epoch if existing
@@ -74,7 +74,7 @@ def chkpt_trainer_fn(
     seed: int,
     uid: Tuple,
     cb: Callable,
-    **config
+    **config,
 ) -> Tuple[float, Dict, Dict]:
     """"
     Args:
