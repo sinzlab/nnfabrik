@@ -57,7 +57,7 @@ We have pretty much covered the most important information about nnfabrik, and i
 
 ## :bulb: Example
 
-[Here](./notebooks/nnfabrik_example.ipynb), you can find an example of the whole pipeline which might help to understand how different components work together to perform hyper-parameter search.
+[Here](./examples/notebooks/nnfabrik_example.ipynb), you can find an example of the whole pipeline which might help to understand how different components work together to perform hyper-parameter search.
 
 ## :book: Documentation
 
