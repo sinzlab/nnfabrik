@@ -3,7 +3,6 @@ import torch
 import os
 import datajoint as dj
 import numpy as np
-from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
 from nnfabrik.templates.checkpoint import TrainedModelChkptBase
 from nnfabrik.utility.dj_helpers import gitlog, make_hash
 from nnfabrik.templates.trained_model import TrainedModelBase
@@ -22,10 +21,10 @@ class TransferredTrainedModelBase(TrainedModelBase):
         definition = """
         # {table_comment}
         transfer_step:                     int          # transfer step
-        -> self.model_table
-        -> self.dataset_table
-        -> self.trainer_table
-        -> self.seed_table
+        -> self().model_table
+        -> self().dataset_table
+        -> self().trainer_table
+        -> self().seed_table
         prev_model_fn:                     varchar(64)
         prev_model_hash:                   varchar(64)
         prev_dataset_fn:                   varchar(64)
@@ -38,7 +37,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         comment='':                        varchar(768) # short description 
         score:                             float        # loss
         output:                            longblob     # trainer object's output
-        ->[nullable] self.user_table
+        ->[nullable] self().user_table
         trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
         current_model_fn:                  varchar(64)
         current_model_hash:                varchar(64)
@@ -55,8 +54,6 @@ class TransferredTrainedModelBase(TrainedModelBase):
         pass
 
     class DataStorage(dj.Part):
-        storage = "minio"
-
         @property
         def definition(self):
             definition = """
@@ -66,7 +63,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             transfer_train_data:            attach@{storage}
             transfer_test_data:            attach@{storage}
             """.format(
-                storage=self.storage
+                storage=self._master.storage
             )
             return definition
 
@@ -155,6 +152,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         print("transfer_step", transfer_step)
         return_empty = False
         if hasattr(self, "transfer_recipe"):
+            print("recipe")
             # map "prev_"-attributes and "collapsed_history" to their corresponding (updated) collapsed history
             with_collapsed_history = (
                 self.proj(
@@ -240,7 +238,11 @@ class TransferredTrainedModelBase(TrainedModelBase):
                         "data_transfer",
                     )
                     & (
-                        Model * Dataset * Trainer * Seed * transfer_from
+                        self.model_table
+                        * self.dataset_table
+                        * self.trainer_table
+                        * self.seed_table
+                        * transfer_from
                     )  # combine recipe restriction with all possible training combinations
                     & post_restr  # restrict with post_rest
                 )
@@ -257,8 +259,9 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 return_empty = transfer_step > max_transfer_step
 
         # normal entries as a combination of Dataset, Model, Trainer, and Seed tables
-        step_0 = Model * Dataset * Trainer * Seed
-
+        step_0 = (
+            self.model_table * self.dataset_table * self.trainer_table * self.seed_table
+        )
         # add transfer_step and prev_hash as prim keys
         base = dj.U(
             "transfer_step",
@@ -359,8 +362,8 @@ class TransferredTrainedModelBase(TrainedModelBase):
         """
 
         # lookup the fabrikant corresponding to the current DJ user
-        fabrikant_name = Fabrikant.get_current_user()
-        seed = (Seed & key).fetch1("seed")
+        fabrikant_name = self.user_table.get_current_user()
+        seed = (self.seed_table & key).fetch1("seed")
 
         # load everything
         dataloaders, model, trainer = self.load_model(
@@ -396,14 +399,14 @@ class TransferredTrainedModelBase(TrainedModelBase):
             comments.append((self.dataset_table & key).fetch1("dataset_comment"))
             key["comment"] = self.comment_delimitter.join(comments)
 
-            key["current_model_fn"], key["current_model_hash"] = (Model & key).fetch1(
-                "model_fn", "model_hash"
-            )
+            key["current_model_fn"], key["current_model_hash"] = (
+                self.model_table & key
+            ).fetch1("model_fn", "model_hash")
             key["current_dataset_fn"], key["current_dataset_hash"] = (
-                Dataset & key
+                self.dataset_table & key
             ).fetch1("dataset_fn", "dataset_hash")
             key["current_trainer_fn"], key["current_trainer_hash"] = (
-                Trainer & key
+                self.trainer_table & key
             ).fetch1("trainer_fn", "trainer_hash")
 
             self.insert1(key)

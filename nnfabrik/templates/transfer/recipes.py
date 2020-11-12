@@ -42,7 +42,6 @@ class Recipe(dj.Lookup):
         entry["data_transfer"] = 1 if data_transfer else 0
         self.insert1(entry, skip_duplicates=True)
 
-
 @schema
 class DatasetTransferRecipe(Recipe):
     definition = """
