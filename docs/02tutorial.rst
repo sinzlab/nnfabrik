@@ -28,9 +28,15 @@ and :code:`self.save()` after every epoch.
 Once we have a trainer that supports the checkpointing feature, all we need to do is to switch from :code:`TrainedModel`
 table to :code:`TrainedModelChkpt`. ::
 
-    @schema
+    from nnfabrik.templates.checkpoint import TrainedModelChkptBase, my_checkpoint
+
+    Checkpoint = my_checkpoint(nnfabrik)
+
+    @nnfabrik.schema
     class TrainedModelChkpt(TrainedModelChkptBase):
-        table_comment = "Trained models with checkpointing"
+        table_comment = "My Trained models with checkpointing"
+        nnfabrik = nnfabrik
+        checkpoint_table = Checkpoint
 
 Now this table can be used just as :code:`TrainedModel`, i.e. we can simply populate it. ::
 

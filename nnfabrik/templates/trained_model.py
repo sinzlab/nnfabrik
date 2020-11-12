@@ -1,11 +1,11 @@
-import datajoint as dj
 import tempfile
 import torch
 import os
+import warnings
+import datajoint as dj
+from datajoint.fetch import DataJointError
 from ..builder import get_all_parts, get_model, get_trainer
 from ..utility.dj_helpers import make_hash
-from datajoint.fetch import DataJointError
-import warnings
 from .utility import find_object
 
 
