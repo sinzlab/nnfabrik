@@ -97,10 +97,12 @@ Create your TrainedModel table
 Inheritance of the :code:`TrainedModelBase` template ::
 
     from nnfabrik.templates.trained_model import TrainedModelBase
+    from nnfabrik.examples import nnfabrik
 
     @schema
     class TrainedModel(TrainedModelBase):
         table_comment = "Trained models"
+        nnfabrik = nnfabrik
 
 Populate (fill up) the TrainedModel table
 ~~~~~~~~~~~~

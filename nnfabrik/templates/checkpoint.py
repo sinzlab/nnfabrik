@@ -14,38 +14,38 @@ from datajoint.fetch import DataJointError
 from nnfabrik.main import schema
 
 
-conn_clone = clone_conn(dj.conn())
-schema_clone = CustomSchema(
-    dj.config.get("schema_name", "nnfabrik_core"), connection=conn_clone
-)
+def my_checkpoint(nnfabrik):
+    conn_clone = clone_conn(dj.conn())
+    schema_clone = CustomSchema(nnfabrik.schema.database, connection=conn_clone)
 
+    @schema_clone
+    class Checkpoint(dj.Manual):
+        storage = "minio"
 
-@schema_clone
-class Checkpoint(dj.Manual):
-    storage = "minio"
+        @property
+        def definition(self):
+            definition = """
+            # Checkpoint table
+            -> nnfabrik.Trainer
+            -> nnfabrik.Dataset
+            -> nnfabrik.Model
+            -> nnfabrik.Seed
+            epoch:                             int          # epoch of creation
+            ---
+            score:                             float        # current score at epoch
+            state:                             attach@{storage}  # current state
+            ->[nullable] nnfabrik.Fabrikant
+            trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+            """.format(
+                storage=self.storage
+            )
+            return definition
 
-    @property
-    def definition(self):
-        definition = """
-        # Checkpoint table
-        -> Trainer
-        -> Dataset
-        -> Model
-        -> Seed
-        epoch:                             int          # epoch of creation
-        ---
-        score:                             float        # current score at epoch
-        state:                             attach@{storage}  # current state
-        ->[nullable] Fabrikant
-        trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-        """.format(
-            storage=self.storage
-        )
-        return definition
+    return Checkpoint
 
 
 class TrainedModelChkptBase(TrainedModelBase):
-    checkpoint_table = Checkpoint
+    checkpoint_table = None  # Checkpoint
     keys = [
         "model_fn",
         "model_hash",
@@ -157,7 +157,7 @@ class TrainedModelChkptBase(TrainedModelBase):
         orig_key = copy.deepcopy(key)
         super().make(key)
         # Clean up checkpoints after training:
-        trainer_config = (Trainer & orig_key).fetch1("trainer_config")
+        trainer_config = (self.trainer_table & orig_key).fetch1("trainer_config")
         if not trainer_config.get("keep_checkpoints"):
             safe_mode = dj.config["safemode"]
             dj.config["safemode"] = False
