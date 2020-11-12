@@ -146,13 +146,8 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
     @property
     def key_source(self):
-        return self._key_source(transfer_step=0)
-
-    def _key_source(self, transfer_step=0):
-        print("transfer_step", transfer_step)
-        return_empty = False
+        key_source = None
         if hasattr(self, "transfer_recipe"):
-            print("recipe")
             # map "prev_"-attributes and "collapsed_history" to their corresponding (updated) collapsed history
             with_collapsed_history = (
                 self.proj(
@@ -196,8 +191,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 else 0
             )
 
-            if 0 < transfer_step <= max_transfer_step:
-
+            for transfer_step in range(1,max_transfer_step+1):
                 # get the necessay attributes to filter the prev_transferredmodel with the transfer recipe
                 prev_transferred_model = (
                     dj.U(
@@ -246,17 +240,10 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     )  # combine recipe restriction with all possible training combinations
                     & post_restr  # restrict with post_rest
                 )
-                if transfers:
-                    print("transfers.proj()\n", transfers.proj())
-                    return transfers.proj()
+                if key_source is not None:
+                    key_source = key_source + transfers.proj()
                 else:
-                    print(
-                        "inner self._key_source(transfer_step=transfer_step + 1)\n",
-                        self._key_source(transfer_step=transfer_step + 1),
-                    )
-                    return self._key_source(transfer_step=transfer_step + 1)
-            else:
-                return_empty = transfer_step > max_transfer_step
+                    key_source = transfers.proj()
 
         # normal entries as a combination of Dataset, Model, Trainer, and Seed tables
         step_0 = (
@@ -284,27 +271,11 @@ class TransferredTrainedModelBase(TrainedModelBase):
             collapsed_history='""',
             data_transfer="0",
         )  # train with "prev_"-entries empty
-        if (
-            (not self & {"transfer_step": 0})  # no entries yet for this step
-            or (
-                (self & {"transfer_step": 0})
-                and not ((self & {"transfer_step": 0}) & base)
-            )  # new entries
-            or return_empty
-        ):
-            print("base.proj()\n", base.proj())
+
+        if key_source is None:
             return base.proj()
-        elif transfer_step > 0 and not hasattr(
-            self, "transfer_recipe"
-        ):  # nothing to run and no recipes for higher transfer steps
-            print("self.proj() - self \n", self.proj() - self)
-            return self.proj() - self
-        else:  # go to the next transfer step
-            print(
-                "outer self._key_source(transfer_step=transfer_step + 1)\n",
-                self._key_source(transfer_step=transfer_step + 1),
-            )
-            return self._key_source(transfer_step=(transfer_step + 1))
+        else:
+            return key_source + base.proj()
 
     def get_full_config(self, key=None, include_state_dict=True, include_trainer=True):
         ret = super().get_full_config(
