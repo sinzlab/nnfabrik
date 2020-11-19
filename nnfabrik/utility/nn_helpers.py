@@ -140,7 +140,6 @@ def load_state_dict(
                         by finding and removing a common prefix from the keys in each dict
     :param ignore_dim_mismatch: if True ignores parameters in `state_dict` that don't fit the shape in `model`
     """
-
     model_dict = model.state_dict()
     # 0. Try to match names by adding or removing prefix:
     if match_names:

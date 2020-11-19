@@ -72,7 +72,14 @@ def get_model(
     )
 
     if state_dict is not None:
-        load_state_dict(net, state_dict)
+        load_state_dict(
+            net,
+            state_dict,
+            match_names=model_config.get("transfer"),
+            ignore_unused=model_config.get("transfer"),
+            ignore_dim_mismatch=model_config.get("transfer"),
+            ignore_missing=model_config.get("transfer"),
+        )
 
     return net
 
