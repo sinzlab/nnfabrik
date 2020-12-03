@@ -1,10 +1,9 @@
 from typing import Dict, Tuple, Callable
 
-import numpy as np
 from tqdm import tqdm
 import torch
-import torch.nn as nn
-import torch.optim as optim
+from torch import nn
+from torch import optim
 
 
 class MNISTTrainer:
@@ -19,7 +18,7 @@ class MNISTTrainer:
         self.loss_fn = nn.NLLLoss()
         self.optimizer = optim.Adam(self.model.parameters())
 
-    def main_loop(self, x, y):
+    def main_loop(self, x, y) -> Tuple[float, float]:
         # forward:
         self.optimizer.zero_grad()
         x_flat = x.flatten(1, -1)  # treat the images as flat vectors

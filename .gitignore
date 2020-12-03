@@ -15,7 +15,6 @@ Untitled*.ipynb
 *.swp
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
 *$py.class
 
 # C extensions
@@ -35,7 +34,6 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
