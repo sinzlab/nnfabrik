@@ -23,8 +23,10 @@ except:
 def clone_conn(conn):
     """
     Clones a given connection object.
-    :param conn: dj.Connection object
-    :return: new dj.Connection object with properties identical to conn
+    Args:
+        conn (dj.Connection): connection object to clone
+    Returns:
+        new dj.Connection object with properties identical to conn
     """
     conn_info = conn.conn_info
     return dj.Connection(

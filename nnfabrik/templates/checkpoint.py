@@ -1,17 +1,12 @@
 import copy
-from typing import Dict, Tuple
+import os
+import tempfile
 
 import datajoint as dj
-import tempfile
 import torch
-import os
-from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
-from nnfabrik.builder import get_all_parts, get_model, get_trainer
+
 from nnfabrik.templates.trained_model import TrainedModelBase
 from nnfabrik.utility.dj_helpers import make_hash, clone_conn, CustomSchema
-from nnfabrik.builder import resolve_data
-from datajoint.fetch import DataJointError
-from nnfabrik.main import schema
 
 
 def my_checkpoint(nnfabrik):
@@ -24,7 +19,7 @@ def my_checkpoint(nnfabrik):
 
         @property
         def definition(self):
-            definition = """
+            definition = f"""
             # Checkpoint table
             -> nnfabrik.Trainer
             -> nnfabrik.Dataset
@@ -33,12 +28,10 @@ def my_checkpoint(nnfabrik):
             epoch:                             int          # epoch of creation
             ---
             score:                             float        # current score at epoch
-            state:                             attach@{storage}  # current state
+            state:                             attach@{self.storage}  # current state
             ->[nullable] nnfabrik.Fabrikant
             trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
-            """.format(
-                storage=self.storage
-            )
+            """
             return definition
 
     return Checkpoint
@@ -63,95 +56,102 @@ class TrainedModelChkptBase(TrainedModelBase):
             epoch - the iteration count
             model - current model under training
             state - Additional information provided by the trainer
+                action: str = "save"/"last"/"best"
                 score: float = 0.0,
                 maximize_score: bool = True,
+                save_every_n: int = 1,
                 keep_last_n: int = 1,
                 keep_best_n: int = 1,
                 keep_selection: Tuple = (),
         """
         maximize_score = state.pop("maximize_score", True)
-        if epoch >= 0:  # save current epoch
-            assert "score" in state, "Score value needs to be provided"
-            score = state.pop("score", 0.0)
-            keep_best_n = state.pop("keep_best_n", 1)
-            keep_last_n = state.pop("keep_last_n", 1)
-            keep_selection = state.pop("keep_selection", ())
+        action = state.pop("action", "save")
+        if action == "save":  # save current epoch
+            self.save_epoch(epoch, maximize_score, model, state, uid)
+        else:  # restore last/best existing epoch
+            self.restore_epoch(action, uid, maximize_score, state)
 
-            # add to checkpoint table
-            with tempfile.TemporaryDirectory() as temp_dir:
-                key = copy.deepcopy(uid)
-                for k in self.keys:
-                    if k not in key:
-                        key[k] = ""
-                key["epoch"] = epoch
-                key["score"] = score
-                filename = make_hash(uid) + ".pth.tar"
-                filepath = os.path.join(temp_dir, filename)
-                state["net"] = model.state_dict()
-                torch.save(
-                    state, filepath,
-                )
-                key["state"] = filepath
-                self.checkpoint_table.insert1(
-                    key
-                )  # this is NOT in transaction and thus immediately completes!
-
-            # fetch all fitting entries from checkpoint table
-            checkpoints = (self.checkpoint_table & uid).fetch(
-                *self.keys, "seed", "score", "epoch", as_dict=True,
-            )
-
-            # select checkpoints to be kept
-            keep_checkpoints = []
-            best_checkpoints = sorted(
-                checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score
-            )
-            for c in checkpoints:
-                del c["score"]  # restricting with a float is not a good idea -> remove
-            keep_checkpoints += best_checkpoints[:keep_best_n]  # w.r.t. performance
+    def restore_epoch(self, action, uid, maximize_score, state):
+        # retrieve all fitting entries from checkpoint table
+        checkpoints = (self.checkpoint_table & uid).fetch(
+            "score", "epoch", "state", as_dict=True,
+        )
+        if not checkpoints:
+            return
+        if action == "last":  # select last epoch
             last_checkpoints = sorted(
-                checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True
+                checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False
             )
-            keep_checkpoints += last_checkpoints[:keep_last_n]  # w.r.t. temporal order
-            for chkpt in checkpoints:
-                if chkpt["epoch"] in keep_selection:
-                    keep_checkpoints.append(chkpt)  # keep selected epochs
-
-            # delete the others
-            safe_mode = dj.config["safemode"]
-            dj.config["safemode"] = False
-            ((self.checkpoint_table & uid) - keep_checkpoints).delete(verbose=False)
-            dj.config["safemode"] = safe_mode
-
-        else:  # restore existing epoch
-            # retrieve all fitting entries from checkpoint table
-            checkpoints = (self.checkpoint_table & uid).fetch(
-                "score", "epoch", "state", as_dict=True,
+            checkpoint = last_checkpoints[-1]
+        else:  # select best epoch
+            best_checkpoints = sorted(
+                checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score,
             )
-            if not checkpoints:
-                return
-            if epoch == -1:  # restore last epoch
-                last_checkpoints = sorted(
-                    checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False
-                )
-                checkpoint = last_checkpoints[-1]
-            elif epoch == -2:  # restore best epoch
-                best_checkpoints = sorted(
-                    checkpoints,
-                    key=lambda chkpt: chkpt["score"],
-                    reverse=maximize_score,
-                )
-                checkpoint = best_checkpoints[0]
+            checkpoint = best_checkpoints[0]
+        # restore the training state
+        state["epoch"] = checkpoint["epoch"]
+        state["score"] = checkpoint["score"]
+        loaded_state = torch.load(checkpoint["state"])
+        for key, state_entry in loaded_state.items():
+            if key in state and hasattr(state[key], "load_state_dict"):
+                state[key].load_state_dict(state_entry)
+            else:
+                state[key] = state_entry
 
-            # restore the training state
-            state["epoch"] = checkpoint["epoch"]
-            state["score"] = checkpoint["score"]
-            loaded_state = torch.load(checkpoint["state"])
-            for key, state_entry in loaded_state.items():
-                if key in state and hasattr(state[key], "load_state_dict"):
-                    state[key].load_state_dict(state_entry)
-                else:
-                    state[key] = state_entry
+    def save_epoch(self, epoch, maximize_score, model, state, uid):
+        if epoch % state.pop("save_every_n", 1) != 0:
+            return
+        score = state.pop("score", 0.0)
+        keep_best_n = state.pop("keep_best_n", 1)
+        keep_last_n = state.pop("keep_last_n", 1)
+        keep_selection = state.pop("keep_selection", ())
+        self.add_to_table(epoch, model, score, state, uid)
+        self.filter_table(keep_best_n, keep_last_n, keep_selection, maximize_score, uid)
+
+    def filter_table(self, keep_best_n, keep_last_n, keep_selection, maximize_score, uid):
+        # fetch all fitting entries from checkpoint table
+        checkpoints = (self.checkpoint_table & uid).fetch(
+            *self.keys, "seed", "score", "epoch", as_dict=True,
+        )
+        # select checkpoints to be kept
+        keep_checkpoints = []
+        best_checkpoints = sorted(
+            checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score
+        )
+        for c in checkpoints:
+            del c["score"]  # restricting with a float is not a good idea -> remove
+        keep_checkpoints += best_checkpoints[:keep_best_n]  # w.r.t. performance
+        last_checkpoints = sorted(
+            checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True
+        )
+        keep_checkpoints += last_checkpoints[:keep_last_n]  # w.r.t. temporal order
+        for chkpt in checkpoints:
+            if chkpt["epoch"] in keep_selection:
+                keep_checkpoints.append(chkpt)  # keep selected epochs
+        # delete the others
+        safe_mode = dj.config["safemode"]
+        dj.config["safemode"] = False
+        ((self.checkpoint_table & uid) - keep_checkpoints).delete(verbose=False)
+        dj.config["safemode"] = safe_mode
+
+    def add_to_table(self, epoch, model, score, state, uid):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            key = copy.deepcopy(uid)
+            for k in self.keys:
+                if k not in key:
+                    key[k] = ""
+            key["epoch"] = epoch
+            key["score"] = score
+            filename = make_hash(uid) + ".pth.tar"
+            filepath = os.path.join(temp_dir, filename)
+            state["net"] = model.state_dict()
+            torch.save(
+                state, filepath,
+            )
+            key["state"] = filepath
+            self.checkpoint_table.insert1(
+                key
+            )  # this is NOT in transaction and thus immediately completes!
 
     def make(self, key):
         orig_key = copy.deepcopy(key)

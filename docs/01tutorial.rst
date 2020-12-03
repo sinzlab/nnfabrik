@@ -14,7 +14,7 @@ values and train models for every possible combination of those hyper-parameters
 
 The Fabrikant Table
 ---------------------------------------
-Fabrikant tables keeps a record of the users that interact with a specific schema.
+The Fabrikant table keeps a record of the users that interact with a specific schema.
 It is simply an extra level of information to know who is accountable for the entries
 in the Dataset, Model, and Trainer tables. simply add your information as follows: ::
 
@@ -37,7 +37,7 @@ then you should specify the dataset function as:
     dataset_config = dict(batch_size=64) # we specify all the inputs except the ones required by nnfabrik
 
     Dataset().add_entry(dataset_fn=dataset_fn, dataset_config=dataset_config,
-                        dataset_fabrikant="Your Name", dataset_comment="A comment about the dataset!");
+                        dataset_fabrikant="Your Name", dataset_comment="A comment about the dataset!")
 
 .. tip::
 
@@ -67,7 +67,7 @@ Let's also try :code:`h_dim = 15`: ::
 The Trainer Table
 ---------------------------------------
 Here we need to specify **trainer function** and the arguments passed to the trainer function, **trainer config**.
-Everything explained for the dataset function applied to trainer function as well. ::
+Everything explained for the dataset function applies to trainer function as well. ::
 
     # specify trainer function as string (the function must be importable) as well as the trainer config
     trainer_fn = "nnfabrik.examples.mnist.trainer.mnist_trainer_fn"
@@ -89,7 +89,7 @@ The TrainedModel Table
 ---------------------------------------
 Once we have bunch of trained models, the downstream analysis might be different for each specific project.
 For this reason, we keep the TrainedModel tables separate from the tables provided in the library.
-However, the process of creating your own TrainedModel has becomes very easy with the template(s) provided by nnfabrik.
+However, the process of creating your own TrainedModel becomes very easy with the template(s) provided by nnfabrik.
 
 Create your TrainedModel table
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Callable
+from typing import Dict, Tuple, Callable, Optional
 
 import numpy as np
 from tqdm import tqdm
@@ -18,7 +18,7 @@ class ChkptTrainer(MNISTTrainer):
         uid: Tuple,
         cb: Callable,
         epochs: int = 5,
-        chkpt_options: Dict = None,
+        chkpt_options: Optional[Dict] = None,
     ):
         super(ChkptTrainer, self).__init__(model, dataloaders, seed, epochs)
         self.call_back = cb
