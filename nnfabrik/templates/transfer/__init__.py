@@ -379,7 +379,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             self.insert1(key)
             self.CollapsedHistory.add_entry(key)
 
-            if key["data_transfer"]:
+            if key["data_transfer"] and transfer_data:
                 data_path = os.path.join(temp_dir, filename + "_transfer_data.npz")
                 np.savez(data_path, **transfer_data)
                 key["transfer_data"] = data_path
