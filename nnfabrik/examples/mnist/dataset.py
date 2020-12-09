@@ -9,9 +9,9 @@ def mnist_dataset_fn(seed: int, **config) -> Dict:
     """
     Returns data loaders for the given config
     Args:
-        seed (int): random seed that will make shuffling and other random operations deterministic
+        seed: random seed that will make shuffling and other random operations deterministic
     Returns:
-        data_loaders (dict): containing "train", "validation" and "test" data loaders
+        data_loaders: containing "train", "validation" and "test" data loaders
     """
     np.random.seed(seed)
 
