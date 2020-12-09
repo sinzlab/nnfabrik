@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Callable
+from typing import Dict, Tuple, Callable, List, Any
 
 from tqdm import tqdm
 import torch
@@ -8,8 +8,8 @@ from torch import optim
 
 class MNISTTrainer:
     def __init__(
-        self, model, dataloaders: Dict, seed: int, epochs: int = 5,
-    ):
+        self, model: nn.Module, dataloaders: Dict, seed: int, epochs: int = 5,
+    ) -> None:
 
         self.model = model
         self.trainloader = dataloaders["train"]
@@ -18,7 +18,7 @@ class MNISTTrainer:
         self.loss_fn = nn.NLLLoss()
         self.optimizer = optim.Adam(self.model.parameters())
 
-    def main_loop(self, x, y) -> Tuple[float, float]:
+    def main_loop(self, x: torch.Tensor, y: torch.Tensor) -> Tuple[float, int]:
         # forward:
         self.optimizer.zero_grad()
         x_flat = x.flatten(1, -1)  # treat the images as flat vectors
@@ -33,7 +33,7 @@ class MNISTTrainer:
         total = y.shape[0]
         return predicted_correct, total
 
-    def train(self):
+    def train(self) -> Tuple[float, Tuple[List[float],int], Dict]:
         if hasattr(tqdm, "_instances"):
             tqdm._instances.clear()  # To have tqdm output without line-breaks between steps
         torch.manual_seed(self.seed)
@@ -58,7 +58,7 @@ def mnist_trainer_fn(
     uid: Tuple,
     cb: Callable,
     **config
-) -> Tuple[float, Dict, Dict]:
+) -> Tuple[float, Any, Dict]:
     """"
     Args:
         model (torch.nn.Module): initialized model to train
