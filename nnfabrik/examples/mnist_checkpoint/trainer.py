@@ -1,10 +1,8 @@
-from typing import Dict, Tuple, Callable, Optional
+from typing import Dict, Tuple, Callable, Optional, List, Any
 
-import numpy as np
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
 from nnfabrik.examples.mnist.trainer import MNISTTrainer
 
@@ -12,21 +10,21 @@ from nnfabrik.examples.mnist.trainer import MNISTTrainer
 class ChkptTrainer(MNISTTrainer):
     def __init__(
         self,
-        model,
+        model: nn.Module,
         dataloaders: Dict,
         seed: int,
         uid: Tuple,
         cb: Callable,
         epochs: int = 5,
         chkpt_options: Optional[Dict] = None,
-    ):
+    ) -> None:
         super(ChkptTrainer, self).__init__(model, dataloaders, seed, epochs)
         self.call_back = cb
         self.uid = uid
         self.accs = []
         self.chkpt_options = chkpt_options if chkpt_options is not None else {}
 
-    def save(self, epoch, score):
+    def save(self, epoch: int, score: float) -> None:
         state = {
             "score": score,
             "maximize_score": True,
@@ -38,7 +36,7 @@ class ChkptTrainer(MNISTTrainer):
             uid=self.uid, epoch=epoch, model=self.model, state=state,
         )  # save model
 
-    def restore(self):
+    def restore(self) -> int:
         loaded_state = {
             "state": {"maximize_score": True, "tracker": self.accs},
             "optimizer": self.optimizer.state_dict(),
@@ -49,7 +47,7 @@ class ChkptTrainer(MNISTTrainer):
         epoch = loaded_state.get("epoch", -1) + 1
         return epoch
 
-    def train(self):
+    def train(self) -> Tuple[float, Tuple[List[float],int], Dict]:
         if hasattr(tqdm, "_instances"):
             tqdm._instances.clear()  # To have tqdm output without line-breaks between steps
         torch.manual_seed(self.seed)
@@ -75,7 +73,7 @@ def chkpt_trainer_fn(
     uid: Tuple,
     cb: Callable,
     **config,
-) -> Tuple[float, Dict, Dict]:
+) -> Tuple[float, Any, Dict]:
     """"
     Args:
         model (torch.nn.Module): initialized model to train

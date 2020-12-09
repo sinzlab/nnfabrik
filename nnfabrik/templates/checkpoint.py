@@ -38,7 +38,7 @@ def my_checkpoint(nnfabrik):
 
 
 class TrainedModelChkptBase(TrainedModelBase):
-    checkpoint_table = None  # Checkpoint
+    checkpoint_table = None  # assign the output of `my_checkpoint` here (i.e. `Checkpoint`)
     keys = [
         "model_fn",
         "model_hash",
@@ -66,13 +66,12 @@ class TrainedModelChkptBase(TrainedModelBase):
         """
         maximize_score = state.pop("maximize_score", True)
         action = state.pop("action", "save")
-        if action == "save":  # save current epoch
+        if action == "save":
             self.save_epoch(epoch, maximize_score, model, state, uid)
-        else:  # restore last/best existing epoch
+        else:  # restore existing epoch (selected based on action=last/best)
             self.restore_epoch(action, uid, maximize_score, state)
 
     def restore_epoch(self, action, uid, maximize_score, state):
-        # retrieve all fitting entries from checkpoint table
         checkpoints = (self.checkpoint_table & uid).fetch(
             "score", "epoch", "state", as_dict=True,
         )
