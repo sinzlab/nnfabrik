@@ -22,8 +22,8 @@ def mnist_model_fn(dataloaders: Dict, seed: int, **config) -> torch.nn.Module:
     """
     Builds a model object for the given config
     Args:
-        data_loaders (dict): a dictionary of data loaders
-        seed (int): random seed (e.g. for model initialization)
+        data_loaders: a dictionary of data loaders
+        seed: random seed (e.g. for model initialization)
     Returns:
         Instance of torch.nn.Module
     """

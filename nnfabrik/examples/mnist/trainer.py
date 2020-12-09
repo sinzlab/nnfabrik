@@ -18,7 +18,7 @@ class MNISTTrainer:
         self.loss_fn = nn.NLLLoss()
         self.optimizer = optim.Adam(self.model.parameters())
 
-    def main_loop(self, x: torch.Tensor, y: torch.Tensor) -> Tuple[float, int]:
+    def train_loop(self, x: torch.Tensor, y: torch.Tensor) -> Tuple[float, int]:
         # forward:
         self.optimizer.zero_grad()
         x_flat = x.flatten(1, -1)  # treat the images as flat vectors
@@ -42,7 +42,7 @@ class MNISTTrainer:
             predicted_correct = 0
             total = 0
             for x, y in tqdm(self.trainloader):
-                p, t = self.main_loop(x, y)
+                p, t = self.train_loop(x, y)
                 predicted_correct += p
                 total += t
 
@@ -55,17 +55,17 @@ def mnist_trainer_fn(
     model: torch.nn.Module,
     dataloaders: Dict,
     seed: int,
-    uid: Tuple,
+    uid: Dict,
     cb: Callable,
     **config
 ) -> Tuple[float, Any, Dict]:
     """"
     Args:
-        model (torch.nn.Module): initialized model to train
-        data_loaders (dict): containing "train", "validation" and "test" data loaders
-        seed (int): random seed
-        uid (tuple): keys that uniquely identify this trainer call
-        cb : callback function to ping the database and potentially save the checkpoint
+        model: initialized model to train
+        data_loaders: containing "train", "validation" and "test" data loaders
+        seed: random seed
+        uid: database keys that uniquely identify this trainer call
+        cb: callback function to ping the database and potentially save the checkpoint
     Returns:
         score: performance score of the model
         output: user specified validation object based on the 'stop function'
