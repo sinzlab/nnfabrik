@@ -1,4 +1,7 @@
 # nnfabrik: a generalized model fitting pipeline
+
+![Black](https://github.com/sinzlab/nnfabrik/workflows/Black/badge.svg)
+
 nnfabrik is a model fitting pipeline, mainly developed for neural networks, where training results (i.e. scores, and trained models) as well as any data related to models, trainers, and datasets used for training are stored in datajoint tables.
 
 ## Why use it?
