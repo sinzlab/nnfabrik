@@ -11,9 +11,9 @@ import random
 def get_io_dims(data_loader):
     """
     Returns the shape of the dataset for each item within an entry returned by the `data_loader`
-    The DataLoader object must return either a namedtuple, dictionary or a plain tuple. 
-    If `data_loader` entry is a namedtuple or a dictionary, a dictionary with the same keys as the 
-    namedtuple/dict item is returned, where values are the shape of the entry. Otherwise, a tuple of 
+    The DataLoader object must return either a namedtuple, dictionary or a plain tuple.
+    If `data_loader` entry is a namedtuple or a dictionary, a dictionary with the same keys as the
+    namedtuple/dict item is returned, where values are the shape of the entry. Otherwise, a tuple of
     shape information is returned.
 
     Note that the first dimension is always the batch dim with size depending on the data_loader configuration.
@@ -22,7 +22,7 @@ def get_io_dims(data_loader):
         data_loader (torch.DataLoader): is expected to be a pytorch Dataloader object returning
             either a namedtuple, dictionary, or a plain tuple.
     Returns:
-        dict or tuple: If data_loader element is either namedtuple or dictionary, a ditionary 
+        dict or tuple: If data_loader element is either namedtuple or dictionary, a ditionary
             of shape information, keyed for each entry of dataset is returned. Otherwise, a tuple
             of shape information is returned. The first dimension is always the batch dim
             with size depending on the data_loader configuration.
@@ -40,11 +40,11 @@ def get_io_dims(data_loader):
 def get_dims_for_loader_dict(dataloaders):
     """
     Given a dictionary of DataLoaders, returns a dictionary with same keys as the
-    input and shape information (as returned by `get_io_dims`) on each keyed DataLoader. 
+    input and shape information (as returned by `get_io_dims`) on each keyed DataLoader.
 
     Args:
-        dataloaders (dict of DataLoader): Dictionary of dataloaders. 
-    
+        dataloaders (dict of DataLoader): Dictionary of dataloaders.
+
     Returns:
         dict: A dict containing the result of calling `get_io_dims` for each entry of the input dict
     """
@@ -83,7 +83,7 @@ def set_random_seed(seed: int, deterministic: bool = True):
     Set random generator seed for Python interpreter, NumPy and PyTorch. When setting the seed for PyTorch,
     if CUDA device is available, manual seed for CUDA will also be set. Finally, if `deterministic=True`,
     and CUDA device is available, PyTorch CUDNN backend will be configured to `benchmark=False` and `deterministic=True`
-    to yield as deterministic result as possible. For more details, refer to 
+    to yield as deterministic result as possible. For more details, refer to
     PyTorch documentation on reproducibility: https://pytorch.org/docs/stable/notes/randomness.html
 
     Beware that the seed setting is a "best effort" towards deterministic run. However, as detailed in the above documentation,

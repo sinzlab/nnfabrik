@@ -33,7 +33,10 @@ class ChkptTrainer(MNISTTrainer):
             **self.chkpt_options,
         }
         self.trained_model_cb(
-            uid=self.uid, epoch=epoch, model=self.model, state=state,
+            uid=self.uid,
+            epoch=epoch,
+            model=self.model,
+            state=state,
         )  # save model
 
     def restore(self) -> int:
@@ -47,7 +50,7 @@ class ChkptTrainer(MNISTTrainer):
         epoch = loaded_state.get("epoch", -1) + 1
         return epoch
 
-    def train(self) -> Tuple[float, Tuple[List[float],int], Dict]:
+    def train(self) -> Tuple[float, Tuple[List[float], int], Dict]:
         if hasattr(tqdm, "_instances"):
             tqdm._instances.clear()  # To have tqdm output without line-breaks between steps
         torch.manual_seed(self.seed)
@@ -74,7 +77,7 @@ def chkpt_trainer_fn(
     cb: Callable,
     **config,
 ) -> Tuple[float, Any, Dict]:
-    """"
+    """ "
     Args:
         model: initialized model to train
         data_loaders: containing "train", "validation" and "test" data loaders

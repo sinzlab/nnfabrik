@@ -52,7 +52,7 @@ class Fabrikant(dj.Manual):
             dj_username (str, optional): DataJoint username. Defaults to None, in which case
                 the username of the current connection is used.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
 
         Returns:
@@ -138,7 +138,7 @@ class Model(dj.Manual):
             model_comment - Optional comment for the entry.
             model_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
 
         Returns:
@@ -259,7 +259,7 @@ class Dataset(dj.Manual):
             dataset_fabrikant (string): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
 
         Returns:
@@ -372,7 +372,7 @@ class Trainer(dj.Manual):
             trainer_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
-            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire 
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
 
         Returns:
@@ -451,13 +451,13 @@ def my_nnfabrik(
     """
     Create a custom nnfabrik module under specified DataJoint schema,
     instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
-    is set to True, the new tables will depend on the common Fabrikant table. 
+    is set to True, the new tables will depend on the common Fabrikant table.
     Otherwise, a separate copy of Fabrikant table will also be prepared.
 
     Examples:
-        Use of this function should replace any existing use of `nnfabrik` tables done via modifying the 
-        `nnfabrik.schema_name` property in `dj.config`. 
-        
+        Use of this function should replace any existing use of `nnfabrik` tables done via modifying the
+        `nnfabrik.schema_name` property in `dj.config`.
+
         As an example, if you previously had a code like this:
         >>> dj.config['nfabrik.schema_name'] = 'my_schema'
         >>> from nnfabrik import main # importing nnfabrik tables
@@ -477,10 +477,10 @@ def my_nnfabrik(
     Args:
         schema (str or dj.Schema): Name of schema or dj.Schema object
         use_common_fabrikant (bool, optional): If True, new tables will depend on the
-           common Fabrikant table. If False, new copy of Fabrikant will be created and used. 
+           common Fabrikant table. If False, new copy of Fabrikant will be created and used.
            Defaults to True.
         use_common_seed (bool, optional): If True, new tables will depend on the
-           common Seed table. If False, new copy of Seed will be created and used. 
+           common Seed table. If False, new copy of Seed will be created and used.
            Defaults to False.
         module_name (str, optional): Name property of the returned Python module object.
             Defaults to None, in which case the name of the schema will be used.
@@ -495,8 +495,8 @@ def my_nnfabrik(
             contains its own copy of `Seed` table.
 
     Returns:
-        Python Module object or None: If `context` was None, a new Python module containing 
-            nnfabrik tables defined under the schema. The module's schema property points 
+        Python Module object or None: If `context` was None, a new Python module containing
+            nnfabrik tables defined under the schema. The module's schema property points
             to the schema object as well. Otherwise, nothing is returned.
     """
     if isinstance(schema, str):
