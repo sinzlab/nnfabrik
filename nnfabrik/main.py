@@ -1,7 +1,6 @@
 import warnings
 import types
-from typing import Union, Optional, MutableMapping
-
+from typing import Union, Optional, MutableMapping, Tuple
 
 import datajoint as dj
 
@@ -442,6 +441,7 @@ class Seed(dj.Manual):
 
 def my_nnfabrik(
     schema: Union[str, Schema],
+    additional_tables: Tuple = (),
     use_common_fabrikant: bool = True,
     use_common_seed: bool = False,
     module_name: Optional[str] = None,
@@ -502,7 +502,7 @@ def my_nnfabrik(
     if isinstance(schema, str):
         schema = CustomSchema(schema)
 
-    tables = [Seed, Fabrikant, Model, Dataset, Trainer]
+    tables = [Seed, Fabrikant, Model, Dataset, Trainer] + list(additional_tables)
 
     module = None
     if context is None:
@@ -543,4 +543,3 @@ def my_nnfabrik(
 
     # this returns None if context was set
     return module
-

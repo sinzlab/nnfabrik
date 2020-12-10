@@ -20,6 +20,24 @@ except:
     from datajoint.schemas import Schema
 
 
+def clone_conn(conn):
+    """
+    Clones a given connection object.
+    Args:
+        conn (dj.Connection): connection object to clone
+    Returns:
+        new dj.Connection object with properties identical to conn
+    """
+    conn_info = conn.conn_info
+    return dj.Connection(
+        host=conn_info["host"],
+        user=conn_info["user"],
+        password=conn_info["passwd"],
+        init_fun=conn.init_fun,
+        use_tls=conn_info["ssl"],
+    )
+
+
 def cleanup_numpy_scalar(data):
     """
     Recursively cleanups up a (potentially nested data structure of)
@@ -40,10 +58,10 @@ def cleanup_numpy_scalar(data):
 def make_hash(obj):
     """
     Given a Python object, returns a 32 character hash string to uniquely identify
-    the content of the object. The object can be arbitrary nested (i.e. dictionary 
-    of dictionary of list etc), and hashing is applied recursively to uniquely 
+    the content of the object. The object can be arbitrary nested (i.e. dictionary
+    of dictionary of list etc), and hashing is applied recursively to uniquely
     identify the content.
-    
+
     For dictionaries (at any level), the key order is ignored when hashing
     so that {"a":5, "b": 3, "c": 4} and {"b": 3, "a": 5, "c": 4} will both
     give rise to the same hash. Exception to this rule is when an OrderedDict
@@ -52,7 +70,7 @@ def make_hash(obj):
     intentions, key order will be ignored even in Python 3.7+ where the
     default dictionary is officially an ordered dictionary.
 
-    Args: 
+    Args:
         obj - A (potentially nested) Python object
 
     Returns:
@@ -141,17 +159,17 @@ def check_repo_commit(repo_path):
 def gitlog(repos=()):
     """
     A decorator on computed/imported tables.
-    Monitors a list of repositories as pointed out by `repos` containing a list of paths to Git repositories. If any of these repositories 
+    Monitors a list of repositories as pointed out by `repos` containing a list of paths to Git repositories. If any of these repositories
     contained uncommitted changes, the `populate` is interrupted.
     Otherwise, the state of commits associated with all repositoreis are summarized and stored in the associated entry in the GitLog part table.
 
     Example:
-    
+
     @schema
     @gitlog(['/path/to/repo1', '/path/to/repo2'])
     class MyComputedTable(dj.Computed):
         ...
-    
+
     """
 
     def gitlog_wrapper(cls):
