@@ -38,7 +38,9 @@ def my_checkpoint(nnfabrik):
 
 
 class TrainedModelChkptBase(TrainedModelBase):
-    checkpoint_table = None  # assign the output of `my_checkpoint` here (i.e. `Checkpoint`)
+    checkpoint_table = (
+        None  # assign the output of `my_checkpoint` here (i.e. `Checkpoint`)
+    )
     keys = [
         "model_fn",
         "model_hash",
@@ -73,7 +75,10 @@ class TrainedModelChkptBase(TrainedModelBase):
 
     def restore_epoch(self, action, uid, maximize_score, state):
         checkpoints = (self.checkpoint_table & uid).fetch(
-            "score", "epoch", "state", as_dict=True,
+            "score",
+            "epoch",
+            "state",
+            as_dict=True,
         )
         if not checkpoints:
             return
@@ -84,7 +89,9 @@ class TrainedModelChkptBase(TrainedModelBase):
             checkpoint = last_checkpoints[-1]
         else:  # select best epoch
             best_checkpoints = sorted(
-                checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score,
+                checkpoints,
+                key=lambda chkpt: chkpt["score"],
+                reverse=maximize_score,
             )
             checkpoint = best_checkpoints[0]
         # restore the training state
@@ -107,10 +114,16 @@ class TrainedModelChkptBase(TrainedModelBase):
         self.add_to_table(epoch, model, score, state, uid)
         self.filter_table(keep_best_n, keep_last_n, keep_selection, maximize_score, uid)
 
-    def filter_table(self, keep_best_n, keep_last_n, keep_selection, maximize_score, uid):
+    def filter_table(
+        self, keep_best_n, keep_last_n, keep_selection, maximize_score, uid
+    ):
         # fetch all fitting entries from checkpoint table
         checkpoints = (self.checkpoint_table & uid).fetch(
-            *self.keys, "seed", "score", "epoch", as_dict=True,
+            *self.keys,
+            "seed",
+            "score",
+            "epoch",
+            as_dict=True,
         )
         # select checkpoints to be kept
         keep_checkpoints = []
@@ -145,7 +158,8 @@ class TrainedModelChkptBase(TrainedModelBase):
             filepath = os.path.join(temp_dir, filename)
             state["net"] = model.state_dict()
             torch.save(
-                state, filepath,
+                state,
+                filepath,
             )
             key["state"] = filepath
             self.checkpoint_table.insert1(
