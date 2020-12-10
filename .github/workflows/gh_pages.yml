@@ -21,7 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install sphinx-rtd-theme==0.5.0 recommonmark==0.6.0
       - name: Build documentation
-        run: make --directory docs html
+        run: make --directory master/docs html
       - name: Checkout gh_pages branch
         uses: actions/checkout@v2
         with:
