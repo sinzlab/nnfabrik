@@ -28,7 +28,9 @@ jobs:
           ref: gh_pages
           path: gh_pages
       - name: Copy built documentation to gh_pages branch
-        run: cp -r master/docs/_build/html/* gh_pages/
+        run: |
+          rm -rf gh_pages/*
+          cp -r master/docs/_build/html/* gh_pages/
       - name: Commit and push build documentation
         run: |
           cd gh_pages
