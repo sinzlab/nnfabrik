@@ -31,6 +31,8 @@ jobs:
         run: |
           rm -rf gh_pages/*
           cp -r master/docs/_build/html/* gh_pages/
+      - name: Add .nojekyll file to bypass Jekyll processing
+        run: touch gh_pages/.nojekyll
       - name: Commit and push build documentation
         run: |
           cd gh_pages
