@@ -22,6 +22,8 @@ jobs:
           pip install sphinx-rtd-theme==0.5.0 recommonmark==0.6.0
       - name: Build documentation
         run: make --directory master/docs html
+      - name: Delete README.html
+        run: rm master/docs/_build/html/README.html
       - name: Checkout gh_pages branch
         uses: actions/checkout@v2
         with:
