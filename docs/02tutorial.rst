@@ -4,12 +4,12 @@ Tutorial 2: Train a model with checkpointing
 We introduce two new methods in our trainer. First a method to save the current training state
 
 .. literalinclude:: ../nnfabrik/examples/mnist_checkpoint/trainer.py
-   :lines: 29-39
+   :lines: 27-39
 
 Then a method to restore a the state if training is resumed after an interruption
 
 .. literalinclude:: ../nnfabrik/examples/mnist_checkpoint/trainer.py
-   :lines: 41-49
+   :lines: 40-51
 
 Both methods make use of the :code:`call_back` function that should be passed to the trainer from
 the :code:`TrainedModel` table.
@@ -22,7 +22,7 @@ Finally, we also have to update the training procedure itself to call :code:`sel
 and :code:`self.save()` after every epoch.
 
 .. literalinclude:: ../nnfabrik/examples/mnist_checkpoint/trainer.py
-   :lines: 51-67
+   :lines: 53-69
    :emphasize-lines: 5,15
 
 Once we have a trainer that supports the checkpointing feature, all we need to do is to switch from :code:`TrainedModel`
