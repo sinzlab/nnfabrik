@@ -26,6 +26,7 @@ class ChkptTrainer(MNISTTrainer):
 
     def save(self, epoch: int, score: float) -> None:
         state = {
+            "action": "save",
             "score": score,
             "maximize_score": True,
             "tracker": self.accs,
@@ -41,7 +42,9 @@ class ChkptTrainer(MNISTTrainer):
 
     def restore(self) -> int:
         loaded_state = {
-            "state": {"maximize_score": True, "tracker": self.accs},
+            "action": "last",
+            "maximize_score": True,
+            "tracker": self.accs,
             "optimizer": self.optimizer.state_dict(),
         }
         self.trained_model_cb(
