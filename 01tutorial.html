@@ -1,0 +1,335 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tutorial 1: Train your first model with NNFabrik &mdash; NNFabrik 0.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorial 2: Train a model with checkpointing" href="02tutorial.html" />
+    <link rel="prev" title="Preparation" href="00setup.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> NNFabrik
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="00setup.html">Preparation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorial 1: Train your first model with NNFabrik</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#the-fabrikant-table">The Fabrikant Table</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-dataset-table">The Dataset Table</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-model-table">The Model Table</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-trainer-table">The Trainer Table</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-seed-table">The Seed Table</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-trainedmodel-table">The TrainedModel Table</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#create-your-trainedmodel-table">Create your TrainedModel table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#populate-fill-up-the-trainedmodel-table">Populate (fill up) the TrainedModel table</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="02tutorial.html">Tutorial 2: Train a model with checkpointing</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">NNFabrik</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="tutorials.html">&lt;no title&gt;</a> &raquo;</li>
+        
+      <li>Tutorial 1: Train your first model with NNFabrik</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/01tutorial.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="tutorial-1-train-your-first-model-with-nnfabrik">
+<h1>Tutorial 1: Train your first model with NNFabrik<a class="headerlink" href="#tutorial-1-train-your-first-model-with-nnfabrik" title="Permalink to this headline">¶</a></h1>
+<p>In this tutorial, we will go through one example usage of the nnfabrik pipeline.</p>
+<p>The goal in this tutorial is to train multiple models with different hyperparameters
+(batchsize, number of layer, learning rate, etc.) in a parallel fashion,
+and to save the corresponding results in a centralized database table.</p>
+<p>We have already defined our three functions dataset-function, model-function and trainer-function.
+Those are the basic functions which, if used together, train a simple MLP model on the well-known MNIST dataset.
+Therefore, what we are left with is to fill up the corresponding Datajoint tables with different hyper-parameter
+values and train models for every possible combination of those hyper-parameters.</p>
+<div class="section" id="the-fabrikant-table">
+<h2>The Fabrikant Table<a class="headerlink" href="#the-fabrikant-table" title="Permalink to this headline">¶</a></h2>
+<p>The Fabrikant table keeps a record of the users that interact with a specific schema.
+It is simply an extra level of information to know who is accountable for the entries
+in the Dataset, Model, and Trainer tables. simply add your information as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fabrikant_info</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">fabrikant_name</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="s2">&quot;your@email.com&quot;</span><span class="p">,</span> <span class="n">affiliation</span><span class="o">=</span><span class="s2">&quot;thelab&quot;</span><span class="p">,</span> <span class="n">dj_username</span><span class="o">=</span><span class="s2">&quot;yourname&quot;</span><span class="p">)</span>
+<span class="n">Fabrikant</span><span class="p">()</span><span class="o">.</span><span class="n">insert1</span><span class="p">(</span><span class="n">fabrikant_info</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-dataset-table">
+<h2>The Dataset Table<a class="headerlink" href="#the-dataset-table" title="Permalink to this headline">¶</a></h2>
+<p>Here we need to specify <strong>dataset function</strong> and the arguments passed to the dataset function, <strong>dataset config</strong>.
+The dataset function is specified as a string. the structure of this string is important since under the hood nnfabrik performs a dynamic import by parsing this string. For example, if you can import the function as
+<code class="code docutils literal notranslate"><span class="pre">from</span> <span class="pre">nnfabrik.datasets</span> <span class="pre">import</span> <span class="pre">toy_dataset_fn</span></code>
+then you should specify the dataset function as:
+<code class="code docutils literal notranslate"><span class="pre">&quot;nnfabrik.datasets.toy_dataset_fn&quot;</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># specify dataset function as string (the function must be importable) as well as the dataset config</span>
+<span class="n">dataset_fn</span> <span class="o">=</span> <span class="s2">&quot;nnfabrik.examples.mnist.dataset.mnist_dataset_fn&quot;</span>
+<span class="n">dataset_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">)</span> <span class="c1"># we specify all the inputs except the ones required by nnfabrik</span>
+
+<span class="n">Dataset</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">dataset_fn</span><span class="o">=</span><span class="n">dataset_fn</span><span class="p">,</span> <span class="n">dataset_config</span><span class="o">=</span><span class="n">dataset_config</span><span class="p">,</span>
+                    <span class="n">dataset_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">dataset_comment</span><span class="o">=</span><span class="s2">&quot;A comment about the dataset!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Since nnfabrik would need to import the function, the dataset function must be importable.
+Also note that <code class="code docutils literal notranslate"><span class="pre">dataset_config</span></code> is a dictionary that contains all the arguments that are <strong>not</strong> required by nnfabrik.</p>
+</div>
+</div>
+<div class="section" id="the-model-table">
+<h2>The Model Table<a class="headerlink" href="#the-model-table" title="Permalink to this headline">¶</a></h2>
+<p>Here we need to specify <strong>dataset function</strong> and the arguments passed to the dataset function, <strong>dataset config</strong>.
+Everything explained for the dataset function applied to model function as well.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># specify model function as string (the function must be importable) as well as the model config</span>
+<span class="n">model_fn</span> <span class="o">=</span> <span class="s2">&quot;nnfabrik.examples.mnist.model.mnist_model_fn&quot;</span>
+<span class="n">model_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">h_dim</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> <span class="c1"># we specify all the inputs except the ones required by nnfabrik</span>
+
+<span class="n">Model</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">model_fn</span><span class="o">=</span><span class="n">model_fn</span><span class="p">,</span> <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span>
+                  <span class="n">model_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">model_comment</span><span class="o">=</span><span class="s2">&quot;A comment about the model!&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Let’s also try <code class="code docutils literal notranslate"><span class="pre">h_dim</span> <span class="pre">=</span> <span class="pre">15</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">h_dim</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span> <span class="c1"># we specify all the inputs except the ones required by nnfabrik</span>
+<span class="n">Model</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">model_fn</span><span class="o">=</span><span class="n">model_fn</span><span class="p">,</span> <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span>
+                  <span class="n">model_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">model_comment</span><span class="o">=</span><span class="s2">&quot;A comment about the model!&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-trainer-table">
+<h2>The Trainer Table<a class="headerlink" href="#the-trainer-table" title="Permalink to this headline">¶</a></h2>
+<p>Here we need to specify <strong>trainer function</strong> and the arguments passed to the trainer function, <strong>trainer config</strong>.
+Everything explained for the dataset function applies to trainer function as well.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># specify trainer function as string (the function must be importable) as well as the trainer config</span>
+<span class="n">trainer_fn</span> <span class="o">=</span> <span class="s2">&quot;nnfabrik.examples.mnist.trainer.mnist_trainer_fn&quot;</span>
+<span class="n">trainer_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># we specify all the inputs except the ones required by nnfabrik</span>
+
+<span class="n">Trainer</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">trainer_fn</span><span class="o">=</span><span class="n">trainer_fn</span><span class="p">,</span> <span class="n">trainer_config</span><span class="o">=</span><span class="n">trainer_config</span><span class="p">,</span>
+                  <span class="n">trainer_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">trainer_comment</span><span class="o">=</span><span class="s2">&quot;A comment about the trainer!&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-seed-table">
+<h2>The Seed Table<a class="headerlink" href="#the-seed-table" title="Permalink to this headline">¶</a></h2>
+<p>Now we have one final table to fill up before we start training our models with all the combinations in Dataset, Model,
+and Trainer tables. That table is the <strong>Seed</strong> table.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Seed</span><span class="p">()</span><span class="o">.</span><span class="n">insert1</span><span class="p">({</span><span class="s1">&#39;seed&#39;</span><span class="p">:</span> <span class="mi">2020</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-trainedmodel-table">
+<h2>The TrainedModel Table<a class="headerlink" href="#the-trainedmodel-table" title="Permalink to this headline">¶</a></h2>
+<p>Once we have bunch of trained models, the downstream analysis might be different for each specific project.
+For this reason, we keep the TrainedModel tables separate from the tables provided in the library.
+However, the process of creating your own TrainedModel becomes very easy with the template(s) provided by nnfabrik.</p>
+<div class="section" id="create-your-trainedmodel-table">
+<h3>Create your TrainedModel table<a class="headerlink" href="#create-your-trainedmodel-table" title="Permalink to this headline">¶</a></h3>
+<p>Inheritance of the <code class="code docutils literal notranslate"><span class="pre">TrainedModelBase</span></code> template</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">nnfabrik.templates.trained_model</span> <span class="kn">import</span> <span class="n">TrainedModelBase</span>
+<span class="kn">from</span> <span class="nn">nnfabrik.examples</span> <span class="kn">import</span> <span class="n">nnfabrik</span>
+
+<span class="nd">@schema</span>
+<span class="k">class</span> <span class="nc">TrainedModel</span><span class="p">(</span><span class="n">TrainedModelBase</span><span class="p">):</span>
+    <span class="n">table_comment</span> <span class="o">=</span> <span class="s2">&quot;Trained models&quot;</span>
+    <span class="n">nnfabrik</span> <span class="o">=</span> <span class="n">nnfabrik</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="populate-fill-up-the-trainedmodel-table">
+<h3>Populate (fill up) the TrainedModel table<a class="headerlink" href="#populate-fill-up-the-trainedmodel-table" title="Permalink to this headline">¶</a></h3>
+<p>Calling <code class="code docutils literal notranslate"><span class="pre">populate</span></code> on this table fills all combinations of <code class="code docutils literal notranslate"><span class="pre">Trainer</span></code>, <code class="code docutils literal notranslate"><span class="pre">Dataset</span></code>, <code class="code docutils literal notranslate"><span class="pre">Model</span></code> and
+<code class="code docutils literal notranslate"><span class="pre">Seed</span></code> (unless we restrict it)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TrainedModel</span><span class="o">.</span><span class="n">populate</span><span class="p">(</span><span class="n">display_progress</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="02tutorial.html" class="btn btn-neutral float-right" title="Tutorial 2: Train a model with checkpointing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="00setup.html" class="btn btn-neutral float-left" title="Preparation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Konstantin Willeke, Edgar Walker, et al.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

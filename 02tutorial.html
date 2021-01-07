@@ -1,0 +1,292 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tutorial 2: Train a model with checkpointing &mdash; NNFabrik 0.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Tutorial 1: Train your first model with NNFabrik" href="01tutorial.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> NNFabrik
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="00setup.html">Preparation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="01tutorial.html">Tutorial 1: Train your first model with NNFabrik</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorial 2: Train a model with checkpointing</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">NNFabrik</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="tutorials.html">&lt;no title&gt;</a> &raquo;</li>
+        
+      <li>Tutorial 2: Train a model with checkpointing</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/02tutorial.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="tutorial-2-train-a-model-with-checkpointing">
+<h1>Tutorial 2: Train a model with checkpointing<a class="headerlink" href="#tutorial-2-train-a-model-with-checkpointing" title="Permalink to this headline">¶</a></h1>
+<p>We introduce two new methods in our trainer. First a method to save the current training state</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>            <span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="n">score</span><span class="p">,</span>
+            <span class="s2">&quot;maximize_score&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;tracker&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="p">,</span>
+            <span class="s2">&quot;optimizer&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">chkpt_options</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trained_model_cb</span><span class="p">(</span>
+            <span class="n">uid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">uid</span><span class="p">,</span>
+            <span class="n">epoch</span><span class="o">=</span><span class="n">epoch</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Then a method to restore a the state if training is resumed after an interruption</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+    <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="n">loaded_state</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;maximize_score&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;tracker&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="p">},</span>
+            <span class="s2">&quot;optimizer&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trained_model_cb</span><span class="p">(</span>
+            <span class="n">uid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">uid</span><span class="p">,</span> <span class="n">epoch</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">loaded_state</span>
+        <span class="p">)</span>  <span class="c1"># load the last epoch if existing</span>
+</pre></div>
+</div>
+<p>Both methods make use of the <code class="code docutils literal notranslate"><span class="pre">call_back</span></code> function that should be passed to the trainer from
+the <code class="code docutils literal notranslate"><span class="pre">TrainedModel</span></code> table.
+The important difference is the epoch count that is passed to <code class="code docutils literal notranslate"><span class="pre">call_back</span></code> here.
+A count of <code class="code docutils literal notranslate"><span class="pre">-1</span></code> signals the function that we want to retrieve the last checkpoint if there is one.
+A positive count on the other hand signals that we are in the process of training and want to save the
+current state as a checkpoint.</p>
+<p>Finally, we also have to update the training procedure itself to call <code class="code docutils literal notranslate"><span class="pre">self.restore()</span></code> before the training starts
+and <code class="code docutils literal notranslate"><span class="pre">self.save()</span></code> after every epoch.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="k">return</span> <span class="n">epoch</span>
+
+    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">int</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">tqdm</span><span class="p">,</span> <span class="s2">&quot;_instances&quot;</span><span class="p">):</span>
+<span class="hll">            <span class="n">tqdm</span><span class="o">.</span><span class="n">_instances</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># To have tqdm output without line-breaks between steps</span>
+</span>        <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">start_epoch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restore</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">predicted_correct</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trainloader</span><span class="p">):</span>
+                <span class="n">p</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_loop</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+                <span class="n">predicted_correct</span> <span class="o">+=</span> <span class="n">p</span>
+<span class="hll">                <span class="n">total</span> <span class="o">+=</span> <span class="n">t</span>
+</span>            <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">100.0</span> <span class="o">*</span> <span class="n">predicted_correct</span> <span class="o">/</span> <span class="n">total</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Once we have a trainer that supports the checkpointing feature, all we need to do is to switch from <code class="code docutils literal notranslate"><span class="pre">TrainedModel</span></code>
+table to <code class="code docutils literal notranslate"><span class="pre">TrainedModelChkpt</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">nnfabrik.templates.checkpoint</span> <span class="kn">import</span> <span class="n">TrainedModelChkptBase</span><span class="p">,</span> <span class="n">my_checkpoint</span>
+
+<span class="n">Checkpoint</span> <span class="o">=</span> <span class="n">my_checkpoint</span><span class="p">(</span><span class="n">nnfabrik</span><span class="p">)</span>
+
+<span class="nd">@nnfabrik</span><span class="o">.</span><span class="n">schema</span>
+<span class="k">class</span> <span class="nc">TrainedModelChkpt</span><span class="p">(</span><span class="n">TrainedModelChkptBase</span><span class="p">):</span>
+    <span class="n">table_comment</span> <span class="o">=</span> <span class="s2">&quot;My Trained models with checkpointing&quot;</span>
+    <span class="n">nnfabrik</span> <span class="o">=</span> <span class="n">nnfabrik</span>
+    <span class="n">checkpoint_table</span> <span class="o">=</span> <span class="n">Checkpoint</span>
+</pre></div>
+</div>
+<p>Now this table can be used just as <code class="code docutils literal notranslate"><span class="pre">TrainedModel</span></code>, i.e. we can simply populate it.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TrainedModelChkpt</span><span class="o">.</span><span class="n">populate</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The training state will be saved automatically in the <code class="code docutils literal notranslate"><span class="pre">Checkpoint</span></code>-table after each epoch
+and can be retrieved from there should the training be interrupted.
+Thus, after an interruption, we can just clear the error state with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># delete all jobs in error state:</span>
+<span class="p">(</span><span class="n">schema</span><span class="o">.</span><span class="n">jobs</span> <span class="o">&amp;</span> <span class="s2">&quot;status=&#39;error&#39;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>And then we just restart the training, by calling <code class="code docutils literal notranslate"><span class="pre">populate()</span></code> again.</p>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="01tutorial.html" class="btn btn-neutral float-left" title="Tutorial 1: Train your first model with NNFabrik" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Konstantin Willeke, Edgar Walker, et al.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
