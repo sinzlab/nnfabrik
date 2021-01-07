@@ -63,7 +63,7 @@ def mnist_trainer_fn(
     cb: Callable,
     **config
 ) -> Tuple[float, Any, Dict]:
-    """ "
+    """
     Args:
         model: initialized model to train
         data_loaders: containing "train", "validation" and "test" data loaders
