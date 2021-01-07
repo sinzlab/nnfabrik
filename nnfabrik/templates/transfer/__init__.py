@@ -276,50 +276,52 @@ class TransferredTrainedModelBase(TrainedModelBase):
         else:
             return key_source + base.proj()
 
+    def get_prev_key(self, key):
+        if key["transfer_step"] < 1:
+            return False
+        prev_prev_key = (
+            self.CollapsedHistory & {"collapsed_history": key["collapsed_history"]}
+        ).fetch1()
+        return {
+            "transfer_step": key["transfer_step"] - 1,
+            "model_fn": key["prev_model_fn"],
+            "model_hash": key["prev_model_hash"],
+            "dataset_fn": key["prev_dataset_fn"],
+            "dataset_hash": key["prev_dataset_hash"],
+            "trainer_fn": key["prev_trainer_fn"],
+            "trainer_hash": key["prev_trainer_hash"],
+            "prev_model_fn": prev_prev_key["prev_model_fn"],
+            "prev_model_hash": prev_prev_key["prev_model_hash"],
+            "prev_dataset_fn": prev_prev_key["prev_dataset_fn"],
+            "prev_dataset_hash": prev_prev_key["prev_dataset_hash"],
+            "prev_trainer_fn": prev_prev_key["prev_trainer_fn"],
+            "prev_trainer_hash": prev_prev_key["prev_trainer_hash"],
+            "collapsed_history": prev_prev_key["prev_collapsed_history"],
+            "seed": key["seed"],
+        }
+
     def get_full_config(self, key=None, include_state_dict=True, include_trainer=True):
         ret = super().get_full_config(
             key=key,
             include_state_dict=include_state_dict,
             include_trainer=include_trainer,
         )
-        if key["transfer_step"] > 0:
-            # retrieve previous key
-            prev_prev_key = (
-                self.CollapsedHistory & {"collapsed_history": key["collapsed_history"]}
-            ).fetch1()
-            prev_key = {
-                "transfer_step": key["transfer_step"] - 1,
-                "model_fn": key["prev_model_fn"],
-                "model_hash": key["prev_model_hash"],
-                "dataset_fn": key["prev_dataset_fn"],
-                "dataset_hash": key["prev_dataset_hash"],
-                "trainer_fn": key["prev_trainer_fn"],
-                "trainer_hash": key["prev_trainer_hash"],
-                "prev_model_fn": prev_prev_key["prev_model_fn"],
-                "prev_model_hash": prev_prev_key["prev_model_hash"],
-                "prev_dataset_fn": prev_prev_key["prev_dataset_fn"],
-                "prev_dataset_hash": prev_prev_key["prev_dataset_hash"],
-                "prev_trainer_fn": prev_prev_key["prev_trainer_fn"],
-                "prev_trainer_hash": prev_prev_key["prev_trainer_hash"],
-                "collapsed_history": prev_prev_key["prev_collapsed_history"],
-                "seed": key["seed"],
-            }
-
-            # retrieve corresponding model state (and overwrite possibly retrieved state)
-            if include_state_dict and (self.ModelStorage & prev_key):
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    state_dict_path = (self.ModelStorage & prev_key).fetch1(
-                        "model_state", download_path=temp_dir
-                    )
-                    ret["state_dict"] = torch.load(state_dict_path)
-                    ret["model_config"]["transfer"] = True
-            # retrieve data if present (if previous step did data transfer)
-            if self.DataStorage & prev_key:
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    data_path = (self.DataStorage & prev_key).fetch1(
-                        "transfer_data", download_path=temp_dir
-                    )
-                    ret["dataset_config"]["transfer_data"] = np.load(data_path)
+        prev_key = self.get_prev_key(key)
+        # retrieve corresponding model state (and overwrite possibly retrieved state)
+        if include_state_dict and (self.ModelStorage & prev_key):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                state_dict_path = (self.ModelStorage & prev_key).fetch1(
+                    "model_state", download_path=temp_dir
+                )
+                ret["state_dict"] = torch.load(state_dict_path)
+                ret["model_config"]["transfer"] = True
+        # retrieve data if present (if previous step did data transfer)
+        if self.DataStorage & prev_key:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                data_path = (self.DataStorage & prev_key).fetch1(
+                    "transfer_data", download_path=temp_dir
+                )
+                ret["dataset_config"]["transfer_data"] = np.load(data_path)
         return ret
 
     def make(self, key):
@@ -342,18 +344,11 @@ class TransferredTrainedModelBase(TrainedModelBase):
             self.connection.ping()
             self.call_back(**kwargs)
 
-        if key["data_transfer"]:
-            # generate data
-            transfer_data, model_state = trainer(
-                model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
-            )
-            score = -1.0
-            output = {}
-        else:
-            # model training
-            score, output, model_state = trainer(
-                model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
-            )
+        trainer_output = trainer(
+            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
+        )
+        score, output, model_state = trainer_output[:3]
+        transfer_data = {} if len(trainer_output) < 4 else trainer_output[3]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key)
@@ -379,9 +374,15 @@ class TransferredTrainedModelBase(TrainedModelBase):
             self.insert1(key)
             self.CollapsedHistory.add_entry(key)
 
-            if key["data_transfer"] and transfer_data:
-                data_path = os.path.join(temp_dir, filename + "_transfer_data.npz")
-                np.savez(data_path, **transfer_data)
+            prev_key = self.get_prev_key(key)
+            if key["data_transfer"]:
+                if transfer_data:
+                    data_path = os.path.join(temp_dir, filename + "_transfer_data.npz")
+                    np.savez(data_path, **transfer_data)
+                elif self.DataStorage & prev_key:
+                    data_path = (self.DataStorage & prev_key).fetch1(
+                        "transfer_data", download_path=temp_dir
+                    )
                 key["transfer_data"] = data_path
                 self.DataStorage.insert1(key, ignore_extra_fields=True)
             filename += ".pth.tar"

@@ -28,12 +28,7 @@ class MNISTDataGenerator:
             x_flat = x.flatten(1, -1)  # treat the images as flat vectors
             logits_train.append(self.model(x_flat))
         train = torch.cat(logits_train).detach().to("cpu").numpy()
-        logits_test = []
-        for x, y in tqdm(self.testloader):
-            x_flat = x.flatten(1, -1)  # treat the images as flat vectors
-            logits_test.append(self.model(x_flat))
-        test = torch.cat(logits_test).detach().to("cpu").numpy()
-        return train, test, self.model.state_dict()
+        return 0.0, {}, self.model.state_dict(), train
 
 
 class MNISTKnowledgeDistillationTrainer(MNISTTrainer):
@@ -66,6 +61,7 @@ class MNISTKnowledgeDistillationTrainer(MNISTTrainer):
             epoch_loss.append(total_loss / total)
 
         return epoch_loss[-1], (epoch_loss, self.epochs), self.model.state_dict()
+
 
 def mnist_trainer_fn(
     model: torch.nn.Module,
