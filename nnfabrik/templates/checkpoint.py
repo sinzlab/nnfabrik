@@ -38,9 +38,7 @@ def my_checkpoint(nnfabrik):
 
 
 class TrainedModelChkptBase(TrainedModelBase):
-    checkpoint_table = (
-        None  # assign the output of `my_checkpoint` here (i.e. `Checkpoint`)
-    )
+    checkpoint_table = None  # assign the output of `my_checkpoint` here (i.e. `Checkpoint`)
     keys = [
         "model_fn",
         "model_hash",
@@ -83,9 +81,7 @@ class TrainedModelChkptBase(TrainedModelBase):
         if not checkpoints:
             return
         if action == "last":  # select last epoch
-            last_checkpoints = sorted(
-                checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False
-            )
+            last_checkpoints = sorted(checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False)
             checkpoint = last_checkpoints[-1]
         else:  # select best epoch
             best_checkpoints = sorted(
@@ -114,9 +110,7 @@ class TrainedModelChkptBase(TrainedModelBase):
         self.add_to_table(epoch, model, score, state, uid)
         self.filter_table(keep_best_n, keep_last_n, keep_selection, maximize_score, uid)
 
-    def filter_table(
-        self, keep_best_n, keep_last_n, keep_selection, maximize_score, uid
-    ):
+    def filter_table(self, keep_best_n, keep_last_n, keep_selection, maximize_score, uid):
         # fetch all fitting entries from checkpoint table
         checkpoints = (self.checkpoint_table & uid).fetch(
             *self.keys,
@@ -127,15 +121,11 @@ class TrainedModelChkptBase(TrainedModelBase):
         )
         # select checkpoints to be kept
         keep_checkpoints = []
-        best_checkpoints = sorted(
-            checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score
-        )
+        best_checkpoints = sorted(checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score)
         for c in checkpoints:
             del c["score"]  # restricting with a float is not a good idea -> remove
         keep_checkpoints += best_checkpoints[:keep_best_n]  # w.r.t. performance
-        last_checkpoints = sorted(
-            checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True
-        )
+        last_checkpoints = sorted(checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True)
         keep_checkpoints += last_checkpoints[:keep_last_n]  # w.r.t. temporal order
         for chkpt in checkpoints:
             if chkpt["epoch"] in keep_selection:
@@ -162,9 +152,7 @@ class TrainedModelChkptBase(TrainedModelBase):
                 filepath,
             )
             key["state"] = filepath
-            self.checkpoint_table.insert1(
-                key
-            )  # this is NOT in transaction and thus immediately completes!
+            self.checkpoint_table.insert1(key)  # this is NOT in transaction and thus immediately completes!
 
     def make(self, key):
         orig_key = copy.deepcopy(key)

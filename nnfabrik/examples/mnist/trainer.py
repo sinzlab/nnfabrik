@@ -56,12 +56,7 @@ class MNISTTrainer:
 
 
 def mnist_trainer_fn(
-    model: torch.nn.Module,
-    dataloaders: Dict,
-    seed: int,
-    uid: Dict,
-    cb: Callable,
-    **config
+    model: torch.nn.Module, dataloaders: Dict, seed: int, uid: Dict, cb: Callable, **config
 ) -> Tuple[float, Any, Dict]:
     """
     Args:

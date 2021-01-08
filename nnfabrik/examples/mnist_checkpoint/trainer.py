@@ -89,9 +89,7 @@ def chkpt_trainer_fn(
         output: user specified validation object based on the 'stop function'
         model_state: the full state_dict() of the trained model
     """
-    trainer = ChkptTrainer(
-        model, dataloaders, seed, uid=uid, call_back=cb, epochs=config.get("epochs", 2)
-    )
+    trainer = ChkptTrainer(model, dataloaders, seed, uid=uid, call_back=cb, epochs=config.get("epochs", 2))
     out = trainer.train()
 
     return out

@@ -192,16 +192,12 @@ def load_state_dict(
     if unused and ignore_unused:
         print("Ignored unnecessary keys in pretrained dict:\n" + "\n".join(unused))
     elif unused:
-        raise RuntimeError(
-            "Error in loading state_dict: Unused keys:\n" + "\n".join(unused)
-        )
+        raise RuntimeError("Error in loading state_dict: Unused keys:\n" + "\n".join(unused))
     missing = set(model_dict.keys()) - set(filtered_state_dict.keys())
     if missing and ignore_missing:
         print("Ignored Missing keys:\n" + "\n".join(missing))
     elif missing:
-        raise RuntimeError(
-            "Error in loading state_dict: Missing keys:\n" + "\n".join(missing)
-        )
+        raise RuntimeError("Error in loading state_dict: Missing keys:\n" + "\n".join(missing))
 
     # 2. overwrite entries in the existing state dict
     updated_model_dict = {}
@@ -211,9 +207,7 @@ def load_state_dict(
                 print("Ignored shape-mismatched parameter:", k)
                 continue
             else:
-                raise RuntimeError(
-                    "Error in loading state_dict: Shape-mismatch for key {}".format(k)
-                )
+                raise RuntimeError("Error in loading state_dict: Shape-mismatch for key {}".format(k))
         updated_model_dict[k] = v
 
     # 3. load the new state dict
