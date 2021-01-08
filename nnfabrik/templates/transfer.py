@@ -91,9 +91,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 for t in transfer_recipe[1:]:
                     joined *= t
 
-                joined.post_restr = dj.AndList(
-                    [recipe.post_restr for recipe in self.transfer_recipe]
-                )
+                joined.post_restr = dj.AndList([recipe.post_restr for recipe in self.transfer_recipe])
 
             return joined
 
@@ -126,11 +124,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             )
 
             # get the current transfer step
-            transfer_step = (
-                prev_transferredmodel.fetch("transfer_step").max()
-                if prev_transferredmodel
-                else 0
-            )
+            transfer_step = prev_transferredmodel.fetch("transfer_step").max() if prev_transferredmodel else 0
 
             if transfer_step:
 
@@ -149,9 +143,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 )
 
                 # get the entries that match the one in TransferRecipe (for specification of previous)
-                transfer_from = prev_transferredmodel * self._transfer_recipe(
-                    transfer_step
-                )
+                transfer_from = prev_transferredmodel * self._transfer_recipe(transfer_step)
 
                 transfers = (
                     dj.U(
@@ -236,9 +228,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         seed = (Seed & key).fetch1("seed")
 
         # load everything
-        dataloaders, model, trainer = self.load_model(
-            key, include_trainer=True, include_state_dict=False, seed=seed
-        )
+        dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
 
         # define callback with pinging
         def call_back(**kwargs):
@@ -246,9 +236,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             self.call_back(**kwargs)
 
         # model training
-        score, output, model_state = trainer(
-            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
-        )
+        score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key) + ".pth.tar"
@@ -264,15 +252,13 @@ class TransferredTrainedModelBase(TrainedModelBase):
             comments.append((self.dataset_table & key).fetch1("dataset_comment"))
             key["comment"] = self.comment_delimitter.join(comments)
 
-            key["current_model_fn"], key["current_model_hash"] = (Model & key).fetch1(
-                "model_fn", "model_hash"
+            key["current_model_fn"], key["current_model_hash"] = (Model & key).fetch1("model_fn", "model_hash")
+            key["current_dataset_fn"], key["current_dataset_hash"] = (Dataset & key).fetch1(
+                "dataset_fn", "dataset_hash"
             )
-            key["current_dataset_fn"], key["current_dataset_hash"] = (
-                Dataset & key
-            ).fetch1("dataset_fn", "dataset_hash")
-            key["current_trainer_fn"], key["current_trainer_hash"] = (
-                Trainer & key
-            ).fetch1("trainer_fn", "trainer_hash")
+            key["current_trainer_fn"], key["current_trainer_hash"] = (Trainer & key).fetch1(
+                "trainer_fn", "trainer_hash"
+            )
 
             self.insert1(key)
 

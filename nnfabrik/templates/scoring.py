@@ -94,22 +94,16 @@ class ScoringBase(dj.Computed):
             key = self.fetch1("KEY")
 
         if self.model_cache is None:
-            model = self.trainedmodel_table().load_model(
-                key=key, include_state_dict=True, include_dataloader=False
-            )
+            model = self.trainedmodel_table().load_model(key=key, include_state_dict=True, include_dataloader=False)
         else:
-            model = self.model_cache.load(
-                key=key, include_state_dict=True, include_dataloader=False
-            )
+            model = self.model_cache.load(key=key, include_state_dict=True, include_dataloader=False)
         return model
 
     def get_dataloaders(self, key=None):
         if key is None:
             key = self.fetch1("KEY")
         dataloaders = (
-            self.dataset_table().get_dataloader(key=key)
-            if self.data_cache is None
-            else self.data_cache.load(key=key)
+            self.dataset_table().get_dataloader(key=key) if self.data_cache is None else self.data_cache.load(key=key)
         )
         return dataloaders[self.measure_dataset]
 
@@ -126,9 +120,7 @@ class ScoringBase(dj.Computed):
     def make(self, key):
         dataloaders = self.get_dataloaders(key=key)
         model = self.get_model(key=key)
-        unit_scores = self.measure_function(
-            model=model, dataloaders=dataloaders, per_unit=True, **self.function_kwargs
-        )
+        unit_scores = self.measure_function(model=model, dataloaders=dataloaders, per_unit=True, **self.function_kwargs)
 
         key[self.measure_attribute] = self.get_overall_score(unit_scores)
         self.insert1(key, ignore_extra_fields=True)
@@ -157,9 +149,7 @@ class MeasuresBase(ScoringBase):
     dataset_table = Dataset
 
     # table level comment
-    table_comment = (
-        "A template table for storing measures / descriptive statistics of the Dataset"
-    )
+    table_comment = "A template table for storing measures / descriptive statistics of the Dataset"
 
     @property
     def definition(self):
@@ -191,9 +181,7 @@ class MeasuresBase(ScoringBase):
     def make(self, key):
 
         dataloaders = self.get_dataloaders(key=key)
-        unit_scores = self.measure_function(
-            dataloaders=dataloaders, per_unit=True, **self.function_kwargs
-        )
+        unit_scores = self.measure_function(dataloaders=dataloaders, per_unit=True, **self.function_kwargs)
 
         key[self.measure_attribute] = self.get_overall_score(unit_scores)
         self.insert1(key, ignore_extra_fields=True)
@@ -204,13 +192,9 @@ class SummaryMeasuresBase(MeasuresBase):
     Units = None
 
     # table level comment
-    table_comment = (
-        "A template table for storing measures / descriptive statistics of the Dataset"
-    )
+    table_comment = "A template table for storing measures / descriptive statistics of the Dataset"
 
     def make(self, key):
         dataloaders = self.get_dataloaders(key=key)
-        key[self.measure_attribute] = self.measure_function(
-            dataloaders=dataloaders, **self.function_kwargs
-        )
+        key[self.measure_attribute] = self.measure_function(dataloaders=dataloaders, **self.function_kwargs)
         self.insert1(key, ignore_extra_fields=True)

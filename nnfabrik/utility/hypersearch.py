@@ -49,12 +49,8 @@ class Bayesian:
     ):
 
         self.fns = dict(dataset=dataset_fn, model=model_fn, trainer=trainer_fn)
-        self.fixed_params = self.get_fixed_params(
-            dataset_config, model_config, trainer_config
-        )
-        self.auto_params = self.get_auto_params(
-            dataset_config_auto, model_config_auto, trainer_config_auto
-        )
+        self.fixed_params = self.get_fixed_params(dataset_config, model_config, trainer_config)
+        self.auto_params = self.get_auto_params(dataset_config_auto, model_config_auto, trainer_config_auto)
         self.architect = architect
         self.total_trials = total_trials
         self.arms_per_trial = arms_per_trial
@@ -172,9 +168,7 @@ class Bayesian:
         Returns:
             float: the score of the trained model for the specific entry in trained model table
         """
-        config = self._combine_params(
-            self._split_config(auto_params), self.fixed_params
-        )
+        config = self._combine_params(self._split_config(auto_params), self.fixed_params)
 
         # insert the stuff into their corresponding tables
         dataset_hash = make_hash(config["dataset"])
@@ -192,9 +186,7 @@ class Bayesian:
             )
 
         model_hash = make_hash(config["model"])
-        entry_exists = {
-            "model_fn": "{}".format(self.fns["model"])
-        } in self.trained_model_table.model_table() and {
+        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table.model_table() and {
             "model_hash": "{}".format(model_hash)
         } in self.trained_model_table.model_table()
         if not entry_exists:
@@ -297,12 +289,8 @@ class Random:
     ):
 
         self.fns = dict(dataset=dataset_fn, model=model_fn, trainer=trainer_fn)
-        self.fixed_params = self.get_fixed_params(
-            dataset_config, model_config, trainer_config
-        )
-        self.auto_params = self.get_auto_params(
-            dataset_config_auto, model_config_auto, trainer_config_auto
-        )
+        self.fixed_params = self.get_fixed_params(dataset_config, model_config, trainer_config)
+        self.auto_params = self.get_auto_params(dataset_config_auto, model_config_auto, trainer_config_auto)
         self.architect = architect
         self.total_trials = total_trials
         self.comment = comment
@@ -412,9 +400,7 @@ class Random:
             auto_params (dict): list of dictionaries where each dictionary specifies a single parameter to be sampled.
 
         """
-        config = self._combine_params(
-            self._split_config(auto_params), self.fixed_params
-        )
+        config = self._combine_params(self._split_config(auto_params), self.fixed_params)
 
         # insert the stuff into their corresponding tables
         dataset_hash = make_hash(config["dataset"])
@@ -432,9 +418,7 @@ class Random:
             )
 
         model_hash = make_hash(config["model"])
-        entry_exists = {
-            "model_fn": "{}".format(self.fns["model"])
-        } in self.trained_model_table.model_table() and {
+        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table.model_table() and {
             "model_hash": "{}".format(model_hash)
         } in self.trained_model_table.model_table()
         if not entry_exists:
@@ -485,13 +469,9 @@ class Random:
             if param["type"] == "fixed":
                 auto_params_val.update({param["name"]: param["value"]})
             elif param["type"] == "choice":
-                auto_params_val.update(
-                    {param["name"]: np.random.choice(param["values"])}
-                )
+                auto_params_val.update({param["name"]: np.random.choice(param["values"])})
             elif param["type"] == "range":
-                auto_params_val.update(
-                    {param["name"]: np.random.uniform(*param["bounds"])}
-                )
+                auto_params_val.update({param["name"]: np.random.uniform(*param["bounds"])})
 
         return auto_params_val
 

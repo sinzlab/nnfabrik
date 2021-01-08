@@ -3,9 +3,7 @@ from types import ModuleType
 from typing import Union
 
 
-def find_object(
-    context: Union[ModuleType, dict], attribute: str, prop_name: str = None
-):
+def find_object(context: Union[ModuleType, dict], attribute: str, prop_name: str = None):
     """
     Helper function to resolve an object matching the name attribute
     inside the context. If it's not found, throws ValueError suggesting
@@ -34,11 +32,7 @@ def find_object(
         prop_name = attribute.lower() + "_table"
 
     if context is None:
-        raise ValueError(
-            "Please specify either `nnfabrik` or `{}` property for the class".format(
-                prop_name
-            )
-        )
+        raise ValueError("Please specify either `nnfabrik` or `{}` property for the class".format(prop_name))
 
     if isinstance(context, ModuleType):
         context = context.__dict__
