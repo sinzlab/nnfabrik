@@ -41,13 +41,13 @@ def mnist_dataset_fn(seed: int, **config) -> Dict:
         transform_list = [transforms.RandomHorizontalFlip()] + transform_list
     transform = transforms.Compose(transform_list)
     train_dataset = MNISTKnowledgeDistillation(
-        config["transfer_train_data"], "../data", train=True, download=True, transform=transform
+        config["transfer_data"]["train"], "../data", train=True, download=True, transform=transform
     )
-    validation_dataset = MNISTKnowledgeDistillation(
-        config["transfer_test_data"], "../data", train=False, download=True, transform=transform
+    validation_dataset = datasets.MNIST(
+        "../data", train=False, download=True, transform=transform
     )  # for simplicity, we use the test set for validation
-    test_dataset = MNISTKnowledgeDistillation(
-        config["transfer_test_data"], "../data", train=False, download=True, transform=transform
+    test_dataset = datasets.MNIST(
+        "../data", train=False, download=True, transform=transform
     )
     batch_size = config.get("batch_size", 64)
     return {

@@ -27,7 +27,7 @@ class MNISTDataGenerator:
         for x, y in tqdm(self.trainloader):
             x_flat = x.flatten(1, -1)  # treat the images as flat vectors
             logits_train.append(self.model(x_flat))
-        train = torch.cat(logits_train).detach().to("cpu").numpy()
+        train = {"train": torch.cat(logits_train).detach().to("cpu").numpy()}
         return 0.0, {}, self.model.state_dict(), train
 
 
