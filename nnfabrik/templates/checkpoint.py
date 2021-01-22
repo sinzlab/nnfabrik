@@ -79,13 +79,13 @@ class TrainedModelChkptBase(TrainedModelBase):
             if not checkpoints:
                 return
             if action == "last":  # select last epoch
-                last_checkpoints = sorted(
-                    checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False
-                )
+                last_checkpoints = sorted(checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False)
                 checkpoint = last_checkpoints[-1]
             else:  # select best epoch
                 best_checkpoints = sorted(
-                    checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score,
+                    checkpoints,
+                    key=lambda chkpt: chkpt["score"],
+                    reverse=maximize_score,
                 )
                 checkpoint = best_checkpoints[0]
             # restore the training state
@@ -145,9 +145,7 @@ class TrainedModelChkptBase(TrainedModelBase):
             filename = make_hash(uid) + ".pth.tar"
             filepath = os.path.join(temp_dir, filename)
             state["net"] = model.state_dict()
-            torch.save(
-                state, filepath
-            )
+            torch.save(state, filepath)
             key["state"] = filepath
             self.checkpoint_table.insert1(key)  # this is NOT in transaction and thus immediately completes!
 
