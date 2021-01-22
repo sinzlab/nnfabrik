@@ -36,11 +36,13 @@ class Recipe(dj.Lookup):
 
         """
         entry = dict(
-            **{f"prev_{k}": v for k, v in transfer_from.items()}, **transfer_to,
+            **{f"prev_{k}": v for k, v in transfer_from.items()},
+            **transfer_to,
         )
         entry["transfer_step"] = transfer_step
         entry["data_transfer"] = 1 if data_transfer else 0
         self.insert1(entry, skip_duplicates=True)
+
 
 @schema
 class DatasetTransferRecipe(Recipe):
@@ -134,7 +136,12 @@ class TrainerDatasetTransferRecipe(Recipe):
         This restriction clause is used to make sure that aside from switching trainers,
         the utilized model is to remain the same.
         """
-        return dj.AndList(["model_fn = prev_model_fn", "model_hash = prev_model_hash",])
+        return dj.AndList(
+            [
+                "model_fn = prev_model_fn",
+                "model_hash = prev_model_hash",
+            ]
+        )
 
 
 @schema

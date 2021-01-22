@@ -46,14 +46,10 @@ def mnist_dataset_fn(seed: int, **config) -> Dict:
     validation_dataset = datasets.MNIST(
         "../data", train=False, download=True, transform=transform
     )  # for simplicity, we use the test set for validation
-    test_dataset = datasets.MNIST(
-        "../data", train=False, download=True, transform=transform
-    )
+    test_dataset = datasets.MNIST("../data", train=False, download=True, transform=transform)
     batch_size = config.get("batch_size", 64)
     return {
-        "train": DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=config.get("shuffle", True)
-        ),
+        "train": DataLoader(train_dataset, batch_size=batch_size, shuffle=config.get("shuffle", True)),
         "validation": DataLoader(validation_dataset, batch_size=batch_size),
         "test": DataLoader(test_dataset, batch_size=batch_size),
     }

@@ -142,9 +142,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             if len(transfer_recipe) > 1:
                 for t in transfer_recipe[1:]:
                     joined *= t  # all combination of recipes
-                joined.post_restr = dj.AndList(
-                    [recipe.post_restr for recipe in self.transfer_recipe]
-                )
+                joined.post_restr = dj.AndList([recipe.post_restr for recipe in self.transfer_recipe])
             return joined
         else:
             return self.transfer_recipe
@@ -152,9 +150,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
     @property
     def key_source(self):
         key_source = None
-        if hasattr(
-            self, "transfer_recipe"
-        ):  # expand current entries to follow transfer recipes
+        if hasattr(self, "transfer_recipe"):  # expand current entries to follow transfer recipes
             # project (rename) attributes of the existing transferredmodel table to the same name but with prefix "prev"
             prev_transferred_model = self.proj(
                 prev_model_fn="model_fn",
@@ -181,11 +177,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             )
 
             # get the current transfer step
-            max_transfer_step = (
-                prev_transferred_model.fetch("transfer_step").max()
-                if prev_transferred_model
-                else 0
-            )
+            max_transfer_step = prev_transferred_model.fetch("transfer_step").max() if prev_transferred_model else 0
 
             for transfer_step in range(1, max_transfer_step + 1):
                 # get the transfer recipe
@@ -195,11 +187,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 # apply the recipe
                 transfer_from = prev_transferred_model * recipe
                 transfers = (
-                    self.model_table
-                    * self.dataset_table
-                    * self.trainer_table
-                    * self.seed_table
-                    * transfer_from
+                    self.model_table * self.dataset_table * self.trainer_table * self.seed_table * transfer_from
                 )  # combine recipe restriction with all possible training combinations
 
                 transfers = transfers * self.CollapsedHistory().proj(
@@ -237,13 +225,13 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     key_source = transfers.proj()
 
         # normal entries as a combination of Dataset, Model, Trainer, and Seed tables
-        step_0 = (
-            self.model_table * self.dataset_table * self.trainer_table * self.seed_table
-        )
+        step_0 = self.model_table * self.dataset_table * self.trainer_table * self.seed_table
         # add transfer_step, collapsed_history and data_transfer as prim keys
-        base = dj.U(
-            "transfer_step", "collapsed_history", "data_transfer",
-        ) * step_0.proj(transfer_step="0", collapsed_history='""', data_transfer="0",)
+        base = dj.U("transfer_step", "collapsed_history", "data_transfer",) * step_0.proj(
+            transfer_step="0",
+            collapsed_history='""',
+            data_transfer="0",
+        )
 
         if key_source is None:
             return base.proj()
@@ -260,17 +248,13 @@ class TransferredTrainedModelBase(TrainedModelBase):
         # retrieve corresponding model state (and overwrite possibly retrieved state)
         if include_state_dict and (self.ModelStorage & prev_key):
             with tempfile.TemporaryDirectory() as temp_dir:
-                state_dict_path = (self.ModelStorage & prev_key).fetch1(
-                    "model_state", download_path=temp_dir
-                )
+                state_dict_path = (self.ModelStorage & prev_key).fetch1("model_state", download_path=temp_dir)
                 ret["state_dict"] = torch.load(state_dict_path)
                 ret["model_config"]["transfer"] = True
         # retrieve data if present (if previous step did data transfer)
         if self.DataStorage & prev_key:
             with tempfile.TemporaryDirectory() as temp_dir:
-                data_path = (self.DataStorage & prev_key).fetch1(
-                    "transfer_data", download_path=temp_dir
-                )
+                data_path = (self.DataStorage & prev_key).fetch1("transfer_data", download_path=temp_dir)
                 ret["dataset_config"]["transfer_data"] = np.load(data_path)
         return ret
 
@@ -285,18 +269,14 @@ class TransferredTrainedModelBase(TrainedModelBase):
         seed = (self.seed_table & key).fetch1("seed")
 
         # load everything
-        dataloaders, model, trainer = self.load_model(
-            key, include_trainer=True, include_state_dict=True, seed=seed
-        )
+        dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=True, seed=seed)
 
         # define callback with pinging
         def call_back(**kwargs):
             self.connection.ping()
             self.call_back(**kwargs)
 
-        trainer_output = trainer(
-            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
-        )
+        trainer_output = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
         score, output, model_state = trainer_output[:3]
         transfer_data = {} if len(trainer_output) < 4 else trainer_output[3]
 
@@ -320,9 +300,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     data_path = os.path.join(temp_dir, filename + "_transfer_data.npz")
                     np.savez(data_path, **transfer_data)
                 elif self.DataStorage & prev_key:
-                    data_path = (self.DataStorage & prev_key).fetch1(
-                        "transfer_data", download_path=temp_dir
-                    )
+                    data_path = (self.DataStorage & prev_key).fetch1("transfer_data", download_path=temp_dir)
                 key["transfer_data"] = data_path
                 self.DataStorage.insert1(key, ignore_extra_fields=True)
             filename += ".pth.tar"

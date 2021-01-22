@@ -47,9 +47,7 @@ def my_checkpoint(nnfabrik):
     return TransferredCheckpoint
 
 
-class TransferredTrainedModelChkptBase(
-    TransferredTrainedModelBase, TrainedModelChkptBase
-):
+class TransferredTrainedModelChkptBase(TransferredTrainedModelBase, TrainedModelChkptBase):
     checkpoint_table = None  # TransferredCheckpoint
     keys = [
         "model_fn",

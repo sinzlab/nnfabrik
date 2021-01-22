@@ -11,7 +11,10 @@ from nnfabrik.examples.mnist.trainer import MNISTTrainer
 
 class MNISTDataGenerator:
     def __init__(
-        self, model, dataloaders: Dict, seed: int,
+        self,
+        model,
+        dataloaders: Dict,
+        seed: int,
     ):
 
         self.model = model
@@ -33,7 +36,11 @@ class MNISTDataGenerator:
 
 class MNISTKnowledgeDistillationTrainer(MNISTTrainer):
     def __init__(
-        self, model, dataloaders: Dict, seed: int, epochs: int = 5,
+        self,
+        model,
+        dataloaders: Dict,
+        seed: int,
+        epochs: int = 5,
     ):
         super().__init__(model, dataloaders, seed, epochs)
         self.loss_fn = nn.MSELoss()
@@ -64,14 +71,9 @@ class MNISTKnowledgeDistillationTrainer(MNISTTrainer):
 
 
 def mnist_trainer_fn(
-    model: torch.nn.Module,
-    dataloaders: Dict,
-    seed: int,
-    uid: Tuple,
-    cb: Callable,
-    **config
+    model: torch.nn.Module, dataloaders: Dict, seed: int, uid: Tuple, cb: Callable, **config
 ) -> Tuple[float, Dict, Dict]:
-    """"
+    """ "
     Args:
         model (torch.nn.Module): initialized model to train
         data_loaders (dict): containing "train", "validation" and "test" data loaders
@@ -83,23 +85,16 @@ def mnist_trainer_fn(
         output: user specified validation object based on the 'stop function'
         model_state: the full state_dict() of the trained model
     """
-    trainer = MNISTKnowledgeDistillationTrainer(
-        model, dataloaders, seed, epochs=config.get("epochs", 2)
-    )
+    trainer = MNISTKnowledgeDistillationTrainer(model, dataloaders, seed, epochs=config.get("epochs", 2))
     out = trainer.train()
 
     return out
 
 
 def mnist_data_gen_fn(
-    model: torch.nn.Module,
-    dataloaders: Dict,
-    seed: int,
-    uid: Tuple,
-    cb: Callable,
-    **config
+    model: torch.nn.Module, dataloaders: Dict, seed: int, uid: Tuple, cb: Callable, **config
 ) -> Tuple[float, Dict, Dict]:
-    """"
+    """ "
     Args:
         model (torch.nn.Module): initialized model to train
         data_loaders (dict): containing "train", "validation" and "test" data loaders
