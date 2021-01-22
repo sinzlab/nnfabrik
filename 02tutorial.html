@@ -156,7 +156,10 @@
   <div class="section" id="tutorial-2-train-a-model-with-checkpointing">
 <h1>Tutorial 2: Train a model with checkpointing<a class="headerlink" href="#tutorial-2-train-a-model-with-checkpointing" title="Permalink to this headline">¶</a></h1>
 <p>We introduce two new methods in our trainer. First a method to save the current training state</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>            <span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="n">score</span><span class="p">,</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">score</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;save&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="n">score</span><span class="p">,</span>
             <span class="s2">&quot;maximize_score&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;tracker&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="p">,</span>
             <span class="s2">&quot;optimizer&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span>
@@ -166,19 +169,21 @@
             <span class="n">uid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">uid</span><span class="p">,</span>
             <span class="n">epoch</span><span class="o">=</span><span class="n">epoch</span><span class="p">,</span>
             <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
-            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
 </pre></div>
 </div>
 <p>Then a method to restore a the state if training is resumed after an interruption</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>            <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+        <span class="p">)</span>  <span class="c1"># save model</span>
+
     <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="n">loaded_state</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;maximize_score&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;tracker&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="p">},</span>
+            <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;last&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;maximize_score&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;tracker&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="p">,</span>
             <span class="s2">&quot;optimizer&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">trained_model_cb</span><span class="p">(</span>
             <span class="n">uid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">uid</span><span class="p">,</span> <span class="n">epoch</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">loaded_state</span>
-        <span class="p">)</span>  <span class="c1"># load the last epoch if existing</span>
 </pre></div>
 </div>
 <p>Both methods make use of the <code class="code docutils literal notranslate"><span class="pre">call_back</span></code> function that should be passed to the trainer from
@@ -189,12 +194,13 @@ A positive count on the other hand signals that we are in the process of trainin
 current state as a checkpoint.</p>
 <p>Finally, we also have to update the training procedure itself to call <code class="code docutils literal notranslate"><span class="pre">self.restore()</span></code> before the training starts
 and <code class="code docutils literal notranslate"><span class="pre">self.save()</span></code> after every epoch.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="k">return</span> <span class="n">epoch</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="n">epoch</span> <span class="o">=</span> <span class="n">loaded_state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;epoch&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">epoch</span>
 
     <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">int</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">tqdm</span><span class="p">,</span> <span class="s2">&quot;_instances&quot;</span><span class="p">):</span>
-<span class="hll">            <span class="n">tqdm</span><span class="o">.</span><span class="n">_instances</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># To have tqdm output without line-breaks between steps</span>
-</span>        <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+<span class="hll">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">tqdm</span><span class="p">,</span> <span class="s2">&quot;_instances&quot;</span><span class="p">):</span>
+</span>            <span class="n">tqdm</span><span class="o">.</span><span class="n">_instances</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># To have tqdm output without line-breaks between steps</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
         <span class="n">start_epoch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restore</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="p">):</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -202,10 +208,9 @@ and <code class="code docutils literal notranslate"><span class="pre">self.save(
             <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trainloader</span><span class="p">):</span>
                 <span class="n">p</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_loop</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-                <span class="n">predicted_correct</span> <span class="o">+=</span> <span class="n">p</span>
-<span class="hll">                <span class="n">total</span> <span class="o">+=</span> <span class="n">t</span>
-</span>            <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">100.0</span> <span class="o">*</span> <span class="n">predicted_correct</span> <span class="o">/</span> <span class="n">total</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="hll">                <span class="n">predicted_correct</span> <span class="o">+=</span> <span class="n">p</span>
+</span>                <span class="n">total</span> <span class="o">+=</span> <span class="n">t</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">accs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">100.0</span> <span class="o">*</span> <span class="n">predicted_correct</span> <span class="o">/</span> <span class="n">total</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Once we have a trainer that supports the checkpointing feature, all we need to do is to switch from <code class="code docutils literal notranslate"><span class="pre">TrainedModel</span></code>
