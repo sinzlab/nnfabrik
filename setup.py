@@ -12,6 +12,7 @@ setup(
     author_email="software@sinzlab.net",
     packages=find_packages(exclude=[]),
     install_requires=[
+        "requests>=2.25.1",
         "sphinx",
         "pytorch_sphinx_theme",
         "recommonmark",
