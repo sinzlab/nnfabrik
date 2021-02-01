@@ -24,12 +24,6 @@ def my_checkpoint(nnfabrik):
             -> nnfabrik.Dataset
             -> nnfabrik.Model
             -> nnfabrik.Seed
-            prev_trainer_fn:                   varchar(64)
-            prev_trainer_hash:                 varchar(64)
-            prev_dataset_fn:                   varchar(64)
-            prev_dataset_hash:                 varchar(64)
-            prev_model_fn:                     varchar(64)
-            prev_model_hash:                   varchar(64)
             collapsed_history:                 varchar(64)  # transfer         
             transfer_step:                     int  # transfer         
             data_transfer:                     tinyint
@@ -57,12 +51,6 @@ class TransferredTrainedModelChkptBase(TransferredTrainedModelBase, TrainedModel
         "trainer_fn",
         "trainer_hash",
         "collapsed_history",
-        "prev_model_fn",
-        "prev_model_hash",
-        "prev_dataset_fn",
-        "prev_dataset_hash",
-        "prev_trainer_fn",
-        "prev_trainer_hash",
     ]
 
     def make(self, key):
