@@ -1,4 +1,5 @@
 import tempfile
+
 import torch
 import os
 import datajoint as dj
@@ -26,7 +27,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
         -> self().trainer_table
         -> self().seed_table
         collapsed_history:                 varchar(64)
-        data_transfer:                     tinyint 
+        data_transfer:                     bool 
         ---
         comment='':                        varchar(768) # short description 
         score:                             float        # loss
@@ -62,36 +63,15 @@ class TransferredTrainedModelBase(TrainedModelBase):
         """
 
         definition = """
-        collapsed_history:                 varchar(64)
-        model_fn:                     varchar(64)
-        model_hash:                   varchar(64)
-        dataset_fn:                   varchar(64)
-        dataset_hash:                 varchar(64)
-        trainer_fn:                   varchar(64)
-        trainer_hash:                 varchar(64)
-        seed:                         int
-        prev_collapsed_history:             varchar(64)
+        next_collapsed_history:                 varchar(64)
+        -> master
         """
 
         @classmethod
         def add_entry(cls, key):
             key = {
-                "model_fn": key["model_fn"],
-                "model_hash": key["model_hash"],
-                "dataset_fn": key["dataset_fn"],
-                "dataset_hash": key["dataset_hash"],
-                "trainer_fn": key["trainer_fn"],
-                "trainer_hash": key["trainer_hash"],
-                "seed": key["seed"],
-                "prev_collapsed_history": key["collapsed_history"],
-            }
-            key["collapsed_history"] = make_hash(key)
-            cls.insert1(key, skip_duplicates=True)
-
-        def get_prev_key(self, key):
-            if key["collapsed_history"]:
-                prev_key = self & {"collapsed_history": key["collapsed_history"]}
-                return prev_key.proj(
+                k: key[k]
+                for k in [
                     "model_fn",
                     "model_hash",
                     "dataset_fn",
@@ -99,11 +79,13 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     "trainer_fn",
                     "trainer_hash",
                     "seed",
-                    collapsed_history="prev_collapsed_history",
-                    next_collapsed_history="collapsed_history",
-                )
-            else:  # no history yet (i.e. transfer step 0)
-                return self.proj() - self  # return something empty
+                    "data_transfer",
+                    "transfer_step",
+                    "collapsed_history",
+                ]
+            }
+            key["next_collapsed_history"] = make_hash(key)
+            cls.insert1(key, skip_duplicates=True)
 
     def _transfer_recipe(self, transfer_step):
         """
@@ -127,7 +109,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             string or datajoint AndList: A single or combined restriction of one or multiple recipes, respectively.
         """
 
-        if isinstance(self.transfer_recipe, list):
+        if isinstance(self.transfer_recipe, (list, tuple)):
             # get the recipes that have an entry for a specific transfer step
             transfer_recipe = []
             for tr in self.transfer_recipe:
@@ -149,7 +131,15 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
     @property
     def key_source(self):
-        key_source = None
+
+        # normal entries as a combination of Dataset, Model, Trainer, and Seed tables
+        step_0 = self.model_table * self.dataset_table * self.trainer_table * self.seed_table
+        # add transfer_step, collapsed_history and data_transfer as prim keys
+        key_source = dj.U("transfer_step", "collapsed_history", "data_transfer",) * step_0.proj(
+            transfer_step="0",
+            collapsed_history='""',
+            data_transfer="0",
+        )
         if hasattr(self, "transfer_recipe"):  # expand current entries to follow transfer recipes
             # project (rename) attributes of the existing transferredmodel table to the same name but with prefix "prev"
             prev_transferred_model = self.proj(
@@ -182,7 +172,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             for transfer_step in range(1, max_transfer_step + 1):
                 # get the transfer recipe
                 recipe = self._transfer_recipe(transfer_step)
-                post_restr = recipe.post_restr if recipe else dj.AndList([])
+                post_restr = recipe.post_restr if recipe else {}
 
                 # apply the recipe
                 transfer_from = prev_transferred_model * recipe
@@ -191,8 +181,8 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 )  # combine recipe restriction with all possible training combinations
 
                 transfers = transfers * self.CollapsedHistory().proj(
-                    "collapsed_history",
-                    "prev_collapsed_history",
+                    prev_collapsed_history="collapsed_history",
+                    collapsed_history="next_collapsed_history",
                     prev_model_fn="model_fn",
                     prev_model_hash="model_hash",
                     prev_dataset_fn="dataset_fn",
@@ -200,6 +190,8 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     prev_trainer_fn="trainer_fn",
                     prev_trainer_hash="trainer_hash",
                     prev_seed="seed",
+                    prev_step="transfer_step",
+                    _data_transfer="data_transfer",
                 )  # map previous transferred model to its collapsed history
 
                 transfers = (
@@ -216,27 +208,17 @@ class TransferredTrainedModelBase(TrainedModelBase):
                         "data_transfer",
                     )
                     & transfers
-                    & post_restr  # restrict with post_rest
+                    & post_restr  # restrict with post_restr
                 )
+                key_source = key_source.proj() + transfers.proj()
+        return key_source
 
-                if key_source is not None:
-                    key_source = key_source + transfers.proj()
-                else:
-                    key_source = transfers.proj()
-
-        # normal entries as a combination of Dataset, Model, Trainer, and Seed tables
-        step_0 = self.model_table * self.dataset_table * self.trainer_table * self.seed_table
-        # add transfer_step, collapsed_history and data_transfer as prim keys
-        base = dj.U("transfer_step", "collapsed_history", "data_transfer",) * step_0.proj(
-            transfer_step="0",
-            collapsed_history='""',
-            data_transfer="0",
-        )
-
-        if key_source is None:
-            return base.proj()
-        else:
-            return key_source + base.proj()
+    def get_prev_key(self, key):
+        collapsed_history = key["collapsed_history"] if isinstance(key, dict) else key.fetch1("collapsed_history")
+        if collapsed_history:
+            return self.CollapsedHistory & {"next_collapsed_history": collapsed_history}
+        else:  # no history yet (i.e. transfer step 0)
+            return self.proj() - self  # return something empty
 
     def get_full_config(self, key=None, include_state_dict=True, include_trainer=True):
         ret = super().get_full_config(
@@ -244,18 +226,21 @@ class TransferredTrainedModelBase(TrainedModelBase):
             include_state_dict=include_state_dict,
             include_trainer=include_trainer,
         )
-        prev_key = self.CollapsedHistory().get_prev_key(key)
+        prev_key = self.get_prev_key(key)
         # retrieve corresponding model state (and overwrite possibly retrieved state)
         if include_state_dict and (self.ModelStorage & prev_key):
             with tempfile.TemporaryDirectory() as temp_dir:
                 state_dict_path = (self.ModelStorage & prev_key).fetch1("model_state", download_path=temp_dir)
                 ret["state_dict"] = torch.load(state_dict_path)
                 ret["model_config"]["transfer"] = True
-        # retrieve data if present (if previous step did data transfer)
-        if self.DataStorage & prev_key:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                data_path = (self.DataStorage & prev_key).fetch1("transfer_data", download_path=temp_dir)
-                ret["dataset_config"]["transfer_data"] = np.load(data_path)
+        # retrieve data if present (walk backwards in time to find last instance of data transfer)
+        while prev_key and key["data_transfer"]:
+            if self.DataStorage & prev_key:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    data_path = (self.DataStorage & prev_key).fetch1("transfer_data", download_path=temp_dir)
+                    ret["dataset_config"]["transfer_data"] = np.load(data_path)
+                break
+            prev_key = self.get_prev_key(prev_key)  # go further back
         return ret
 
     def make(self, key):
@@ -276,9 +261,10 @@ class TransferredTrainedModelBase(TrainedModelBase):
             self.connection.ping()
             self.call_back(**kwargs)
 
-        trainer_output = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
-        score, output, model_state = trainer_output[:3]
-        transfer_data = {} if len(trainer_output) < 4 else trainer_output[3]
+        score, output, model_state, *extra = trainer(
+            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
+        )
+        transfer_data = extra[0] if extra else None
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key)
@@ -294,13 +280,9 @@ class TransferredTrainedModelBase(TrainedModelBase):
             self.insert1(key)
             self.CollapsedHistory.add_entry(key)
 
-            prev_key = self.CollapsedHistory().get_prev_key(key)
-            if key["data_transfer"]:
-                if transfer_data:
-                    data_path = os.path.join(temp_dir, filename + "_transfer_data.npz")
-                    np.savez(data_path, **transfer_data)
-                elif self.DataStorage & prev_key:
-                    data_path = (self.DataStorage & prev_key).fetch1("transfer_data", download_path=temp_dir)
+            if key["data_transfer"] and transfer_data:
+                data_path = os.path.join(temp_dir, filename + "_transfer_data.npz")
+                np.savez(data_path, **transfer_data)
                 key["transfer_data"] = data_path
                 self.DataStorage.insert1(key, ignore_extra_fields=True)
             filename += ".pth.tar"

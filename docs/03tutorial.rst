@@ -103,8 +103,8 @@ Now we need a dataset that loads the transferred dataset and a trainer that can 
    :lines: 8-23
 
 .. literalinclude:: ../nnfabrik/examples/mnist_transfer/trainer.py
-   :lines: 39-68
-   :emphasize-lines: 20,21,6
+   :lines: 37-66
+   :emphasize-lines: 23,24,10
 
 
 Of course, we need to add those to the tables as well.::

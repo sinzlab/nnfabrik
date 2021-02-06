@@ -6,7 +6,7 @@ from nnfabrik.main import *
 class Recipe(dj.Lookup):
     definition = """
     transfer_step: int
-    data_transfer: tinyint
+    data_transfer: bool
     -> Model
     -> Model.proj(prev_model_fn='model_fn', prev_model_hash='model_hash')
     """
@@ -40,7 +40,7 @@ class Recipe(dj.Lookup):
             **transfer_to,
         )
         entry["transfer_step"] = transfer_step
-        entry["data_transfer"] = 1 if data_transfer else 0
+        entry["data_transfer"] = int(data_transfer)
         self.insert1(entry, skip_duplicates=True)
 
 
@@ -48,7 +48,7 @@ class Recipe(dj.Lookup):
 class DatasetTransferRecipe(Recipe):
     definition = """
     transfer_step: int
-    data_transfer: tinyint
+    data_transfer: bool
     -> Dataset
     -> Dataset.proj(prev_dataset_fn='dataset_fn', prev_dataset_hash='dataset_hash')
     """
@@ -73,7 +73,7 @@ class DatasetTransferRecipe(Recipe):
 class ModelTransferRecipe(Recipe):
     definition = """
     transfer_step: int
-    data_transfer: tinyint
+    data_transfer: bool
     -> Model
     -> Model.proj(prev_model_fn='model_fn', prev_model_hash='model_hash')
     """
@@ -98,7 +98,7 @@ class ModelTransferRecipe(Recipe):
 class TrainerTransferRecipe(Recipe):
     definition = """
     transfer_step: int
-    data_transfer: tinyint
+    data_transfer: bool
     -> Trainer
     -> Trainer.proj(prev_trainer_fn='trainer_fn', prev_trainer_hash='trainer_hash')
     """
@@ -123,7 +123,7 @@ class TrainerTransferRecipe(Recipe):
 class TrainerDatasetTransferRecipe(Recipe):
     definition = """
      transfer_step: int
-     data_transfer: tinyint
+     data_transfer: bool
      -> Trainer
      -> Trainer.proj(prev_trainer_fn='trainer_fn', prev_trainer_hash='trainer_hash')
      -> Dataset
@@ -148,7 +148,7 @@ class TrainerDatasetTransferRecipe(Recipe):
 class TrainedModelTransferRecipe(Recipe):
     definition = """
      transfer_step: int
-     data_transfer: tinyint
+     data_transfer: bool
      -> Trainer
      -> Trainer.proj(prev_trainer_fn='trainer_fn', prev_trainer_hash='trainer_hash')
      -> Dataset
