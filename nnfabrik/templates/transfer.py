@@ -42,7 +42,9 @@ class TransferredTrainedModelBase(TrainedModelBase):
         current_dataset_hash:              varchar(64)
         current_trainer_fn:                varchar(64)
         current_trainer_hash:              varchar(64)
-        """.format(table_comment=self.table_comment)
+        """.format(
+            table_comment=self.table_comment
+        )
         return definition
 
     class ModelStorage(TrainedModelBase.ModelStorage):
@@ -102,33 +104,67 @@ class TransferredTrainedModelBase(TrainedModelBase):
         if hasattr(self, "transfer_recipe"):
 
             # project (rename) attributes of the existing transfereedmodel table to the same name but with prefix "prev"
-            prev_transferredmodel = self.proj(prev_model_fn='current_model_fn', prev_model_hash='current_model_hash',
-                                               prev_dataset_fn='current_dataset_fn', prev_dataset_hash='current_dataset_hash',
-                                               prev_trainer_fn='current_trainer_fn', prev_trainer_hash='current_trainer_hash',
-                                               prev_step='transfer_step', transfer_step='transfer_step + 1') * dj.U('transfer_step', # make these attributes primary keys
-                                                                                                                    'prev_model_fn', 'prev_model_hash',
-                                                                                                                    'prev_dataset_fn', 'prev_dataset_hash',
-                                                                                                                    'prev_trainer_fn', 'prev_trainer_hash')
+            prev_transferredmodel = self.proj(
+                prev_model_fn="current_model_fn",
+                prev_model_hash="current_model_hash",
+                prev_dataset_fn="current_dataset_fn",
+                prev_dataset_hash="current_dataset_hash",
+                prev_trainer_fn="current_trainer_fn",
+                prev_trainer_hash="current_trainer_hash",
+                prev_step="transfer_step",
+                transfer_step="transfer_step + 1",
+            ) * dj.U(
+                "transfer_step",  # make these attributes primary keys
+                "prev_model_fn",
+                "prev_model_hash",
+                "prev_dataset_fn",
+                "prev_dataset_hash",
+                "prev_trainer_fn",
+                "prev_trainer_hash",
+            )
 
             # get the current transfer step
-            transfer_step = prev_transferredmodel.fetch('transfer_step').max() if prev_transferredmodel else 0
+            transfer_step = prev_transferredmodel.fetch("transfer_step").max() if prev_transferredmodel else 0
 
             if transfer_step:
 
                 # get the necessay attributes to filter the prev_transferredmodel with the transfer recipe
-                prev_transferredmodel = dj.U('transfer_step', 'prev_model_fn', 'prev_model_hash', 'prev_dataset_fn', 'prev_dataset_hash', 'prev_trainer_fn', 'prev_trainer_hash') & prev_transferredmodel
+                prev_transferredmodel = (
+                    dj.U(
+                        "transfer_step",
+                        "prev_model_fn",
+                        "prev_model_hash",
+                        "prev_dataset_fn",
+                        "prev_dataset_hash",
+                        "prev_trainer_fn",
+                        "prev_trainer_hash",
+                    )
+                    & prev_transferredmodel
+                )
 
                 # get the entries that match the one in TransferRecipe (for specification of previous)
                 transfer_from = prev_transferredmodel * self._transfer_recipe(transfer_step)
 
-                transfers = dj.U("transfer_step",
-                                "model_fn", "model_hash",
-                                "dataset_fn", "dataset_hash",
-                                "trainer_fn", "trainer_hash",
-                                "seed",
-                                "prev_model_fn", "prev_model_hash",
-                                "prev_dataset_fn", "prev_dataset_hash",
-                                "prev_trainer_fn", "prev_trainer_hash") & Model * Dataset * Trainer * Seed * transfer_from & self._transfer_recipe(transfer_step).post_restr
+                transfers = (
+                    dj.U(
+                        "transfer_step",
+                        "model_fn",
+                        "model_hash",
+                        "dataset_fn",
+                        "dataset_hash",
+                        "trainer_fn",
+                        "trainer_hash",
+                        "seed",
+                        "prev_model_fn",
+                        "prev_model_hash",
+                        "prev_dataset_fn",
+                        "prev_dataset_hash",
+                        "prev_trainer_fn",
+                        "prev_trainer_hash",
+                    )
+                    & Model * Dataset * Trainer * Seed * transfer_from
+                    & self._transfer_recipe(transfer_step).post_restr
+                )
 
                 return transfers.proj()
 
@@ -138,13 +174,23 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 step_0 = Model * Dataset * Trainer * Seed
 
                 # add transfer_step and prev_hash as prim keys
-                base = dj.U('transfer_step',
-                            'prev_model_fn', 'prev_model_hash',
-                            'prev_dataset_fn', 'prev_dataset_hash',
-                            'prev_trainer_fn', 'prev_trainer_hash') * step_0.proj(transfer_step='0',
-                                                                                prev_model_fn='""', prev_model_hash='""',
-                                                                                prev_dataset_fn='""', prev_dataset_hash='""',
-                                                                                prev_trainer_fn='""', prev_trainer_hash='""')
+                base = dj.U(
+                    "transfer_step",
+                    "prev_model_fn",
+                    "prev_model_hash",
+                    "prev_dataset_fn",
+                    "prev_dataset_hash",
+                    "prev_trainer_fn",
+                    "prev_trainer_hash",
+                ) * step_0.proj(
+                    transfer_step="0",
+                    prev_model_fn='""',
+                    prev_model_hash='""',
+                    prev_dataset_fn='""',
+                    prev_dataset_hash='""',
+                    prev_trainer_fn='""',
+                    prev_trainer_hash='""',
+                )
                 return base.proj()
 
         else:
@@ -152,15 +198,24 @@ class TransferredTrainedModelBase(TrainedModelBase):
             step_0 = Model * Dataset * Trainer * Seed
 
             # add transfer_step and prev_hash as prim keys
-            base = dj.U('transfer_step',
-                        'prev_model_fn', 'prev_model_hash',
-                        'prev_dataset_fn', 'prev_dataset_hash',
-                        'prev_trainer_fn', 'prev_trainer_hash') * step_0.proj(transfer_step='0',
-                                                                            prev_model_fn='""', prev_model_hash='""',
-                                                                            prev_dataset_fn='""', prev_dataset_hash='""',
-                                                                            prev_trainer_fn='""', prev_trainer_hash='""')
+            base = dj.U(
+                "transfer_step",
+                "prev_model_fn",
+                "prev_model_hash",
+                "prev_dataset_fn",
+                "prev_dataset_hash",
+                "prev_trainer_fn",
+                "prev_trainer_hash",
+            ) * step_0.proj(
+                transfer_step="0",
+                prev_model_fn='""',
+                prev_model_hash='""',
+                prev_dataset_fn='""',
+                prev_dataset_hash='""',
+                prev_trainer_fn='""',
+                prev_trainer_hash='""',
+            )
             return base.proj()
-
 
     def make(self, key):
         """
@@ -170,7 +225,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
         # lookup the fabrikant corresponding to the current DJ user
         fabrikant_name = Fabrikant.get_current_user()
-        seed = (Seed & key).fetch1('seed')
+        seed = (Seed & key).fetch1("seed")
 
         # load everything
         dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
@@ -184,25 +239,29 @@ class TransferredTrainedModelBase(TrainedModelBase):
         score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            filename = make_hash(key) + '.pth.tar'
+            filename = make_hash(key) + ".pth.tar"
             filepath = os.path.join(temp_dir, filename)
             torch.save(model_state, filepath)
 
-            key['score'] = score
-            key['output'] = output
-            key['fabrikant_name'] = fabrikant_name
+            key["score"] = score
+            key["output"] = output
+            key["fabrikant_name"] = fabrikant_name
             comments = []
             comments.append((self.trainer_table & key).fetch1("trainer_comment"))
             comments.append((self.model_table & key).fetch1("model_comment"))
             comments.append((self.dataset_table & key).fetch1("dataset_comment"))
-            key['comment'] = self.comment_delimitter.join(comments)
+            key["comment"] = self.comment_delimitter.join(comments)
 
-            key['current_model_fn'], key['current_model_hash'] = (Model & key).fetch1('model_fn', 'model_hash')
-            key['current_dataset_fn'], key['current_dataset_hash'] = (Dataset & key).fetch1('dataset_fn', 'dataset_hash')
-            key['current_trainer_fn'], key['current_trainer_hash'] = (Trainer & key).fetch1('trainer_fn', 'trainer_hash')
+            key["current_model_fn"], key["current_model_hash"] = (Model & key).fetch1("model_fn", "model_hash")
+            key["current_dataset_fn"], key["current_dataset_hash"] = (Dataset & key).fetch1(
+                "dataset_fn", "dataset_hash"
+            )
+            key["current_trainer_fn"], key["current_trainer_hash"] = (Trainer & key).fetch1(
+                "trainer_fn", "trainer_hash"
+            )
 
             self.insert1(key)
 
-            key['model_state'] = filepath
+            key["model_state"] = filepath
 
             self.ModelStorage.insert1(key, ignore_extra_fields=True)

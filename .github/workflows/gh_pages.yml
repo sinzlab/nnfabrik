@@ -1,0 +1,44 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  gh_pages:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: master
+      - name: Set up python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install sphinx-rtd-theme==0.5.0 recommonmark==0.6.0
+      - name: Build documentation
+        run: make --directory master/docs html
+      - name: Delete README.html
+        run: rm master/docs/_build/html/README.html
+      - name: Checkout gh_pages branch
+        uses: actions/checkout@v2
+        with:
+          ref: gh_pages
+          path: gh_pages
+      - name: Copy built documentation to gh_pages branch
+        run: |
+          rm -rf gh_pages/*
+          cp -r master/docs/_build/html/* gh_pages/
+      - name: Add .nojekyll file to bypass Jekyll processing
+        run: touch gh_pages/.nojekyll
+      - name: Commit and push build documentation
+        run: |
+          cd gh_pages
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git diff --exit-code --cached || git commit -m "Add documentation" && git push

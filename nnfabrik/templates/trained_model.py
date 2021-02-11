@@ -18,7 +18,7 @@ class TrainedModelBase(dj.Computed):
     * Set the class property `nnfabrik` to point to a module or a dictionary context that contains classes
         for tables corresponding to `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer`. Most commonly, you
         would want to simply pass the resulting module object from `my_nnfabrik` output.
-    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to 
+    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to
         `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer` as found inside `main` module directly. Note that
         this will therefore depend on the shared "core" tables of nnfabrik.
     * Set the values of the following class properties to individually specify the DataJoint table to use:
@@ -132,9 +132,7 @@ class TrainedModelBase(dj.Computed):
         # if trained model exist and include_state_dict is True
         if include_state_dict and (self.ModelStorage & key):
             with tempfile.TemporaryDirectory() as temp_dir:
-                state_dict_path = (self.ModelStorage & key).fetch1(
-                    "model_state", download_path=temp_dir
-                )
+                state_dict_path = (self.ModelStorage & key).fetch1("model_state", download_path=temp_dir)
                 ret["state_dict"] = torch.load(state_dict_path)
 
         return ret
@@ -177,9 +175,7 @@ class TrainedModelBase(dj.Computed):
         if seed is None and len(self.seed_table & key) == 1:
             seed = (self.seed_table & key).fetch1("seed")
 
-        config_dict = self.get_full_config(
-            key, include_trainer=include_trainer, include_state_dict=include_state_dict
-        )
+        config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
 
         if not include_dataloader:
             try:
@@ -197,9 +193,7 @@ class TrainedModelBase(dj.Computed):
                 return (
                     (
                         net,
-                        get_trainer(
-                            config_dict["trainer_fn"], config_dict["trainer_config"]
-                        ),
+                        get_trainer(config_dict["trainer_fn"], config_dict["trainer_config"]),
                     )
                     if include_trainer
                     else net
@@ -240,9 +234,7 @@ class TrainedModelBase(dj.Computed):
         seed = (self.seed_table & key).fetch1("seed")
 
         # load everything
-        dataloaders, model, trainer = self.load_model(
-            key, include_trainer=True, include_state_dict=False, seed=seed
-        )
+        dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
 
         # define callback with pinging
         def call_back(**kwargs):
@@ -250,9 +242,7 @@ class TrainedModelBase(dj.Computed):
             self.call_back(**kwargs)
 
         # model training
-        score, output, model_state = trainer(
-            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
-        )
+        score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
 
         # save resulting model_state into a temporary file to be attached
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -284,7 +274,7 @@ class DataInfoBase(dj.Computed):
     * Set the class property `nnfabrik` to point to a module or a dictionary context that contains classes
         for tables corresponding to `Fabrikant` and `Dataset`. Most commonly, you
         would want to simply pass the resulting module object from `my_nnfabrik` output.
-    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to 
+    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to
         `Fabrikant` and `Dataset` as found inside `main` module directly. Note that
         this will therefore depend on the shared "core" tables of nnfabrik.
     * Set the values of the following class properties to individually specify the DataJoint table to use:

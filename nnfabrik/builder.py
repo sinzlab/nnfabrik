@@ -19,9 +19,7 @@ def resolve_fn(fn_name, default_base):
 
     try:
         fn_obj = (
-            dynamic_import(module_path, class_name)
-            if module_path
-            else eval("{}.{}".format(default_base, class_name))
+            dynamic_import(module_path, class_name) if module_path else eval("{}.{}".format(default_base, class_name))
         )
     except NameError:
         raise NameError("Function `{}` does not exist".format(class_name))

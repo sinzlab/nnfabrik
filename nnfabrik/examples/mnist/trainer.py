@@ -8,7 +8,11 @@ from torch import optim
 
 class MNISTTrainer:
     def __init__(
-        self, model: nn.Module, dataloaders: Dict, seed: int, epochs: int = 5,
+        self,
+        model: nn.Module,
+        dataloaders: Dict,
+        seed: int,
+        epochs: int = 5,
     ) -> None:
 
         self.model = model
@@ -33,7 +37,7 @@ class MNISTTrainer:
         total = y.shape[0]
         return predicted_correct, total
 
-    def train(self) -> Tuple[float, Tuple[List[float],int], Dict]:
+    def train(self) -> Tuple[float, Tuple[List[float], int], Dict]:
         if hasattr(tqdm, "_instances"):
             tqdm._instances.clear()  # To have tqdm output without line-breaks between steps
         torch.manual_seed(self.seed)
@@ -52,14 +56,9 @@ class MNISTTrainer:
 
 
 def mnist_trainer_fn(
-    model: torch.nn.Module,
-    dataloaders: Dict,
-    seed: int,
-    uid: Dict,
-    cb: Callable,
-    **config
+    model: torch.nn.Module, dataloaders: Dict, seed: int, uid: Dict, cb: Callable, **config
 ) -> Tuple[float, Any, Dict]:
-    """"
+    """
     Args:
         model: initialized model to train
         data_loaders: containing "train", "validation" and "test" data loaders

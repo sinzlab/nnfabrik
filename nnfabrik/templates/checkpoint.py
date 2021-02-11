@@ -72,25 +72,26 @@ class TrainedModelChkptBase(TrainedModelBase):
             self.restore_epoch(action, uid, maximize_score, state)
 
     def restore_epoch(self, action, uid, maximize_score, state):
-        checkpoints = (self.checkpoint_table & uid).fetch(
-            "score", "epoch", "state", as_dict=True,
-        )
-        if not checkpoints:
-            return
-        if action == "last":  # select last epoch
-            last_checkpoints = sorted(
-                checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False
+        with tempfile.TemporaryDirectory() as temp_dir:
+            checkpoints = (self.checkpoint_table & uid).fetch(
+                "score", "epoch", "state", as_dict=True, download_path=temp_dir
             )
-            checkpoint = last_checkpoints[-1]
-        else:  # select best epoch
-            best_checkpoints = sorted(
-                checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score,
-            )
-            checkpoint = best_checkpoints[0]
-        # restore the training state
-        state["epoch"] = checkpoint["epoch"]
-        state["score"] = checkpoint["score"]
-        loaded_state = torch.load(checkpoint["state"])
+            if not checkpoints:
+                return
+            if action == "last":  # select last epoch
+                last_checkpoints = sorted(checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=False)
+                checkpoint = last_checkpoints[-1]
+            else:  # select best epoch
+                best_checkpoints = sorted(
+                    checkpoints,
+                    key=lambda chkpt: chkpt["score"],
+                    reverse=maximize_score,
+                )
+                checkpoint = best_checkpoints[0]
+            # restore the training state
+            state["epoch"] = checkpoint["epoch"]
+            state["score"] = checkpoint["score"]
+            loaded_state = torch.load(checkpoint["state"])
         for key, state_entry in loaded_state.items():
             if key in state and hasattr(state[key], "load_state_dict"):
                 state[key].load_state_dict(state_entry)
@@ -110,19 +111,19 @@ class TrainedModelChkptBase(TrainedModelBase):
     def filter_table(self, keep_best_n, keep_last_n, keep_selection, maximize_score, uid):
         # fetch all fitting entries from checkpoint table
         checkpoints = (self.checkpoint_table & uid).fetch(
-            *self.keys, "seed", "score", "epoch", as_dict=True,
+            *self.keys,
+            "seed",
+            "score",
+            "epoch",
+            as_dict=True,
         )
         # select checkpoints to be kept
         keep_checkpoints = []
-        best_checkpoints = sorted(
-            checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score
-        )
+        best_checkpoints = sorted(checkpoints, key=lambda chkpt: chkpt["score"], reverse=maximize_score)
         for c in checkpoints:
             del c["score"]  # restricting with a float is not a good idea -> remove
         keep_checkpoints += best_checkpoints[:keep_best_n]  # w.r.t. performance
-        last_checkpoints = sorted(
-            checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True
-        )
+        last_checkpoints = sorted(checkpoints, key=lambda chkpt: chkpt["epoch"], reverse=True)
         keep_checkpoints += last_checkpoints[:keep_last_n]  # w.r.t. temporal order
         for chkpt in checkpoints:
             if chkpt["epoch"] in keep_selection:
@@ -144,13 +145,9 @@ class TrainedModelChkptBase(TrainedModelBase):
             filename = make_hash(uid) + ".pth.tar"
             filepath = os.path.join(temp_dir, filename)
             state["net"] = model.state_dict()
-            torch.save(
-                state, filepath,
-            )
+            torch.save(state, filepath)
             key["state"] = filepath
-            self.checkpoint_table.insert1(
-                key
-            )  # this is NOT in transaction and thus immediately completes!
+            self.checkpoint_table.insert1(key)  # this is NOT in transaction and thus immediately completes!
 
     def make(self, key):
         orig_key = copy.deepcopy(key)
