@@ -172,13 +172,17 @@ class Bayesian:
 
         # insert the stuff into their corresponding tables
         dataset_hash = make_hash(config["dataset"])
-        entry_exists = (
-            {"dataset_fn": "{}".format(self.fns["dataset"])} in self.trained_model_table.dataset_table()
-            and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
-        )
+        entry_exists = {
+            "dataset_fn": "{}".format(self.fns["dataset"])
+        } in self.trained_model_table.dataset_table() and {
+            "dataset_hash": "{}".format(dataset_hash)
+        } in self.trained_model_table.dataset_table()
         if not entry_exists:
             self.trained_model_table.dataset_table().add_entry(
-                self.fns["dataset"], config["dataset"], dataset_fabrikant=self.architect, dataset_comment=self.comment
+                self.fns["dataset"],
+                config["dataset"],
+                dataset_fabrikant=self.architect,
+                dataset_comment=self.comment,
             )
 
         model_hash = make_hash(config["model"])
@@ -187,17 +191,24 @@ class Bayesian:
         } in self.trained_model_table.model_table()
         if not entry_exists:
             self.trained_model_table.model_table().add_entry(
-                self.fns["model"], config["model"], model_fabrikant=self.architect, model_comment=self.comment
+                self.fns["model"],
+                config["model"],
+                model_fabrikant=self.architect,
+                model_comment=self.comment,
             )
 
         trainer_hash = make_hash(config["trainer"])
-        entry_exists = (
-            {"trainer_fn": "{}".format(self.fns["trainer"])} in self.trained_model_table.trainer_table()
-            and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
-        )
+        entry_exists = {
+            "trainer_fn": "{}".format(self.fns["trainer"])
+        } in self.trained_model_table.trainer_table() and {
+            "trainer_hash": "{}".format(trainer_hash)
+        } in self.trained_model_table.trainer_table()
         if not entry_exists:
             self.trained_model_table.trainer_table().add_entry(
-                self.fns["trainer"], config["trainer"], trainer_fabrikant=self.architect, trainer_comment=self.comment
+                self.fns["trainer"],
+                config["trainer"],
+                trainer_fabrikant=self.architect,
+                trainer_comment=self.comment,
             )
 
         # get the primary key values for all those entries
@@ -393,13 +404,17 @@ class Random:
 
         # insert the stuff into their corresponding tables
         dataset_hash = make_hash(config["dataset"])
-        entry_exists = (
-            {"dataset_fn": "{}".format(self.fns["dataset"])} in self.trained_model_table.dataset_table()
-            and {"dataset_hash": "{}".format(dataset_hash)} in self.trained_model_table.dataset_table()
-        )
+        entry_exists = {
+            "dataset_fn": "{}".format(self.fns["dataset"])
+        } in self.trained_model_table.dataset_table() and {
+            "dataset_hash": "{}".format(dataset_hash)
+        } in self.trained_model_table.dataset_table()
         if not entry_exists:
             self.trained_model_table.dataset_table().add_entry(
-                self.fns["dataset"], config["dataset"], dataset_fabrikant=self.architect, dataset_comment=self.comment
+                self.fns["dataset"],
+                config["dataset"],
+                dataset_fabrikant=self.architect,
+                dataset_comment=self.comment,
             )
 
         model_hash = make_hash(config["model"])
@@ -408,17 +423,24 @@ class Random:
         } in self.trained_model_table.model_table()
         if not entry_exists:
             self.trained_model_table.model_table().add_entry(
-                self.fns["model"], config["model"], model_fabrikant=self.architect, model_comment=self.comment
+                self.fns["model"],
+                config["model"],
+                model_fabrikant=self.architect,
+                model_comment=self.comment,
             )
 
         trainer_hash = make_hash(config["trainer"])
-        entry_exists = (
-            {"trainer_fn": "{}".format(self.fns["trainer"])} in self.trained_model_table.trainer_table()
-            and {"trainer_hash": "{}".format(trainer_hash)} in self.trained_model_table.trainer_table()
-        )
+        entry_exists = {
+            "trainer_fn": "{}".format(self.fns["trainer"])
+        } in self.trained_model_table.trainer_table() and {
+            "trainer_hash": "{}".format(trainer_hash)
+        } in self.trained_model_table.trainer_table()
         if not entry_exists:
             self.trained_model_table.trainer_table().add_entry(
-                self.fns["trainer"], config["trainer"], trainer_fabrikant=self.architect, trainer_comment=self.comment
+                self.fns["trainer"],
+                config["trainer"],
+                trainer_fabrikant=self.architect,
+                trainer_comment=self.comment,
             )
 
         # get the primary key values for all those entries

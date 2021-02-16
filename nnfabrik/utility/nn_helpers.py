@@ -3,59 +3,51 @@
 import torch
 from torch import nn
 
-from neuralpredictors.training import eval_state
 import numpy as np
 import random
 
 
 def get_io_dims(data_loader):
     """
-    gets the input and output dimensions from the dataloader.
-    :Args
-        dataloader: is expected to be a pytorch Dataloader object
-            each loader should have as first argument the input in the form of
-                [batch_size, channels, px_x, px_y, ...]
-            each loader should have as second argument the output in the form of
-                [batch_size, output_units, ...]
-    :return:
-        input_dim: input dimensions, expected to be a tuple in the form of input.shape.
-                    for example: (batch_size, channels, px_x, px_y, ...)
-        output_dim: out dimensions, expected to be a tuple in the form of output.shape.
-                    for example: (batch_size, output_units, ...)
+    Returns the shape of the dataset for each item within an entry returned by the `data_loader`
+    The DataLoader object must return either a namedtuple, dictionary or a plain tuple.
+    If `data_loader` entry is a namedtuple or a dictionary, a dictionary with the same keys as the
+    namedtuple/dict item is returned, where values are the shape of the entry. Otherwise, a tuple of
+    shape information is returned.
+
+    Note that the first dimension is always the batch dim with size depending on the data_loader configuration.
+
+    Args:
+        data_loader (torch.DataLoader): is expected to be a pytorch Dataloader object returning
+            either a namedtuple, dictionary, or a plain tuple.
+    Returns:
+        dict or tuple: If data_loader element is either namedtuple or dictionary, a ditionary
+            of shape information, keyed for each entry of dataset is returned. Otherwise, a tuple
+            of shape information is returned. The first dimension is always the batch dim
+            with size depending on the data_loader configuration.
     """
     items = next(iter(data_loader))
-    return {k: v.shape for k, v in items._asdict().items()}
+    if hasattr(items, "_asdict"):  # if it's a named tuple
+        items = items._asdict()
+
+    if hasattr(items, "items"):  # if dict like
+        return {k: v.shape for k, v in items.items()}
+    else:
+        return (v.shape for v in items)
 
 
 def get_dims_for_loader_dict(dataloaders):
     """
-    gets the input and outpout dimensions for all dictionary entries of the dataloader
+    Given a dictionary of DataLoaders, returns a dictionary with same keys as the
+    input and shape information (as returned by `get_io_dims`) on each keyed DataLoader.
 
-    :param dataloaders: dictionary of dataloaders. Each entry corresponds to a session
-    :return: a dictionary with the sessionkey and it's corresponding dimensions
+    Args:
+        dataloaders (dict of DataLoader): Dictionary of dataloaders.
+
+    Returns:
+        dict: A dict containing the result of calling `get_io_dims` for each entry of the input dict
     """
     return {k: get_io_dims(v) for k, v in dataloaders.items()}
-
-
-def get_module_output(model, input_shape):
-    """
-    Gets the output dimensions of the convolutional core
-        by passing an input image through all convolutional layers
-
-    :param core: convolutional core of the DNN, which final dimensions
-        need to be passed on to the readout layer
-    :param input_shape: the dimensions of the input
-
-    :return: output dimensions of the core
-    """
-    initial_device = "cuda" if next(iter(model.parameters())).is_cuda else "cpu"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    with eval_state(model):
-        with torch.no_grad():
-            input = torch.zeros(1, *input_shape[1:]).to(device)
-            output = model.to(device)(input)
-    model.to(initial_device)
-    return output.shape
 
 
 def set_random_seed(seed: int, deterministic: bool = True):
@@ -63,7 +55,7 @@ def set_random_seed(seed: int, deterministic: bool = True):
     Set random generator seed for Python interpreter, NumPy and PyTorch. When setting the seed for PyTorch,
     if CUDA device is available, manual seed for CUDA will also be set. Finally, if `deterministic=True`,
     and CUDA device is available, PyTorch CUDNN backend will be configured to `benchmark=False` and `deterministic=True`
-    to yield as deterministic result as possible. For more details, refer to 
+    to yield as deterministic result as possible. For more details, refer to
     PyTorch documentation on reproducibility: https://pytorch.org/docs/stable/notes/randomness.html
 
     Beware that the seed setting is a "best effort" towards deterministic run. However, as detailed in the above documentation,
@@ -172,16 +164,12 @@ def load_state_dict(
     if unused and ignore_unused:
         print("Ignored unnecessary keys in pretrained dict:\n" + "\n".join(unused))
     elif unused:
-        raise RuntimeError(
-            "Error in loading state_dict: Unused keys:\n" + "\n".join(unused)
-        )
+        raise RuntimeError("Error in loading state_dict: Unused keys:\n" + "\n".join(unused))
     missing = set(model_dict.keys()) - set(filtered_state_dict.keys())
     if missing and ignore_missing:
         print("Ignored Missing keys:\n" + "\n".join(missing))
     elif missing:
-        raise RuntimeError(
-            "Error in loading state_dict: Missing keys:\n" + "\n".join(missing)
-        )
+        raise RuntimeError("Error in loading state_dict: Missing keys:\n" + "\n".join(missing))
 
     # 2. overwrite entries in the existing state dict
     updated_model_dict = {}
@@ -191,9 +179,7 @@ def load_state_dict(
                 print("Ignored shape-mismatched parameter:", k)
                 continue
             else:
-                raise RuntimeError(
-                    "Error in loading state_dict: Shape-mismatch for key {}".format(k)
-                )
+                raise RuntimeError("Error in loading state_dict: Shape-mismatch for key {}".format(k))
         updated_model_dict[k] = v
 
     # 3. load the new state dict

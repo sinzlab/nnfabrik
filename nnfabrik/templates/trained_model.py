@@ -1,30 +1,60 @@
-import datajoint as dj
 import tempfile
 import torch
 import os
-from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
-from nnfabrik.builder import get_all_parts, get_model, get_trainer
-from nnfabrik.utility.dj_helpers import gitlog, make_hash
-from .utility import DataInfoBase
-from datajoint.fetch import DataJointError
 import warnings
+import datajoint as dj
+from datajoint.fetch import DataJointError
+from ..builder import get_all_parts, get_model, get_trainer
+from ..utility.dj_helpers import make_hash
+from .utility import find_object
 
 
 class TrainedModelBase(dj.Computed):
     """
-    Inherit from this class and decorate with your own schema to create a functional
-    TrainedModel table. By default, this will inherit from following
-    Model, Dataset, Trainer and Seed as found in nnfabrik.main, and also point to . To change this behavior,
-    overwrite the `model_table`, `dataset_table`, `trainer_table` and `seed_table` class
-    properties.
+    Base class for defining TrainedModel table used to tigger training of models in nnfabrik.
+
+    To use this class, define a new class inheriting from this base class, and decorate with your own
+    schema. Furthermore, you have to do one of the following for the class to be functional:
+    * Set the class property `nnfabrik` to point to a module or a dictionary context that contains classes
+        for tables corresponding to `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer`. Most commonly, you
+        would want to simply pass the resulting module object from `my_nnfabrik` output.
+    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to
+        `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer` as found inside `main` module directly. Note that
+        this will therefore depend on the shared "core" tables of nnfabrik.
+    * Set the values of the following class properties to individually specify the DataJoint table to use:
+        `user_table`, `seed_table`, `dataset_table`, `model_table` and `trainer_table` to specify equivalent
+        of `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer`, respectively. You could also set the
+        value of `nnfabrik` to a module or "core" as stated above, and specifically override a target table
+        via setting one of the table class property as well.
     """
 
-    model_table = Model
-    dataset_table = Dataset
-    trainer_table = Trainer
-    seed_table = Seed
-    user_table = Fabrikant
-    data_info_table = DataInfoBase
+    database = ""  # hack to suppress DJ error
+
+    nnfabrik = None
+
+    @property
+    def model_table(self):
+        return find_object(self.nnfabrik, "Model")
+
+    @property
+    def dataset_table(self):
+        return find_object(self.nnfabrik, "Dataset")
+
+    @property
+    def trainer_table(self):
+        return find_object(self.nnfabrik, "Trainer")
+
+    @property
+    def seed_table(self):
+        return find_object(self.nnfabrik, "Seed")
+
+    @property
+    def user_table(self):
+        return find_object(self.nnfabrik, "Fabrikant", "user_table")
+
+    @property
+    def data_info_table(self):
+        return find_object(self.nnfabrik, "DataInfo", "data_info_table")
 
     # storage for the ModelStorage table
     storage = "minio"
@@ -39,15 +69,15 @@ class TrainedModelBase(dj.Computed):
     def definition(self):
         definition = """
         # {table_comment}
-        -> self.model_table
-        -> self.dataset_table
-        -> self.trainer_table
-        -> self.seed_table
+        -> self().model_table
+        -> self().dataset_table
+        -> self().trainer_table
+        -> self().seed_table
         ---
         comment='':                        varchar(768) # short description 
         score:                             float        # loss
         output:                            longblob     # trainer object's output
-        ->[nullable] self.user_table
+        ->[nullable] self().user_table
         trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
         """.format(
             table_comment=self.table_comment
@@ -102,9 +132,7 @@ class TrainedModelBase(dj.Computed):
         # if trained model exist and include_state_dict is True
         if include_state_dict and (self.ModelStorage & key):
             with tempfile.TemporaryDirectory() as temp_dir:
-                state_dict_path = (self.ModelStorage & key).fetch1(
-                    "model_state", download_path=temp_dir
-                )
+                state_dict_path = (self.ModelStorage & key).fetch1("model_state", download_path=temp_dir)
                 ret["state_dict"] = torch.load(state_dict_path)
 
         return ret
@@ -147,9 +175,7 @@ class TrainedModelBase(dj.Computed):
         if seed is None and len(self.seed_table & key) == 1:
             seed = (self.seed_table & key).fetch1("seed")
 
-        config_dict = self.get_full_config(
-            key, include_trainer=include_trainer, include_state_dict=include_state_dict
-        )
+        config_dict = self.get_full_config(key, include_trainer=include_trainer, include_state_dict=include_state_dict)
 
         if not include_dataloader:
             try:
@@ -167,9 +193,7 @@ class TrainedModelBase(dj.Computed):
                 return (
                     (
                         net,
-                        get_trainer(
-                            config_dict["trainer_fn"], config_dict["trainer_config"]
-                        ),
+                        get_trainer(config_dict["trainer_fn"], config_dict["trainer_config"]),
                     )
                     if include_trainer
                     else net
@@ -210,9 +234,7 @@ class TrainedModelBase(dj.Computed):
         seed = (self.seed_table & key).fetch1("seed")
 
         # load everything
-        dataloaders, model, trainer = self.load_model(
-            key, include_trainer=True, include_state_dict=False, seed=seed
-        )
+        dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=False, seed=seed)
 
         # define callback with pinging
         def call_back(**kwargs):
@@ -220,9 +242,7 @@ class TrainedModelBase(dj.Computed):
             self.call_back(**kwargs)
 
         # model training
-        score, output, model_state = trainer(
-            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
-        )
+        score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
 
         # save resulting model_state into a temporary file to be attached
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -243,3 +263,74 @@ class TrainedModelBase(dj.Computed):
             key["model_state"] = filepath
 
             self.ModelStorage.insert1(key, ignore_extra_fields=True)
+
+
+class DataInfoBase(dj.Computed):
+    """
+    Inherit from this class and decorate with your own schema to create a functional
+    DataInfo table.
+
+    Furthermore, you have to do one of the following for the class to be functional:
+    * Set the class property `nnfabrik` to point to a module or a dictionary context that contains classes
+        for tables corresponding to `Fabrikant` and `Dataset`. Most commonly, you
+        would want to simply pass the resulting module object from `my_nnfabrik` output.
+    * Set the class property `nnfabrik` to "core" -- this will then make this table refer to
+        `Fabrikant` and `Dataset` as found inside `main` module directly. Note that
+        this will therefore depend on the shared "core" tables of nnfabrik.
+    * Set the values of the following class properties to individually specify the DataJoint table to use:
+        `user_table` and `dataset_table` to specify equivalent
+        of `Fabrikant` and `Dataset` respectively. You could also set the
+        value of `nnfabrik` to a module or "core" as stated above, and specifically override a target table
+        via setting one of the table class property as well.
+    """
+
+    nnfabrik = None
+
+    @property
+    def dataset_table(self):
+        return find_object(self.nnfabrik, "Dataset")
+
+    @property
+    def user_table(self):
+        return find_object(self.nnfabrik, "Fabrikant", "user_table")
+
+    # table level comment
+    table_comment = "Table containing information about i/o dimensions and statistics, per data_key in dataset"
+
+    @property
+    def definition(self):
+        definition = """
+            # {table_comment}
+            -> self().dataset_table
+            ---
+            data_info:                     longblob     # Dictionary of data_keys and i/o information
+
+            ->[nullable] self().user_table
+            datainfo_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+            """.format(
+            table_comment=self.table_comment
+        )
+        return definition
+
+    def make(self, key):
+        """
+        Given a dataset from nnfabrik, extracts the necessary information for building a model in nnfabrik.
+        'data_info' is expected to be a dictionary of dictionaries, similar to the dataloaders object.
+        For example:
+            data_info = {
+                        'data_key_0': dict(input_dimensions=[N,c,h,w, ...],
+                                           input_channels=[c],
+                                           output_dimension=[o, ...],
+                                           img_mean=mean_train_images,
+                                           img_std=std_train_images),
+                        'data_key_1':  ...
+                        }
+        """
+        dataset_fn, dataset_config = (self.dataset_table & key).fn_config
+        data_info = dataset_fn(**dataset_config, return_data_info=True)
+
+        fabrikant_name = self.user_table.get_current_user()
+
+        key["fabrikant_name"] = fabrikant_name
+        key["data_info"] = data_info
+        self.insert1(key)

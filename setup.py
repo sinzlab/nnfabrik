@@ -11,5 +11,9 @@ setup(
     author="Sinz Lab",
     author_email="software@sinzlab.net",
     packages=find_packages(exclude=[]),
-    install_requires=["neuralpredictors~=0.0.0", "sphinx", "pytorch_sphinx_theme", "recommonmark"],
+    install_requires=[
+        "sphinx",
+        "pytorch_sphinx_theme",
+        "recommonmark",
+    ],
 )

@@ -1,10 +1,8 @@
 import warnings
 import types
-from typing import Union, Optional, MutableMapping
-
+from typing import Union, Optional, MutableMapping, Tuple
 
 import datajoint as dj
-from datajoint.schema import Schema
 
 from .builder import (
     resolve_model,
@@ -14,7 +12,7 @@ from .builder import (
     get_model,
     get_trainer,
 )
-from .utility.dj_helpers import make_hash, CustomSchema
+from .utility.dj_helpers import make_hash, CustomSchema, Schema
 from .utility.nnf_helper import cleanup_numpy_scalar
 
 
@@ -26,10 +24,66 @@ class Fabrikant(dj.Manual):
     definition = """
     fabrikant_name: varchar(32)       # Name of the contributor that added this entry
     ---
-    email: varchar(64)      # e-mail address
-    affiliation: varchar(32) # conributor's affiliation
-    dj_username: varchar(64) # DataJoint username
+    full_name="": varchar(128) # full name of the person
+    email: varchar(64)         # e-mail address
+    affiliation: varchar(32)   # conributor's affiliation (e.g. Sinz Lab)
+    dj_username: varchar(64)   # DataJoint username
     """
+
+    def add_entry(
+        self,
+        name,
+        email,
+        affiliation,
+        full_name="",
+        dj_username=None,
+        skip_duplicates=False,
+        return_pk_only=True,
+    ):
+        """
+        Add a new entry into Fabrikant table. If `dj_username` is omitted, then the current
+        database connection user is used.
+
+        Args:
+            name (str): A short name to identify yourself.
+            email (str): Email address.
+            affiliation (str): Lab or institutional affiliation.
+            full_name (str, optional): Full name. Defaults to "".
+            dj_username (str, optional): DataJoint username. Defaults to None, in which case
+                the username of the current connection is used.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
+                entry is returned. Defaults to True.
+
+        Returns:
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
+        """
+        if dj_username is None:
+            dj_username = self.connection.get_user().split("@")[0]
+
+        key = dict(
+            fabrikant_name=name,
+            full_name=full_name,
+            email=email,
+            affiliation=affiliation,
+            dj_username=dj_username,
+        )
+
+        # overlap in DJ username is not allowed either
+        existing = self.proj() & key or (self & dict(dj_username=dj_username)).proj()
+        if existing:
+            key = (self & (existing)).fetch1()
+            if skip_duplicates:
+                warnings.warn("Corresponding entry found. Skipping...")
+            else:
+                raise ValueError("Corresponding entry already exists: {}".format(key))
+        else:
+            self.insert1(key, ignore_extra_fields=True)
+
+        if return_pk_only:
+            key = {k: key[k] for k in self.heading.primary_key}
+
+        return key
 
     @classmethod
     def get_current_user(cls):
@@ -69,24 +123,31 @@ class Model(dj.Manual):
         self,
         model_fn,
         model_config,
-        model_fabrikant=None,
         model_comment="",
+        model_fabrikant=None,
         skip_duplicates=False,
+        return_pk_only=True,
     ):
         """
         Add a new entry to the model.
 
         Args:
-            model_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+            model_fn (str, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
-            model_config (dict) - Python dictionary containing keyword arguments for the model_fn
-            model_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
+            model_config (dict): Python dictionary containing keyword arguments for the model_fn
             model_comment - Optional comment for the entry.
-            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+            model_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based on the database user name for the existing connection.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
+                entry is returned. Defaults to True.
 
         Returns:
-            key - key in the table corresponding to the entry.
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
+        if not isinstance(model_fn, str):
+            # infer the full path to the callable
+            model_fn = model_fn.__module__ + "." + model_fn.__name__
+
         try:
             resolve_model(model_fn)
         except (NameError, TypeError) as e:
@@ -115,6 +176,9 @@ class Model(dj.Manual):
         else:
             self.insert1(key)
 
+        if return_pk_only:
+            key = {k: key[k] for k in self.heading.primary_key}
+
         return key
 
     def build_model(self, dataloaders=None, seed=None, key=None, data_info=None):
@@ -139,7 +203,7 @@ class Model(dj.Manual):
                 "data_info have to be passed."
             )
 
-        print("Loading model...")
+        print("Building model...")
         if key is None:
             key = {}
         model_fn, model_config = (self & key).fn_config
@@ -179,25 +243,31 @@ class Dataset(dj.Manual):
         self,
         dataset_fn,
         dataset_config,
-        dataset_fabrikant=None,
         dataset_comment="",
+        dataset_fabrikant=None,
         skip_duplicates=False,
+        return_pk_only=True,
     ):
         """
         Add a new entry to the dataset.
 
         Args:
-            dataset_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+            dataset_fn (string, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
-            dataset_config (dict) - Python dictionary containing keyword arguments for the dataset_fn
-            dataset_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
+            dataset_config (dict): Python dictionary containing keyword arguments for the dataset_fn
+            dataset_comment (str, optional):  Comment for the entry. Defaults to "" (emptry string)
+            dataset_fabrikant (string): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
-            dataset_comment - Optional comment for the entry.
-            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
+                entry is returned. Defaults to True.
 
         Returns:
-            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
+        if not isinstance(dataset_fn, str):
+            # infer the full path to the callable
+            dataset_fn = dataset_fn.__module__ + "." + dataset_fn.__name__
 
         try:
             resolve_data(dataset_fn)
@@ -226,6 +296,9 @@ class Dataset(dj.Manual):
                 raise ValueError("Corresponding entry already exists")
         else:
             self.insert1(key)
+
+        if return_pk_only:
+            key = {k: key[k] for k in self.heading.primary_key}
 
         return key
 
@@ -283,25 +356,32 @@ class Trainer(dj.Manual):
         self,
         trainer_fn,
         trainer_config,
-        trainer_fabrikant=None,
         trainer_comment="",
+        trainer_fabrikant=None,
         skip_duplicates=False,
+        return_pk_only=True,
     ):
         """
         Add a new entry to the trainer.
 
         Args:
-            trainer_fn (string) - name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
+            trainer_fn (str): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
-            trainer_config (dict) - Python dictionary containing keyword arguments for the trainer_fn.
-            trainer_fabrikant (string) - The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
+            trainer_config (dict): Python dictionary containing keyword arguments for the trainer_fn.
+            trainer_comment (str, optional): Optional comment for the entry. Defaults to "" (empty string).
+            trainer_fabrikant (str): The fabrikant name. Must match an existing entry in Fabrikant table. If ignored, will attempt to resolve Fabrikant based
                 on the database user name for the existing connection.
-            trainer_comment - Optional comment for the entry.
-            skip_duplicates - If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found.
+            skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
+            return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
+                entry is returned. Defaults to True.
 
         Returns:
-            key - key in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
+            dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
+        if not isinstance(trainer_fn, str):
+            # infer the full path to the callable
+            trainer_fn = trainer_fn.__module__ + "." + trainer_fn.__name__
+
         try:
             resolve_trainer(trainer_fn)
         except (NameError, TypeError) as e:
@@ -329,6 +409,9 @@ class Trainer(dj.Manual):
                 raise ValueError("Corresponding entry already exists")
         else:
             self.insert1(key)
+
+        if return_pk_only:
+            key = {k: key[k] for k in self.heading.primary_key}
 
         return key
 
@@ -358,6 +441,7 @@ class Seed(dj.Manual):
 
 def my_nnfabrik(
     schema: Union[str, Schema],
+    additional_tables: Tuple = (),
     use_common_fabrikant: bool = True,
     use_common_seed: bool = False,
     module_name: Optional[str] = None,
@@ -367,13 +451,13 @@ def my_nnfabrik(
     """
     Create a custom nnfabrik module under specified DataJoint schema,
     instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
-    is set to True, the new tables will depend on the common Fabrikant table. 
+    is set to True, the new tables will depend on the common Fabrikant table.
     Otherwise, a separate copy of Fabrikant table will also be prepared.
 
     Examples:
-        Use of this function should replace any existing use of `nnfabrik` tables done via modifying the 
-        `nnfabrik.schema_name` property in `dj.config`. 
-        
+        Use of this function should replace any existing use of `nnfabrik` tables done via modifying the
+        `nnfabrik.schema_name` property in `dj.config`.
+
         As an example, if you previously had a code like this:
         >>> dj.config['nfabrik.schema_name'] = 'my_schema'
         >>> from nnfabrik import main # importing nnfabrik tables
@@ -393,10 +477,10 @@ def my_nnfabrik(
     Args:
         schema (str or dj.Schema): Name of schema or dj.Schema object
         use_common_fabrikant (bool, optional): If True, new tables will depend on the
-           common Fabrikant table. If False, new copy of Fabrikant will be created and used. 
+           common Fabrikant table. If False, new copy of Fabrikant will be created and used.
            Defaults to True.
         use_common_seed (bool, optional): If True, new tables will depend on the
-           common Seed table. If False, new copy of Seed will be created and used. 
+           common Seed table. If False, new copy of Seed will be created and used.
            Defaults to False.
         module_name (str, optional): Name property of the returned Python module object.
             Defaults to None, in which case the name of the schema will be used.
@@ -411,14 +495,14 @@ def my_nnfabrik(
             contains its own copy of `Seed` table.
 
     Returns:
-        Python Module object or None: If `context` was None, a new Python module containing 
-            nnfabrik tables defined under the schema. The module's schema property points 
+        Python Module object or None: If `context` was None, a new Python module containing
+            nnfabrik tables defined under the schema. The module's schema property points
             to the schema object as well. Otherwise, nothing is returned.
     """
     if isinstance(schema, str):
         schema = CustomSchema(schema)
 
-    tables = [Seed, Fabrikant, Model, Dataset, Trainer]
+    tables = [Seed, Fabrikant, Model, Dataset, Trainer] + list(additional_tables)
 
     module = None
     if context is None:
@@ -459,4 +543,3 @@ def my_nnfabrik(
 
     # this returns None if context was set
     return module
-

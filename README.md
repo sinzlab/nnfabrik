@@ -1,4 +1,8 @@
 # nnfabrik: a generalized model fitting pipeline
+
+![Black](https://github.com/sinzlab/nnfabrik/workflows/Black/badge.svg)
+![GitHub Pages](https://github.com/sinzlab/nnfabrik/workflows/GitHub%20Pages/badge.svg?branch=master)
+
 nnfabrik is a model fitting pipeline, mainly developed for neural networks, where training results (i.e. scores, and trained models) as well as any data related to models, trainers, and datasets used for training are stored in datajoint tables.
 
 ## Why use it?
@@ -57,11 +61,11 @@ We have pretty much covered the most important information about nnfabrik, and i
 
 ## :bulb: Example
 
-[Here](./notebooks/nnfabrik_example.ipynb), you can find an example of the whole pipeline which might help to understand how different components work together to perform hyper-parameter search.
+[Here](./examples/notebooks/nnfabrik_example.ipynb), you can find an example of the whole pipeline which might help to understand how different components work together to perform hyper-parameter search.
 
 ## :book: Documentation
 
-This is a work in progress. We will update this readme with the corresponding links to the documentation once it is ready.
+The documentation can be found [here](https://sinzlab.github.io/nnfabrik/). Please note that it is a work in progress.
 
 ## :bug: Report bugs (or request features)
 
