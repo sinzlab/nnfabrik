@@ -15,6 +15,12 @@ from .builder import (
 from .utility.dj_helpers import make_hash, CustomSchema, Schema
 from .utility.nnf_helper import cleanup_numpy_scalar
 
+if "nnfabrik.schema_name" in dj.config:
+    warnings.warn(
+        "use of 'nnfabrik.schema_name' in dj.config is deprecated, use nnfabrik.main.my_nnfabrik function instead",
+        DeprecationWarning,
+    )
+
 
 schema = CustomSchema(dj.config.get("nnfabrik.schema_name", "nnfabrik_core"))
 
