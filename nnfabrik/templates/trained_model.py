@@ -26,6 +26,25 @@ class TrainedModelBase(dj.Computed):
         of `Fabrikant`, `Seed`, `Dataset`, `Model`, and `Trainer`, respectively. You could also set the
         value of `nnfabrik` to a module or "core" as stated above, and specifically override a target table
         via setting one of the table class property as well.
+
+    * The TrainedModel table also needs a storage defined within the dj.config.
+        By default, this storage is called "minio", and is set by this template accordingly.
+            >>> storage = "minio"
+        The best practice is to include this block of code where the Table is instantiated.
+            >>> if not 'stores' in dj.config:
+            >>>     dj.config['stores'] = {}
+            >>> dj.config['stores']['minio'] = {  # store in s3
+            >>>    'protocol': 's3',
+            >>>    'endpoint': os.environ.get('MINIO_ENDPOINT', 'DUMMY_ENDPOINT'),
+            >>>    'bucket': 'nnfabrik',
+            >>>    'location': 'dj-store',
+            >>>    'access_key': os.environ.get('MINIO_ACCESS_KEY', 'FAKEKEY'),
+            >>>    'secret_key': os.environ.get('MINIO_SECRET_KEY', 'FAKEKEY')
+            >>> }
+
+    * Example instantiation of a TrainedModel table with the "my_nnfabrik" object, which is the best practice:
+
+
     """
 
     database = ""  # hack to suppress DJ error
