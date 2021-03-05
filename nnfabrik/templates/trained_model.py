@@ -49,7 +49,7 @@ class TrainedModelBase(dj.Computed):
         >>> from nnfabrik.main import my_nnfabrik
         >>> from nnfabrik.templates import TrainedModelBase
         >>> my_nnfabrik_module = my_nnfabrik('nnfabrik_schema_name')
-        >>> @schema
+        >>> @my_nnfabrik_module.schema
         >>> TrainedModel(TrainedModelBase)
         >>>     nnfabrik = my_nnfabrik_module
         Be sure to have the code block defining the 'store' in the dj.config available here
