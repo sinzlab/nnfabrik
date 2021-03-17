@@ -174,11 +174,11 @@ class Bayesian:
         dataset_hash = make_hash(config["dataset"])
         entry_exists = {
             "dataset_fn": "{}".format(self.fns["dataset"])
-        } in self.trained_model_table.dataset_table() and {
+        } in self.trained_model_table().dataset_table() and {
             "dataset_hash": "{}".format(dataset_hash)
-        } in self.trained_model_table.dataset_table()
+        } in self.trained_model_table().dataset_table()
         if not entry_exists:
-            self.trained_model_table.dataset_table().add_entry(
+            self.trained_model_table().dataset_table().add_entry(
                 self.fns["dataset"],
                 config["dataset"],
                 dataset_fabrikant=self.architect,
@@ -186,11 +186,11 @@ class Bayesian:
             )
 
         model_hash = make_hash(config["model"])
-        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table.model_table() and {
+        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table().model_table() and {
             "model_hash": "{}".format(model_hash)
-        } in self.trained_model_table.model_table()
+        } in self.trained_model_table().model_table()
         if not entry_exists:
-            self.trained_model_table.model_table().add_entry(
+            self.trained_model_table().model_table().add_entry(
                 self.fns["model"],
                 config["model"],
                 model_fabrikant=self.architect,
@@ -200,11 +200,11 @@ class Bayesian:
         trainer_hash = make_hash(config["trainer"])
         entry_exists = {
             "trainer_fn": "{}".format(self.fns["trainer"])
-        } in self.trained_model_table.trainer_table() and {
+        } in self.trained_model_table().trainer_table() and {
             "trainer_hash": "{}".format(trainer_hash)
-        } in self.trained_model_table.trainer_table()
+        } in self.trained_model_table().trainer_table()
         if not entry_exists:
-            self.trained_model_table.trainer_table().add_entry(
+            self.trained_model_table().trainer_table().add_entry(
                 self.fns["trainer"],
                 config["trainer"],
                 trainer_fabrikant=self.architect,
@@ -406,11 +406,11 @@ class Random:
         dataset_hash = make_hash(config["dataset"])
         entry_exists = {
             "dataset_fn": "{}".format(self.fns["dataset"])
-        } in self.trained_model_table.dataset_table() and {
+        } in self.trained_model_table().dataset_table() and {
             "dataset_hash": "{}".format(dataset_hash)
-        } in self.trained_model_table.dataset_table()
+        } in self.trained_model_table().dataset_table()
         if not entry_exists:
-            self.trained_model_table.dataset_table().add_entry(
+            self.trained_model_table().dataset_table().add_entry(
                 self.fns["dataset"],
                 config["dataset"],
                 dataset_fabrikant=self.architect,
@@ -418,11 +418,11 @@ class Random:
             )
 
         model_hash = make_hash(config["model"])
-        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table.model_table() and {
+        entry_exists = {"model_fn": "{}".format(self.fns["model"])} in self.trained_model_table().model_table() and {
             "model_hash": "{}".format(model_hash)
-        } in self.trained_model_table.model_table()
+        } in self.trained_model_table().model_table()
         if not entry_exists:
-            self.trained_model_table.model_table().add_entry(
+            self.trained_model_table().model_table().add_entry(
                 self.fns["model"],
                 config["model"],
                 model_fabrikant=self.architect,
@@ -432,11 +432,11 @@ class Random:
         trainer_hash = make_hash(config["trainer"])
         entry_exists = {
             "trainer_fn": "{}".format(self.fns["trainer"])
-        } in self.trained_model_table.trainer_table() and {
+        } in self.trained_model_table().trainer_table() and {
             "trainer_hash": "{}".format(trainer_hash)
-        } in self.trained_model_table.trainer_table()
+        } in self.trained_model_table().trainer_table()
         if not entry_exists:
-            self.trained_model_table.trainer_table().add_entry(
+            self.trained_model_table().trainer_table().add_entry(
                 self.fns["trainer"],
                 config["trainer"],
                 trainer_fabrikant=self.architect,
@@ -479,7 +479,7 @@ class Random:
         """
         Runs the random hyperparameter search, for as many trials as specified.
         """
-        n_trials = len(self.trained_model_table.seed_table()) * self.total_trials
+        n_trials = len(self.trained_model_table().seed_table()) * self.total_trials
         init_len = len(self.trained_model_table())
         while len(self.trained_model_table()) - init_len < n_trials:
             self.train_evaluate(self.gen_params_value())
