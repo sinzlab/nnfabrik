@@ -159,7 +159,7 @@ class Bayesian:
 
     def train_evaluate(self, auto_params):
         """
-        For a given set of parameters, add an entry to the corresponding tables, and populated the trained model
+        For a given set of parameters, add an entry to the corresponding tables, and populate the trained model
         table for that specific entry.
 
         Args:
