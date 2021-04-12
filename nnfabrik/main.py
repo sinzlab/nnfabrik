@@ -37,19 +37,11 @@ class Fabrikant(dj.Manual):
     """
 
     def add_entry(
-        self,
-        name,
-        email,
-        affiliation,
-        full_name="",
-        dj_username=None,
-        skip_duplicates=False,
-        return_pk_only=True,
+        self, name, email, affiliation, full_name="", dj_username=None, skip_duplicates=False, return_pk_only=True,
     ):
         """
         Add a new entry into Fabrikant table. If `dj_username` is omitted, then the current
         database connection user is used.
-
         Args:
             name (str): A short name to identify yourself.
             email (str): Email address.
@@ -60,7 +52,6 @@ class Fabrikant(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -68,11 +59,7 @@ class Fabrikant(dj.Manual):
             dj_username = self.connection.get_user().split("@")[0]
 
         key = dict(
-            fabrikant_name=name,
-            full_name=full_name,
-            email=email,
-            affiliation=affiliation,
-            dj_username=dj_username,
+            fabrikant_name=name, full_name=full_name, email=email, affiliation=affiliation, dj_username=dj_username,
         )
 
         # overlap in DJ username is not allowed either
@@ -136,7 +123,6 @@ class Model(dj.Manual):
     ):
         """
         Add a new entry to the model.
-
         Args:
             model_fn (str, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
@@ -146,7 +132,6 @@ class Model(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -193,13 +178,11 @@ class Model(dj.Manual):
         restricted to one entry in order for this method to return a model.
         Either the dataloaders or data_info have to be specified to determine the size of the input and thus the
         appropriate model settings.
-
         Args:
             dataloaders (dict) -  a dictionary of dataloaders. The model will infer its shape from these dataloaders
             seed (int) -  random seed
             key (dict) - datajoint key
             data_info (dict) - contains all necessary information about the input in order to build the model.
-
         Returns:
             A PyTorch module.
         """
@@ -214,13 +197,7 @@ class Model(dj.Manual):
             key = {}
         model_fn, model_config = (self & key).fn_config
 
-        return get_model(
-            model_fn,
-            model_config,
-            dataloaders=dataloaders,
-            seed=seed,
-            data_info=data_info,
-        )
+        return get_model(model_fn, model_config, dataloaders=dataloaders, seed=seed, data_info=data_info,)
 
 
 @schema
@@ -256,7 +233,6 @@ class Dataset(dj.Manual):
     ):
         """
         Add a new entry to the dataset.
-
         Args:
             dataset_fn (string, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
@@ -267,7 +243,6 @@ class Dataset(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -369,7 +344,6 @@ class Trainer(dj.Manual):
     ):
         """
         Add a new entry to the trainer.
-
         Args:
             trainer_fn (str): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
@@ -380,7 +354,6 @@ class Trainer(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -504,27 +477,21 @@ def my_nnfabrik(
     instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
     is set to True, the new tables will depend on the common Fabrikant table.
     Otherwise, a separate copy of Fabrikant table will also be prepared.
-
     Examples:
         Use of this function should replace any existing use of `nnfabrik` tables done via modifying the
         `nnfabrik.schema_name` property in `dj.config`.
-
         As an example, if you previously had a code like this:
         >>> dj.config['nfabrik.schema_name'] = 'my_schema'
         >>> from nnfabrik import main # importing nnfabrik tables
-
         do this instead:
         >>> from nnfabrik.main import my_nnfabrik
         >>> main = my_nnfabrik('my_schema')    # this has the same effect as defining nnfabrik tables in schema `my_schema`
-
         Also, you can achieve the equivalent of:
         >>> dj.config['nfabrik.schema_name'] = 'my_schema'
         >>> from nnfabrik.main import *
-
         by doing
         >>> from nnfabrik.main import my_nnfabrik
         >>> my_nnfabrik('my_schema', context=locals())
-
     Args:
         schema (str or dj.Schema): Name of schema or dj.Schema object
         use_common_fabrikant (bool, optional): If True, new tables will depend on the
@@ -539,12 +506,10 @@ def my_nnfabrik(
             instead the tables are defined inside the context.
         spawn_existing_tables (bool, optional): If True, perform `spawn_missing_tables` operation
             onto the newly created table. Defaults to False.
-
     Raises:
         ValueError: If `use_common_fabrikant` is True but the target `schema` already contains its own
             copy of `Fabrikant` table, or if `use_common_seed` is True but the target `schema` already
             contains its own copy of `Seed` table.
-
     Returns:
         Python Module object or None: If `context` was None, a new Python module containing
             nnfabrik tables defined under the schema. The module's schema property points
