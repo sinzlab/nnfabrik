@@ -445,6 +445,51 @@ class Seed(dj.Manual):
     """
 
 
+@schema
+class Experiments(dj.Manual):
+    # Table to keep track of collections of trained networks that form an experiment.
+    # Instructions:
+    # 1) Make an entry in Experiments with an experiment name and description
+    # 2) Insert all combinations of dataset, model and trainer for this experiment name in Experiments.Restrictions
+    # 2) Populate the TrainedModel table by restricting it with Experiments.Restrictions and the experiment name
+    # 3) After training, join this table with TrainedModel and restrict by experiment name to get your results
+    # 4) An example notebook can be found here: https://github.com/sinzlab/nnfabrik/tree/master/nnfabrik/examples/notebooks
+    definition = """
+    # This table contains the experiments and their descriptions
+    experiment_name: varchar(100)                     # name of experiment
+    ---
+    -> Fabrikant.proj(experiment_fabrikant='fabrikant_name')
+    experiment_comment='': varchar(2000)              # short description
+    experiment_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
+    """
+
+    class Restrictions(dj.Part):
+        definition = """
+        # This table contains the corresponding hashes to filter out models which form the respective experiment
+        -> master
+        -> Dataset
+        -> Trainer
+        -> Model
+        ---
+        experiment_restriction_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
+        """
+
+    def add_entry(
+        self, experiment_name, experiment_fabrikant, experiment_comment, restrictions, skip_duplicates=False,
+    ):
+        self.insert1(
+            dict(
+                experiment_name=experiment_name,
+                experiment_fabrikant=experiment_fabrikant,
+                experiment_comment=experiment_comment,
+            ),
+            skip_duplicates=skip_duplicates,
+        )
+
+        restrictions = [{**{"experiment_name": experiment_name}, **res} for res in restrictions]
+        self.Restrictions.insert(restrictions, skip_duplicates=skip_duplicates)
+
+
 def my_nnfabrik(
     schema: Union[str, Schema],
     additional_tables: Tuple = (),
