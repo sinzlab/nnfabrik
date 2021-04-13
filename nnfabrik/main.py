@@ -37,7 +37,14 @@ class Fabrikant(dj.Manual):
     """
 
     def add_entry(
-        self, name, email, affiliation, full_name="", dj_username=None, skip_duplicates=False, return_pk_only=True,
+        self,
+        name,
+        email,
+        affiliation,
+        full_name="",
+        dj_username=None,
+        skip_duplicates=False,
+        return_pk_only=True,
     ):
         """
         Add a new entry into Fabrikant table. If `dj_username` is omitted, then the current
@@ -59,7 +66,11 @@ class Fabrikant(dj.Manual):
             dj_username = self.connection.get_user().split("@")[0]
 
         key = dict(
-            fabrikant_name=name, full_name=full_name, email=email, affiliation=affiliation, dj_username=dj_username,
+            fabrikant_name=name,
+            full_name=full_name,
+            email=email,
+            affiliation=affiliation,
+            dj_username=dj_username,
         )
 
         # overlap in DJ username is not allowed either
@@ -197,7 +208,13 @@ class Model(dj.Manual):
             key = {}
         model_fn, model_config = (self & key).fn_config
 
-        return get_model(model_fn, model_config, dataloaders=dataloaders, seed=seed, data_info=data_info,)
+        return get_model(
+            model_fn,
+            model_config,
+            dataloaders=dataloaders,
+            seed=seed,
+            data_info=data_info,
+        )
 
 
 @schema
@@ -448,7 +465,12 @@ class Experiments(dj.Manual):
         """
 
     def add_entry(
-        self, experiment_name, experiment_fabrikant, experiment_comment, restrictions, skip_duplicates=False,
+        self,
+        experiment_name,
+        experiment_fabrikant,
+        experiment_comment,
+        restrictions,
+        skip_duplicates=False,
     ):
         self.insert1(
             dict(
