@@ -107,7 +107,7 @@ def find_prefix(keys: list, p_agree: float = 0.66, separator=".") -> (list, int)
     while True:
         sorted_prefs = sorted(prefs.items(), key=lambda x: x[1], reverse=True)
         # check if largest count is above threshold
-        if sorted_prefs[0][1] < p_agree * len(keys):
+        if not prefs or sorted_prefs[0][1] < p_agree * len(keys):
             break
         common_prefix = sorted_prefs[0][0]  # save prefix
 
