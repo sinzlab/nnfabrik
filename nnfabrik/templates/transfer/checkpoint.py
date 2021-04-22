@@ -9,6 +9,9 @@ from nnfabrik.utility.dj_helpers import CustomSchema, clone_conn
 
 
 def my_checkpoint(nnfabrik):
+    """
+    Clones the connection from given nnfabrik to complete Checkpoint transaction within a make.
+    """
     conn_clone = clone_conn(dj.conn())
     schema_clone = CustomSchema(nnfabrik.schema.database, connection=conn_clone)
 
@@ -24,15 +27,15 @@ def my_checkpoint(nnfabrik):
             -> nnfabrik.Dataset
             -> nnfabrik.Model
             -> nnfabrik.Seed
-            collapsed_history:                 varchar(64)  # transfer         
-            transfer_step:                     int  # transfer         
-            data_transfer:                     tinyint
-            epoch:                             int          # epoch of creation
+            collapsed_history:                 varchar(64)      # transfer         
+            transfer_step:                     int              # transfer         
+            data_transfer:                     bool             # flag if we do data transfer
+            epoch:                             int              # epoch of creation
             ---
-            score:                             float        # current score at epoch
-            state:                             attach@{storage}  # current state
+            score:                             float            # current score at epoch
+            state:                             attach@{storage} # current state
             ->[nullable] nnfabrik.Fabrikant
-            trainedmodel_ts=CURRENT_TIMESTAMP: timestamp    # UTZ timestamp at time of insertion
+            trainedmodel_ts=CURRENT_TIMESTAMP: timestamp        # UTZ timestamp at time of insertion
             """.format(
                 storage=self.storage
             )

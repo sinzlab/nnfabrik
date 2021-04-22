@@ -75,11 +75,11 @@ def get_model(
         load_state_dict(
             net,
             state_dict,
-            match_names=model_config.get("transfer"),
-            ignore_unused=model_config.get("transfer"),
-            ignore_dim_mismatch=model_config.get("transfer"),
-            ignore_missing=model_config.get("transfer"),
-        )
+            match_names=model_config.get("transfer", False),
+            ignore_unused=model_config.get("transfer", False),
+            ignore_dim_mismatch=model_config.get("transfer", False),
+            ignore_missing=model_config.get("transfer", False),
+        )  # we want the most flexible loading in the case of transfer
 
     return net
 

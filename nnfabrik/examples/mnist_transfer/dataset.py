@@ -1,29 +1,33 @@
-from typing import Dict
+"""
+Implements the dataset that is used for the knowledge distillation example with our TransferredTrainedModel-table
+"""
+
+from typing import Dict, Tuple
 
 import numpy as np
+from PIL.Image import Image
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 
 class MNISTKnowledgeDistillation(datasets.MNIST):
-    def __init__(
-        self,
-        logits,
-        root,
-        train=True,
-        transform=None,
-        target_transform=None,
-        download=False,
-    ):
-        super().__init__(root, train, transform, target_transform, download)
+    def __init__(self, logits: np.array, *args, **kwargs) -> None:
+        """
+        Simple dataset that provides the logits that correspond to a specific MNIST image
+        Args:
+            logits: numpy array of logits that should follow the order of MNIST images
+            *args: arguments handed to MNIST
+            **kwargs: key-word arguments handed to MNIST
+        """
+        super().__init__(*args, **kwargs)
         self.logits = logits
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[Image, np.array]:
         img, target = super().__getitem__(index)
         return img, self.logits[index]
 
 
-def mnist_dataset_fn(seed: int, **config) -> Dict:
+def mnist_dataset_fn(seed: int, **config) -> Dict[str, DataLoader]:
     """
     Returns data loaders for the given config
     Args:

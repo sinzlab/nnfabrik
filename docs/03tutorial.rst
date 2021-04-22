@@ -123,12 +123,12 @@ Of course, we need to add those to the tables as well.::
                      "trainer_hash": 'ab91f734757071bf0b98ab74c6e8583c',
                      "dataset_fn": 'nnfabrik.examples.mnist.dataset.mnist_dataset_fn',
                      "dataset_hash": '9aee736870714f8b7c3cc084087ce886'
-                    }
+                    }  # the dataset and trainer we used in the first step
     transfer_to = {"trainer_fn": 'nnfabrik.examples.mnist_transfer.trainer.mnist_trainer_fn',
                      "trainer_hash": 'ab91f734757071bf0b98ab74c6e8583c',
                      "dataset_fn": 'nnfabrik.examples.mnist_transfer.dataset.mnist_dataset_fn',
                      "dataset_hash": '28aefc2308569727c6017c66c9122d77'
-                    }
+                   }
 
     TrainerDatasetTransferRecipe().add_entry(transfer_from=transfer_from, transfer_to=transfer_to, transfer_step=2, data_transfer=False)
     TransferredTrainedModel.transfer_recipe = [TrainerDatasetTransferRecipe()]

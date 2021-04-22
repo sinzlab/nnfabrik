@@ -1,6 +1,12 @@
+"""
+Implements the trainer and data generator that is used for the knowledge distillation example
+with our TransferredTrainedModel-table
+"""
+
 from typing import Dict, Tuple, Callable
 
 import numpy as np
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import torch
 import torch.nn as nn
@@ -12,17 +18,20 @@ from nnfabrik.examples.mnist.trainer import MNISTTrainer
 class MNISTDataGenerator:
     def __init__(
         self,
-        model,
-        dataloaders: Dict,
+        model: nn.Module,
+        dataloaders: Dict[str, DataLoader],
         seed: int,
-    ):
+    ) -> None:
+        """
+        This is used in the intermediate step to generate the logits from the old model
+        """
 
         self.model = model
         self.trainloader = dataloaders["train"]
         self.testloader = dataloaders["test"]
         self.seed = seed
 
-    def generate(self):
+    def generate(self) -> Tuple[float, Dict, Dict, Dict]:
         if hasattr(tqdm, "_instances"):
             tqdm._instances.clear()  # To have tqdm output without line-breaks between steps
         torch.manual_seed(self.seed)
@@ -31,17 +40,20 @@ class MNISTDataGenerator:
             x_flat = x.flatten(1, -1)  # treat the images as flat vectors
             logits_train.append(self.model(x_flat))
         train = {"train": torch.cat(logits_train).detach().to("cpu").numpy()}
-        return 0.0, {}, self.model.state_dict(), train
+        return 0.0, {"transfer_data": train}, self.model.state_dict()
 
 
 class MNISTKnowledgeDistillationTrainer(MNISTTrainer):
     def __init__(
         self,
-        model,
-        dataloaders: Dict,
+        model: nn.Module,
+        dataloaders: Dict[str, DataLoader],
         seed: int,
         epochs: int = 5,
-    ):
+    ) -> None:
+        """
+        This is used to train on logits.
+        """
         super().__init__(model, dataloaders, seed, epochs)
         self.loss_fn = nn.MSELoss()
 
@@ -49,10 +61,10 @@ class MNISTKnowledgeDistillationTrainer(MNISTTrainer):
         if hasattr(tqdm, "_instances"):
             tqdm._instances.clear()  # To have tqdm output without line-breaks between steps
         torch.manual_seed(self.seed)
-        epoch_loss = []
+        epoch_losses = []
         for epoch in range(self.epochs):
-            total_loss = 0
-            total = 0
+            epoch_loss = 0
+            epoch_samples = 0
             for x, y in tqdm(self.trainloader):
                 # forward:
                 self.optimizer.zero_grad()
@@ -63,17 +75,18 @@ class MNISTKnowledgeDistillationTrainer(MNISTTrainer):
                 loss.backward()
                 self.optimizer.step()
                 # keep track of accuracy:
-                total_loss += loss.item()
-                total += y.shape[0]
-            epoch_loss.append(total_loss / total)
+                epoch_loss += loss.item()
+                epoch_samples += y.shape[0]
+            epoch_losses.append(epoch_loss / epoch_samples)
 
-        return epoch_loss[-1], (epoch_loss, self.epochs), self.model.state_dict()
+        return epoch_losses[-1], (epoch_losses, self.epochs), self.model.state_dict()
 
 
 def mnist_trainer_fn(
-    model: torch.nn.Module, dataloaders: Dict, seed: int, uid: Tuple, cb: Callable, **config
+    model: torch.nn.Module, dataloaders: Dict[str, DataLoader], seed: int, uid: Tuple, cb: Callable, **config
 ) -> Tuple[float, Dict, Dict]:
-    """ "
+    """
+    Trainer function providing the knwowledge distillation trainer.
     Args:
         model (torch.nn.Module): initialized model to train
         data_loaders (dict): containing "train", "validation" and "test" data loaders
@@ -92,9 +105,10 @@ def mnist_trainer_fn(
 
 
 def mnist_data_gen_fn(
-    model: torch.nn.Module, dataloaders: Dict, seed: int, uid: Tuple, cb: Callable, **config
+    model: torch.nn.Module, dataloaders: Dict[str,DataLoader], seed: int, uid: Tuple, cb: Callable, **config
 ) -> Tuple[float, Dict, Dict]:
-    """ "
+    """
+    Trainer function providing the knwowledge distillation data generator.
     Args:
         model (torch.nn.Module): initialized model to train
         data_loaders (dict): containing "train", "validation" and "test" data loaders

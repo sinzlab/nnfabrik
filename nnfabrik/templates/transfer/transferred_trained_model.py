@@ -1,4 +1,5 @@
 import tempfile
+from collections import Mapping, Sequence
 
 import torch
 import os
@@ -26,8 +27,8 @@ class TransferredTrainedModelBase(TrainedModelBase):
         -> self().dataset_table
         -> self().trainer_table
         -> self().seed_table
-        collapsed_history:                 varchar(64)
-        data_transfer:                     bool 
+        collapsed_history:                 varchar(64)  # hash of keys from all previous training steps
+        data_transfer:                     bool         # flag if we do data transfer 
         ---
         comment='':                        varchar(768) # short description 
         score:                             float        # loss
@@ -68,9 +69,9 @@ class TransferredTrainedModelBase(TrainedModelBase):
         """
 
         @classmethod
-        def add_entry(cls, key):
-            key = {
-                k: key[k]
+        def add_entry(cls, entry):
+            entry = {
+                k: entry[k]
                 for k in [
                     "model_fn",
                     "model_hash",
@@ -84,17 +85,17 @@ class TransferredTrainedModelBase(TrainedModelBase):
                     "collapsed_history",
                 ]
             }
-            key["next_collapsed_history"] = make_hash(key)
-            cls.insert1(key, skip_duplicates=True)
+            entry["next_collapsed_history"] = make_hash(entry)
+            cls.insert1(entry, skip_duplicates=True)
 
-    def _transfer_recipe(self, transfer_step):
+    def _combine_transfer_recipes(self, transfer_step):
         """
-        Combines multiple transfer recipes and their resitrictions as specified by post_restr attribute.
+        Combines multiple transfer recipes and their restrictions as specified by post_restr attribute.
         The combination is transfer-step-specific, meaning only the recipes relevant for a specific transfer step would be combined.
 
-        Combining recipes are pretty easy and the user does not need to interact with this method directly. Below is an example:
-        Let us assume you have two recipe tables: TrainerRecipe and ModelRecipe, the you can attach all these recipes to your
-        TransferTrainedModel table as follow:
+        Combining recipes is simple and the user does not need to interact with this method directly. Below is an example:
+        Let us assume you have two recipe tables: TrainerRecipe and ModelRecipe, then you can attach all these recipes to your
+        TransferTrainedModel table as follows:
 
         ``` Python
             TransferTrainedModel.transfer_recipe = [TrainerRecipe, ModelRecipe]
@@ -103,31 +104,30 @@ class TransferredTrainedModelBase(TrainedModelBase):
         The rest (combining the recipes and their restrictions) is taken care of by this method.
 
         Args:
-            transfer_step (int): table population trasnfer step.
+            transfer_step (int): table population transfer step.
 
         Returns:
             string or datajoint AndList: A single or combined restriction of one or multiple recipes, respectively.
         """
 
-        if isinstance(self.transfer_recipe, (list, tuple)):
-            # get the recipes that have an entry for a specific transfer step
-            transfer_recipe = []
-            for tr in self.transfer_recipe:
-                # check if an entry exists for a specific transfer step in the recipe
-                if tr & f"transfer_step = {transfer_step}":
-                    # if it exists add that entry to the list of recipes (relevant for a specific transfer step)
-                    transfer_recipe.append(tr & f"transfer_step = {transfer_step}")
-            if not transfer_recipe:
-                return self.proj() - self  # return something empty
-            # join all the recipes (and their post_restr)
-            joined = transfer_recipe[0]
-            if len(transfer_recipe) > 1:
-                for t in transfer_recipe[1:]:
-                    joined *= t  # all combination of recipes
-                joined.post_restr = dj.AndList([recipe.post_restr for recipe in self.transfer_recipe])
-            return joined
-        else:
+        if not isinstance(self.transfer_recipe, Sequence):
             return self.transfer_recipe
+        # else: get the recipes that have an entry for a specific transfer step
+        transfer_recipe = []
+        for tr in self.transfer_recipe:
+            # check if an entry exists for a specific transfer step in the recipe
+            if tr & f"transfer_step = {transfer_step}":
+                # if it exists add that entry to the list of recipes (relevant for a specific transfer step)
+                transfer_recipe.append(tr & f"transfer_step = {transfer_step}")
+        if not transfer_recipe:
+            return self.proj() - self  # return something empty
+        # join all the recipes (and their post_restr)
+        joined = transfer_recipe[0]
+        if len(transfer_recipe) > 1:
+            for t in transfer_recipe[1:]:
+                joined *= t  # all combination of recipes
+            joined.post_restr = dj.AndList([recipe.post_restr for recipe in self.transfer_recipe])
+        return joined
 
     @property
     def key_source(self):
@@ -140,9 +140,52 @@ class TransferredTrainedModelBase(TrainedModelBase):
             collapsed_history='""',
             data_transfer="0",
         )
-        if hasattr(self, "transfer_recipe"):  # expand current entries to follow transfer recipes
-            # project (rename) attributes of the existing transferredmodel table to the same name but with prefix "prev"
-            prev_transferred_model = self.proj(
+        if not hasattr(self, "transfer_recipe"):
+            return key_source
+        # else: expand current entries to follow transfer recipes
+
+        # project (rename) attributes of the existing transferredmodel table to the same name but with prefix "prev"
+        prev_transferred_model = self.proj(
+            prev_model_fn="model_fn",
+            prev_model_hash="model_hash",
+            prev_dataset_fn="dataset_fn",
+            prev_dataset_hash="dataset_hash",
+            prev_trainer_fn="trainer_fn",
+            prev_trainer_hash="trainer_hash",
+            prev_seed="seed",
+            transfer_step="transfer_step + 1",
+            prev_collapsed_history="collapsed_history",
+            _data_transfer="data_transfer",  # rename so this entry in the recipe is not used for restriction
+            prev_step="transfer_step",  # rename so this entry in the recipe is not used for restriction
+        ) * dj.U(
+            "transfer_step",  # make these attributes primary keys
+            "prev_model_fn",
+            "prev_model_hash",
+            "prev_dataset_fn",
+            "prev_dataset_hash",
+            "prev_trainer_fn",
+            "prev_trainer_hash",
+            "prev_seed",
+            "prev_collapsed_history",
+        )
+
+        # get the current transfer step
+        max_transfer_step = prev_transferred_model.fetch("transfer_step").max() if prev_transferred_model else 0
+
+        for transfer_step in range(1, max_transfer_step + 1):
+            # get the transfer recipe
+            recipe = self._combine_transfer_recipes(transfer_step)
+            post_restr = recipe.post_restr if recipe else {}
+
+            # apply the recipe
+            transfer_from = prev_transferred_model * recipe
+            transfers = (
+                self.model_table * self.dataset_table * self.trainer_table * self.seed_table * transfer_from
+            )  # combine recipe restriction with all possible training combinations
+
+            transfers = transfers * self.CollapsedHistory().proj(
+                prev_collapsed_history="collapsed_history",
+                collapsed_history="next_collapsed_history",
                 prev_model_fn="model_fn",
                 prev_model_hash="model_hash",
                 prev_dataset_fn="dataset_fn",
@@ -150,67 +193,27 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 prev_trainer_fn="trainer_fn",
                 prev_trainer_hash="trainer_hash",
                 prev_seed="seed",
-                transfer_step="transfer_step + 1",
-                prev_collapsed_history="collapsed_history",
-                _data_transfer="data_transfer",  # rename so this entry in the recipe is not used for restriction
-                prev_step="transfer_step",  # rename so this entry in the recipe is not used for restriction
-            ) * dj.U(
-                "transfer_step",  # make these attributes primary keys
-                "prev_model_fn",
-                "prev_model_hash",
-                "prev_dataset_fn",
-                "prev_dataset_hash",
-                "prev_trainer_fn",
-                "prev_trainer_hash",
-                "prev_seed",
-                "prev_collapsed_history",
-            )
+                prev_step="transfer_step",
+                _data_transfer="data_transfer",
+            )  # map previous transferred model to its collapsed history
 
-            # get the current transfer step
-            max_transfer_step = prev_transferred_model.fetch("transfer_step").max() if prev_transferred_model else 0
-
-            for transfer_step in range(1, max_transfer_step + 1):
-                # get the transfer recipe
-                recipe = self._transfer_recipe(transfer_step)
-                post_restr = recipe.post_restr if recipe else {}
-
-                # apply the recipe
-                transfer_from = prev_transferred_model * recipe
-                transfers = (
-                    self.model_table * self.dataset_table * self.trainer_table * self.seed_table * transfer_from
-                )  # combine recipe restriction with all possible training combinations
-
-                transfers = transfers * self.CollapsedHistory().proj(
-                    prev_collapsed_history="collapsed_history",
-                    collapsed_history="next_collapsed_history",
-                    prev_model_fn="model_fn",
-                    prev_model_hash="model_hash",
-                    prev_dataset_fn="dataset_fn",
-                    prev_dataset_hash="dataset_hash",
-                    prev_trainer_fn="trainer_fn",
-                    prev_trainer_hash="trainer_hash",
-                    prev_seed="seed",
-                    prev_step="transfer_step",
-                    _data_transfer="data_transfer",
-                )  # map previous transferred model to its collapsed history
-
-                transfers = (
-                    dj.U(
-                        "transfer_step",
-                        "model_fn",
-                        "model_hash",
-                        "dataset_fn",
-                        "dataset_hash",
-                        "trainer_fn",
-                        "trainer_hash",
-                        "seed",
-                        "collapsed_history",
-                        "data_transfer",
-                    )
-                    & transfers
-                    & post_restr  # restrict with post_restr
+            transfers = (
+                dj.U(
+                    "transfer_step",
+                    "model_fn",
+                    "model_hash",
+                    "dataset_fn",
+                    "dataset_hash",
+                    "trainer_fn",
+                    "trainer_hash",
+                    "seed",
+                    "collapsed_history",
+                    "data_transfer",
                 )
-                key_source = key_source.proj() + transfers.proj()
+                & transfers
+                & post_restr  # restrict with post_restr
+            )
+            key_source = key_source.proj() + transfers.proj()
         return key_source
 
     def get_prev_key(self, key):
@@ -249,22 +252,17 @@ class TransferredTrainedModelBase(TrainedModelBase):
         trains the model and saves the trained model.
         """
 
-        # lookup the fabrikant corresponding to the current DJ user
         fabrikant_name = self.user_table.get_current_user()
         seed = (self.seed_table & key).fetch1("seed")
 
-        # load everything
         dataloaders, model, trainer = self.load_model(key, include_trainer=True, include_state_dict=True, seed=seed)
 
-        # define callback with pinging
         def call_back(**kwargs):
             self.connection.ping()
             self.call_back(**kwargs)
 
-        score, output, model_state, *extra = trainer(
-            model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back
-        )
-        transfer_data = extra[0] if extra else None
+        score, output, model_state = trainer(model=model, dataloaders=dataloaders, seed=seed, uid=key, cb=call_back)
+        transfer_data = output.pop("transfer_data", None) if isinstance(output, Mapping) else None
 
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = make_hash(key)
@@ -278,7 +276,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
             key["comment"] = self.comment_delimitter.join(comments)
 
             self.insert1(key)
-            self.CollapsedHistory.add_entry(key)
+            self.CollapsedHistory().add_entry(key)
 
             if key["data_transfer"] and transfer_data:
                 data_path = os.path.join(temp_dir, filename + "_transfer_data.npz")
