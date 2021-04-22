@@ -105,7 +105,7 @@ def mnist_trainer_fn(
 
 
 def mnist_data_gen_fn(
-    model: torch.nn.Module, dataloaders: Dict[str,DataLoader], seed: int, uid: Tuple, cb: Callable, **config
+    model: torch.nn.Module, dataloaders: Dict[str, DataLoader], seed: int, uid: Tuple, cb: Callable, **config
 ) -> Tuple[float, Dict, Dict]:
     """
     Trainer function providing the knwowledge distillation data generator.
