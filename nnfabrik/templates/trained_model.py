@@ -4,7 +4,7 @@ import os
 import warnings
 import datajoint as dj
 from datajoint.fetch import DataJointError
-from ..builder import get_all_parts, get_model, get_trainer
+from ..builder import get_all_parts, get_model, get_trainer, resolve_fn
 from ..utility.dj_helpers import make_hash
 from .utility import find_object
 
@@ -327,6 +327,7 @@ class DataInfoBase(dj.Computed):
                         }
         """
         dataset_fn, dataset_config = (self.dataset_table & key).fn_config
+        dataset_fn = resolve_fn(dataset_fn, 'datasets')
         data_info = dataset_fn(**dataset_config, return_data_info=True)
 
         fabrikant_name = self.user_table.get_current_user()
