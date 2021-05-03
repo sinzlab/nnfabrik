@@ -327,7 +327,7 @@ class DataInfoBase(dj.Computed):
                         }
         """
         dataset_fn, dataset_config = (self.dataset_table & key).fn_config
-        dataset_fn = resolve_fn(dataset_fn, 'datasets')
+        dataset_fn = resolve_fn(dataset_fn, "datasets")
         data_info = dataset_fn(**dataset_config, return_data_info=True)
 
         fabrikant_name = self.user_table.get_current_user()
