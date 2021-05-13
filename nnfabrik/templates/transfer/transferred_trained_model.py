@@ -237,7 +237,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
                 ret["state_dict"] = torch.load(state_dict_path)
                 ret["model_config"]["transfer"] = True
         # retrieve data if present (walk backwards in time to find last instance of data transfer)
-        while prev_key and key["data_transfer"]:
+        while prev_key and key.get("data_transfer"):
             if self.DataStorage & prev_key:
                 with tempfile.TemporaryDirectory() as temp_dir:
                     data_path = (self.DataStorage & prev_key).fetch1("transfer_data", download_path=temp_dir)
