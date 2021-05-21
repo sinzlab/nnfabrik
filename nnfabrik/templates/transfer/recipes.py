@@ -119,7 +119,7 @@ class TrainerDatasetTransferRecipe(TrainerTransferRecipe):
     @property
     def definition(self):
         return (
-            super.definition
+            super().definition
             + """
          -> Dataset
          -> Dataset.proj(prev_dataset_fn='dataset_fn', prev_dataset_hash='dataset_hash')
