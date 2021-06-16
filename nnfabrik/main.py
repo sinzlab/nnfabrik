@@ -49,7 +49,6 @@ class Fabrikant(dj.Manual):
         """
         Add a new entry into Fabrikant table. If `dj_username` is omitted, then the current
         database connection user is used.
-
         Args:
             name (str): A short name to identify yourself.
             email (str): Email address.
@@ -60,7 +59,6 @@ class Fabrikant(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -136,7 +134,6 @@ class Model(dj.Manual):
     ):
         """
         Add a new entry to the model.
-
         Args:
             model_fn (str, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
@@ -146,7 +143,6 @@ class Model(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -193,13 +189,11 @@ class Model(dj.Manual):
         restricted to one entry in order for this method to return a model.
         Either the dataloaders or data_info have to be specified to determine the size of the input and thus the
         appropriate model settings.
-
         Args:
             dataloaders (dict) -  a dictionary of dataloaders. The model will infer its shape from these dataloaders
             seed (int) -  random seed
             key (dict) - datajoint key
             data_info (dict) - contains all necessary information about the input in order to build the model.
-
         Returns:
             A PyTorch module.
         """
@@ -256,7 +250,6 @@ class Dataset(dj.Manual):
     ):
         """
         Add a new entry to the dataset.
-
         Args:
             dataset_fn (string, Callable): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
@@ -267,7 +260,6 @@ class Dataset(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -369,7 +361,6 @@ class Trainer(dj.Manual):
     ):
         """
         Add a new entry to the trainer.
-
         Args:
             trainer_fn (str): name of a callable object. If name contains multiple parts separated by `.`, this is assumed to be found in a another module and
                 dynamic name resolution will be attempted. Other wise, the name will be checked inside `models` subpackage.
@@ -380,7 +371,6 @@ class Trainer(dj.Manual):
             skip_duplicates (bool, optional): If True, no error is thrown when a duplicate entry (i.e. entry with same model_fn and model_config) is found. Defaults to False.
             return_pk_only (bool, optional): If True, only the primary key attribute for the new entry or corresponding existing entry is returned. Otherwise, the entire
                 entry is returned. Defaults to True.
-
         Returns:
             dict: the entry in the table corresponding to the new (or possibly existing, if skip_duplicates=True) entry.
         """
@@ -445,6 +435,56 @@ class Seed(dj.Manual):
     """
 
 
+@schema
+class Experiments(dj.Manual):
+    # Table to keep track of collections of trained networks that form an experiment.
+    # Instructions:
+    # 1) Make an entry in Experiments with an experiment name and description
+    # 2) Insert all combinations of dataset, model and trainer for this experiment name in Experiments.Restrictions
+    # 2) Populate the TrainedModel table by restricting it with Experiments.Restrictions and the experiment name
+    # 3) After training, join this table with TrainedModel and restrict by experiment name to get your results
+    # 4) An example notebook can be found here: https://github.com/sinzlab/nnfabrik/tree/master/nnfabrik/examples/notebooks
+    definition = """
+    # This table contains the experiments and their descriptions
+    experiment_name: varchar(100)                     # name of experiment
+    ---
+    -> Fabrikant.proj(experiment_fabrikant='fabrikant_name')
+    experiment_comment='': varchar(2000)              # short description
+    experiment_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
+    """
+
+    class Restrictions(dj.Part):
+        definition = """
+        # This table contains the corresponding hashes to filter out models which form the respective experiment
+        -> master
+        -> Dataset
+        -> Trainer
+        -> Model
+        ---
+        experiment_restriction_ts=CURRENT_TIMESTAMP:   timestamp      # UTZ timestamp at time of insertion
+        """
+
+    def add_entry(
+        self,
+        experiment_name,
+        experiment_fabrikant,
+        experiment_comment,
+        restrictions,
+        skip_duplicates=False,
+    ):
+        self.insert1(
+            dict(
+                experiment_name=experiment_name,
+                experiment_fabrikant=experiment_fabrikant,
+                experiment_comment=experiment_comment,
+            ),
+            skip_duplicates=skip_duplicates,
+        )
+
+        restrictions = [{**{"experiment_name": experiment_name}, **res} for res in restrictions]
+        self.Restrictions.insert(restrictions, skip_duplicates=skip_duplicates)
+
+
 def my_nnfabrik(
     schema: Union[str, Schema],
     additional_tables: Tuple = (),
@@ -459,27 +499,21 @@ def my_nnfabrik(
     instantitaing Model, Dataset, and Trainer tables. If `use_common_fabrikant`
     is set to True, the new tables will depend on the common Fabrikant table.
     Otherwise, a separate copy of Fabrikant table will also be prepared.
-
     Examples:
         Use of this function should replace any existing use of `nnfabrik` tables done via modifying the
         `nnfabrik.schema_name` property in `dj.config`.
-
         As an example, if you previously had a code like this:
         >>> dj.config['nfabrik.schema_name'] = 'my_schema'
         >>> from nnfabrik import main # importing nnfabrik tables
-
         do this instead:
         >>> from nnfabrik.main import my_nnfabrik
         >>> main = my_nnfabrik('my_schema')    # this has the same effect as defining nnfabrik tables in schema `my_schema`
-
         Also, you can achieve the equivalent of:
         >>> dj.config['nfabrik.schema_name'] = 'my_schema'
         >>> from nnfabrik.main import *
-
         by doing
         >>> from nnfabrik.main import my_nnfabrik
         >>> my_nnfabrik('my_schema', context=locals())
-
     Args:
         schema (str or dj.Schema): Name of schema or dj.Schema object
         use_common_fabrikant (bool, optional): If True, new tables will depend on the
@@ -494,12 +528,10 @@ def my_nnfabrik(
             instead the tables are defined inside the context.
         spawn_existing_tables (bool, optional): If True, perform `spawn_missing_tables` operation
             onto the newly created table. Defaults to False.
-
     Raises:
         ValueError: If `use_common_fabrikant` is True but the target `schema` already contains its own
             copy of `Fabrikant` table, or if `use_common_seed` is True but the target `schema` already
             contains its own copy of `Seed` table.
-
     Returns:
         Python Module object or None: If `context` was None, a new Python module containing
             nnfabrik tables defined under the schema. The module's schema property points
