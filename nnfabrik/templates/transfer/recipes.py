@@ -7,7 +7,7 @@ class Recipe(dj.Lookup):
     definition = ""
 
     @property
-    def post_restr(self) -> str:
+    def post_restr(self) -> dj.AndList:
         """
         Specifies which restrictions should be applied after transfer, e.g. which part should be kept the same
         """
@@ -49,7 +49,7 @@ class DatasetTransferRecipe(Recipe):
     """
 
     @property
-    def post_restr(self):
+    def post_restr(self) -> dj.AndList:
         """
         This restriction clause is used to make sure that aside from switching datasets,
         the utilized trainer and model remain the same.
@@ -74,7 +74,7 @@ class ModelTransferRecipe(Recipe):
     """
 
     @property
-    def post_restr(self):
+    def post_restr(self) -> dj.AndList:
         """
         This restriction clause is used to make sure that aside from switching models,
         the utilized trainer and dataset remain the same.
@@ -99,7 +99,7 @@ class TrainerTransferRecipe(Recipe):
     """
 
     @property
-    def post_restr(self):
+    def post_restr(self) -> dj.AndList:
         """
         This restriction clause is used to make sure that aside from switching trainers,
         the utilized model and dataset remain the same.
@@ -117,7 +117,7 @@ class TrainerTransferRecipe(Recipe):
 @schema
 class TrainerDatasetTransferRecipe(TrainerTransferRecipe):
     @property
-    def definition(self):
+    def definition(self) -> str:
         return (
             super().definition
             + """
@@ -127,7 +127,7 @@ class TrainerDatasetTransferRecipe(TrainerTransferRecipe):
         )
 
     @property
-    def post_restr(self):
+    def post_restr(self) -> dj.AndList:
         """
         This restriction clause is used to make sure that aside from switching trainers,
         the utilized model is to remain the same.
