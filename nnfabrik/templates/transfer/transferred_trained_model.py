@@ -70,21 +70,7 @@ class TransferredTrainedModelBase(TrainedModelBase):
 
         @classmethod
         def add_entry(cls, entry):
-            entry = {
-                k: entry[k]
-                for k in [
-                    "model_fn",
-                    "model_hash",
-                    "dataset_fn",
-                    "dataset_hash",
-                    "trainer_fn",
-                    "trainer_hash",
-                    "seed",
-                    "data_transfer",
-                    "transfer_step",
-                    "collapsed_history",
-                ]
-            }
+            entry = {p_key: entry[p_key] for p_key in cls._master.heading.primary_key}
             entry["next_collapsed_history"] = make_hash(entry)
             cls.insert1(entry, skip_duplicates=True)
 
