@@ -1,0 +1,426 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tutorial 3: Do transfer learning with NNFabrik &mdash; NNFabrik 0.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Tutorial 2: Train a model with checkpointing" href="02tutorial.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> NNFabrik
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="00setup.html">Preparation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="01tutorial.html">Tutorial 1: Train your first model with NNFabrik</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02tutorial.html">Tutorial 2: Train a model with checkpointing</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorial 3: Do transfer learning with NNFabrik</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model-state-transfer">Model-state Transfer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-transfer-knowledge-distillation">Data Transfer (Knowledge Distillation)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#the-intermediate-transfer-step-dataset-generation">The intermediate transfer step (dataset generation)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#final-transfer-step-using-the-generated-dataset">Final transfer step (using the generated dataset)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">NNFabrik</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="tutorials.html">&lt;no title&gt;</a> &raquo;</li>
+        
+      <li>Tutorial 3: Do transfer learning with NNFabrik</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/03tutorial.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <section id="tutorial-3-do-transfer-learning-with-nnfabrik">
+<h1>Tutorial 3: Do transfer learning with NNFabrik<a class="headerlink" href="#tutorial-3-do-transfer-learning-with-nnfabrik" title="Permalink to this headline">¶</a></h1>
+<p>Replace the <code class="code docutils literal notranslate"><span class="pre">TrainedModel</span></code>-table with <code class="code docutils literal notranslate"><span class="pre">TransferredTrainedModel</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@schema</span>
+<span class="k">class</span> <span class="nc">TransferredTrainedModel</span><span class="p">(</span><span class="n">TransferredTrainedModelBase</span><span class="p">):</span>
+    <span class="n">table_comment</span> <span class="o">=</span> <span class="s2">&quot;Transferred trained models&quot;</span>
+</pre></div>
+</div>
+<p>If we have filled the tables in the same way we did in tutorial 1, we can already run the first stage of training
+in the same way we did before.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TransferredTrainedModel</span><span class="o">.</span><span class="n">populate</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Afterwards, we can take a look at the resulting table ( <code class="code docutils literal notranslate"><span class="pre">TransferredTrainedModel()</span></code> ) and we notice that it
+has some additional columns that will be used to keep track of our transfer history.</p>
+<p>Now that we have trained a model on MNIST, we want to transfer it.
+For this, we consider two different scenarios, both of which can be fully automated in our transfer framework.</p>
+<p>In both cases, the operations boil down to:</p>
+<ul>
+<li><p>what datasets and/or models and/or trainers you would like to use at a specific transfer step</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>specify this in the recipe</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>which component should be handed over between two consecutive transfer steps (data and/or model state)</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>specify this in the recipe and use an appropriate <code class="code docutils literal notranslate"><span class="pre">trainer</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>which already-exisiting entries you would like this transfer step to be applied on</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>specify this in the <code class="code docutils literal notranslate"><span class="pre">populate</span></code> restrictions</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<section id="model-state-transfer">
+<h2>Model-state Transfer<a class="headerlink" href="#model-state-transfer" title="Permalink to this headline">¶</a></h2>
+<p>First, let’s add the dataset that we want to use for the transfer.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dataset_fn</span> <span class="o">=</span> <span class="s2">&quot;nnfabrik.examples.mnist.dataset.mnist_dataset_fn&quot;</span>
+
+<span class="n">dataset_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">apply_augmentation</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># we specify all the inputs except the ones required by nnfabrik</span>
+
+<span class="n">Dataset</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">dataset_fn</span><span class="o">=</span><span class="n">dataset_fn</span><span class="p">,</span> <span class="n">dataset_config</span><span class="o">=</span><span class="n">dataset_config</span><span class="p">,</span>
+                    <span class="n">dataset_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">dataset_comment</span><span class="o">=</span><span class="s2">&quot;Augmented MNIST&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, we look up the identifiers of our dataset (look up in <code class="code docutils literal notranslate"><span class="pre">Dataset()</span></code>) and define the recipe.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">transfer_from</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;dataset_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist.dataset.mnist_dataset_fn&#39;</span><span class="p">,</span> <span class="s2">&quot;dataset_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;9aee736870714f8b7c3cc084087ce886&#39;</span><span class="p">}</span>
+<span class="n">transfer_to</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;dataset_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist.dataset.mnist_dataset_fn&#39;</span><span class="p">,</span> <span class="s2">&quot;dataset_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;28aefc2308569727c6017c66c9122d77&#39;</span><span class="p">}</span>
+<span class="n">DatasetTransferRecipe</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">transfer_from</span><span class="o">=</span><span class="n">transfer_from</span><span class="p">,</span> <span class="n">transfer_to</span><span class="o">=</span><span class="n">transfer_to</span><span class="p">,</span> <span class="n">transfer_step</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To use this recipe, we need to register it with the <code class="code docutils literal notranslate"><span class="pre">TransferredTrainedModel</span></code>-table.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TransferredTrainedModel</span><span class="o">.</span><span class="n">transfer_recipe</span> <span class="o">=</span> <span class="p">[</span><span class="n">DatasetTransferRecipe</span><span class="p">()]</span>
+</pre></div>
+</div>
+<p>If we call <code class="code docutils literal notranslate"><span class="pre">TransferredTrainedModel.populate()</span></code> now, it will automatically apply this recipe and transfer
+the model (i.e. its <code class="code docutils literal notranslate"><span class="pre">state_dict</span></code>) we trained above to our target setting.
+That means it will train on the new dataset starting from the model state of our first training.</p>
+</section>
+<section id="data-transfer-knowledge-distillation">
+<h2>Data Transfer (Knowledge Distillation)<a class="headerlink" href="#data-transfer-knowledge-distillation" title="Permalink to this headline">¶</a></h2>
+<p>Now that we have seen a simple transfer of the model state between two training runs on similar datasets,
+let’s consider a more challenging scenario.
+Assume we want to transfer knowledge between two slightly different models (e.g. with different hidden size)
+and at the same time have a domain shift in the data.</p>
+<section id="the-intermediate-transfer-step-dataset-generation">
+<h3>The intermediate transfer step (dataset generation)<a class="headerlink" href="#the-intermediate-transfer-step-dataset-generation" title="Permalink to this headline">¶</a></h3>
+<p>For this step, we keep everything the same, but replace the trainer by a “pseudo-trainer” that
+simply captures and saves the logits for the whole dataset.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.optim</span> <span class="k">as</span> <span class="nn">optim</span>
+
+<span class="kn">from</span> <span class="nn">nnfabrik.examples.mnist.trainer</span> <span class="kn">import</span> <span class="n">MNISTTrainer</span>
+
+
+<span class="k">class</span> <span class="nc">MNISTDataGenerator</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">dataloaders</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DataLoader</span><span class="p">],</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is used in the intermediate step to generate the logits from the old model</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trainloader</span> <span class="o">=</span> <span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">testloader</span> <span class="o">=</span> <span class="n">dataloaders</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+
+    <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">tqdm</span><span class="p">,</span> <span class="s2">&quot;_instances&quot;</span><span class="p">):</span>
+            <span class="n">tqdm</span><span class="o">.</span><span class="n">_instances</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># To have tqdm output without line-breaks between steps</span>
+</pre></div>
+</div>
+<p>Of course, we also need to insert this one into our tables:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">trainer_fn</span> <span class="o">=</span> <span class="s2">&quot;nnfabrik.examples.mnist_transfer.trainer.mnist_data_gen_fn&quot;</span>
+
+<span class="n">trainer_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">apply_augmentation</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">Trainer</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">trainer_fn</span><span class="o">=</span><span class="n">trainer_fn</span><span class="p">,</span> <span class="n">trainer_config</span><span class="o">=</span><span class="n">trainer_config</span><span class="p">,</span>
+                    <span class="n">trainer_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">trainer_comment</span><span class="o">=</span><span class="s2">&quot;Transfer MNIST Logits&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Again, we need to look up the identifiers and create the corresponding recipe.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">transfer_from</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;trainer_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist.trainer.mnist_trainer_fn&#39;</span><span class="p">,</span> <span class="s2">&quot;trainer_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;79e921430b7f44a205d79d0087b59dc0&#39;</span><span class="p">}</span>
+<span class="n">transfer_to</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;trainer_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist_transfer.trainer.mnist_data_gen_fn&#39;</span><span class="p">,</span> <span class="s2">&quot;trainer_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;ab91f734757071bf0b98ab74c6e8583c&#39;</span><span class="p">}</span>
+<span class="n">TrainerTransferRecipe</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">transfer_from</span><span class="o">=</span><span class="n">transfer_from</span><span class="p">,</span> <span class="n">transfer_to</span><span class="o">=</span><span class="n">transfer_to</span><span class="p">,</span> <span class="n">transfer_step</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">data_transfer</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">TransferredTrainedModel</span><span class="o">.</span><span class="n">transfer_recipe</span> <span class="o">=</span> <span class="p">[</span><span class="n">TrainerTransferRecipe</span><span class="p">()]</span>
+</pre></div>
+</div>
+</section>
+<section id="final-transfer-step-using-the-generated-dataset">
+<h3>Final transfer step (using the generated dataset)<a class="headerlink" href="#final-transfer-step-using-the-generated-dataset" title="Permalink to this headline">¶</a></h3>
+<p>Now we need a dataset that loads the transferred dataset and a trainer that can handle it. Let’s introduce those here.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PIL.Image</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">transforms</span>
+
+
+<span class="k">class</span> <span class="nc">MNISTKnowledgeDistillation</span><span class="p">(</span><span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logits</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Simple dataset that provides the logits that correspond to a specific MNIST image</span>
+<span class="sd">        Args:</span>
+<span class="sd">            logits: numpy array of logits that should follow the order of MNIST images</span>
+<span class="sd">            *args: arguments handed to MNIST</span>
+<span class="sd">            **kwargs: key-word arguments handed to MNIST</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logits</span> <span class="o">=</span> <span class="n">logits</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">logits_train</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trainloader</span><span class="p">):</span>
+            <span class="n">x_flat</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># treat the images as flat vectors</span>
+            <span class="n">logits_train</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">x_flat</span><span class="p">))</span>
+        <span class="n">train</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">logits_train</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;transfer_data&quot;</span><span class="p">:</span> <span class="n">train</span><span class="p">},</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+
+<span class="hll"><span class="k">class</span> <span class="nc">MNISTKnowledgeDistillationTrainer</span><span class="p">(</span><span class="n">MNISTTrainer</span><span class="p">):</span>
+</span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">dataloaders</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DataLoader</span><span class="p">],</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is used to train on logits.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dataloaders</span><span class="p">,</span> <span class="n">seed</span><span class="p">,</span> <span class="n">epochs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MSELoss</span><span class="p">()</span>
+<span class="hll">
+</span><span class="hll">    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">tqdm</span><span class="p">,</span> <span class="s2">&quot;_instances&quot;</span><span class="p">):</span>
+            <span class="n">tqdm</span><span class="o">.</span><span class="n">_instances</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># To have tqdm output without line-breaks between steps</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">epoch_losses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="p">):</span>
+            <span class="n">epoch_loss</span> <span class="o">=</span> <span class="mi">0</span>
+</pre></div>
+</div>
+<p>Of course, we need to add those to the tables as well.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">trainer_fn</span> <span class="o">=</span> <span class="s2">&quot;nnfabrik.examples.mnist_transfer.trainer.mnist_trainer_fn&quot;</span>
+<span class="n">trainer_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">apply_augmentation</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">Trainer</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">trainer_fn</span><span class="o">=</span><span class="n">trainer_fn</span><span class="p">,</span> <span class="n">trainer_config</span><span class="o">=</span><span class="n">trainer_config</span><span class="p">,</span>
+                    <span class="n">trainer_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">trainer_comment</span><span class="o">=</span><span class="s2">&quot;Use Transferred MNIST Logits&quot;</span><span class="p">)</span>
+
+<span class="n">dataset_fn</span> <span class="o">=</span> <span class="s2">&quot;nnfabrik.examples.mnist_transfer.dataset.mnist_dataset_fn&quot;</span>
+<span class="n">dataset_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">apply_augmentation</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># we specify all the inputs except the ones required by nnfabrik</span>
+<span class="n">Dataset</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">dataset_fn</span><span class="o">=</span><span class="n">dataset_fn</span><span class="p">,</span> <span class="n">dataset_config</span><span class="o">=</span><span class="n">dataset_config</span><span class="p">,</span>
+                    <span class="n">dataset_fabrikant</span><span class="o">=</span><span class="s2">&quot;Your Name&quot;</span><span class="p">,</span> <span class="n">dataset_comment</span><span class="o">=</span><span class="s2">&quot;Augmented MNIST with Knowledge Distallation&quot;</span><span class="p">)</span>
+
+<span class="n">transfer_from</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;trainer_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist_transfer.trainer.mnist_data_gen_fn&#39;</span><span class="p">,</span>
+                 <span class="s2">&quot;trainer_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;ab91f734757071bf0b98ab74c6e8583c&#39;</span><span class="p">,</span>
+                 <span class="s2">&quot;dataset_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist.dataset.mnist_dataset_fn&#39;</span><span class="p">,</span>
+                 <span class="s2">&quot;dataset_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;9aee736870714f8b7c3cc084087ce886&#39;</span>
+                <span class="p">}</span>  <span class="c1"># the dataset and trainer we used in the first step</span>
+<span class="n">transfer_to</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;trainer_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist_transfer.trainer.mnist_trainer_fn&#39;</span><span class="p">,</span>
+                 <span class="s2">&quot;trainer_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;ab91f734757071bf0b98ab74c6e8583c&#39;</span><span class="p">,</span>
+                 <span class="s2">&quot;dataset_fn&quot;</span><span class="p">:</span> <span class="s1">&#39;nnfabrik.examples.mnist_transfer.dataset.mnist_dataset_fn&#39;</span><span class="p">,</span>
+                 <span class="s2">&quot;dataset_hash&quot;</span><span class="p">:</span> <span class="s1">&#39;28aefc2308569727c6017c66c9122d77&#39;</span>
+               <span class="p">}</span>
+
+<span class="n">TrainerDatasetTransferRecipe</span><span class="p">()</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">transfer_from</span><span class="o">=</span><span class="n">transfer_from</span><span class="p">,</span> <span class="n">transfer_to</span><span class="o">=</span><span class="n">transfer_to</span><span class="p">,</span> <span class="n">transfer_step</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">data_transfer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">TransferredTrainedModel</span><span class="o">.</span><span class="n">transfer_recipe</span> <span class="o">=</span> <span class="p">[</span><span class="n">TrainerDatasetTransferRecipe</span><span class="p">()]</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="02tutorial.html" class="btn btn-neutral float-left" title="Tutorial 2: Train a model with checkpointing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Konstantin Willeke, Edgar Walker, et al.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
