@@ -107,7 +107,7 @@ def find_prefix(keys: list, p_agree: float = 0.66, separator=".") -> (list, int)
     while True:
         sorted_prefs = sorted(prefs.items(), key=lambda x: x[1], reverse=True)
         # check if largest count is above threshold
-        if sorted_prefs[0][1] < p_agree * len(keys):
+        if not prefs or sorted_prefs[0][1] < p_agree * len(keys):
             break
         common_prefix = sorted_prefs[0][0]  # save prefix
 
@@ -128,7 +128,7 @@ def load_state_dict(
     ignore_unused: bool = False,
     match_names: bool = False,
     ignore_dim_mismatch: bool = False,
-    prefix_agreement: float = 0.66,
+    prefix_agreement: float = 0.98,
 ):
     """
     Loads given state_dict into model, but allows for some more flexible loading.
@@ -140,7 +140,6 @@ def load_state_dict(
                         by finding and removing a common prefix from the keys in each dict
     :param ignore_dim_mismatch: if True ignores parameters in `state_dict` that don't fit the shape in `model`
     """
-
     model_dict = model.state_dict()
     # 0. Try to match names by adding or removing prefix:
     if match_names:
