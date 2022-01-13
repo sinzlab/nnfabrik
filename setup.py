@@ -6,7 +6,7 @@ here = path.abspath(path.dirname(__file__))
 
 setup(
     name="nnfabrik",
-    version="0.0.1",
+    version="0.1.0",
     description="A generalized model fitting pipeline",
     author="Sinz Lab",
     author_email="software@sinzlab.net",
@@ -15,5 +15,6 @@ setup(
         "sphinx",
         "pytorch_sphinx_theme",
         "recommonmark",
+        "ax_platform",
     ],
 )
