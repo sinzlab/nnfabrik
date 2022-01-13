@@ -483,6 +483,7 @@ def my_nnfabrik(
     module_name: Optional[str] = None,
     context: Optional[MutableMapping] = None,
     spawn_existing_tables: bool = False,
+    return_main_tables: bool = False,
 ) -> Optional[types.ModuleType]:
     """
     Create a custom nnfabrik module under specified DataJoint schema,
@@ -570,4 +571,8 @@ def my_nnfabrik(
         context[table.__name__] = schema(new_table, context=context)
 
     # this returns None if context was set
-    return module
+    return (
+        module
+        if not return_main_tables
+        else [module_name, map(module.__dict__.get, ["Fabrikant", "Dataset", "Model", "Trainer", "Seed"])]
+    )
