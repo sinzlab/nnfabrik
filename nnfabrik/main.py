@@ -478,12 +478,9 @@ class Experiments(dj.Manual):
 def my_nnfabrik(
     schema: Union[str, Schema],
     additional_tables: Tuple = (),
-    use_common_fabrikant: bool = True,
-    use_common_seed: bool = False,
     module_name: Optional[str] = None,
     context: Optional[MutableMapping] = None,
     spawn_existing_tables: bool = False,
-    return_main_tables: bool = False,
 ) -> Optional[types.ModuleType]:
     """
     Create a custom nnfabrik module under specified DataJoint schema,
