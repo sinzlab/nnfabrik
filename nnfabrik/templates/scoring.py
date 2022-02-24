@@ -1,6 +1,8 @@
 import datajoint as dj
 import numpy as np
-from nnfabrik.main import Model, Dataset, Trainer, Seed, Fabrikant
+
+from nnfabrik.main import Dataset, Fabrikant, Model, Seed, Trainer
+
 from .trained_model import TrainedModelBase
 
 

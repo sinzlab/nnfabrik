@@ -1,0 +1,5 @@
+FROM python:3.9
+
+COPY . /src/nnfabrik
+
+RUN python -m pip install --requirement /src/nnfabrik/requirements-dev.txt

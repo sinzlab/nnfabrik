@@ -19,3 +19,21 @@ services:
     volumes:
       - ".:/src/nnfabrik"
     entrypoint: /bin/bash -c "cd /src/nnfabrik/docs/; while :; do make html; sleep 30; done"
+
+  black:
+    build:
+      context: .
+      dockerfile: Dockerfile.lint
+    volumes:
+      - .:/src/nnfabrik
+    entrypoint: ["black"]
+    command: ["--check", "--diff", "/src/nnfabrik"]
+
+  isort:
+    build:
+      context: .
+      dockerfile: Dockerfile.lint
+    volumes:
+      - .:/src/nnfabrik
+    entrypoint: ["isort"]
+    command: ["--check-only", "--diff", "/src/nnfabrik"]

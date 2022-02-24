@@ -1,6 +1,8 @@
 from importlib import import_module
+
 import numpy as np
-from ..utility.dj_helpers import make_hash, cleanup_numpy_scalar
+
+from ..utility.dj_helpers import cleanup_numpy_scalar, make_hash
 
 
 def split_module_name(abs_class_name):

@@ -1,8 +1,8 @@
-from typing import Dict, Tuple, Callable, Optional, List, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from tqdm import tqdm
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
 from nnfabrik.examples.mnist.trainer import MNISTTrainer
 
