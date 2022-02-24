@@ -1,6 +1,7 @@
 # nnfabrik: a generalized model fitting pipeline
 
 ![Black](https://github.com/sinzlab/nnfabrik/workflows/Black/badge.svg)
+![ISort](https://github.com/sinzlab/nnfabrik/workflows/ISort/badge.svg)
 ![GitHub Pages](https://github.com/sinzlab/nnfabrik/workflows/GitHub%20Pages/badge.svg?branch=master)
 
 nnfabrik is a model fitting pipeline, mainly developed for neural networks, where training results (i.e. scores, and trained models) as well as any data related to models, trainers, and datasets used for training are stored in datajoint tables.
@@ -70,3 +71,31 @@ The documentation can be found [here](https://sinzlab.github.io/nnfabrik/). Plea
 ## :bug: Report bugs (or request features)
 
 In case you find a bug or would like to see some new features added to nnfabrik, please create an issue or contact any of the contributors.
+
+## :fire: How to contribute
+
+Pull requests (and issues) are always welcome. This section describes some
+preconditions that pull requests need to fulfill.
+
+### black
+
+This project uses the [black](https://github.com/psf/black) code formatter. You
+can check whether your changes comply with its style by running the following
+command:
+
+```bash
+docker-compose run black
+```
+
+Furthermore you can pass a path to the service to have black fix any errors in
+the Python modules it finds in the given path.
+
+### isort
+
+[isort](https://github.com/PyCQA/isort) is used to sort Python imports. You can check the order of imports by running the following command:
+
+```bash
+docker-compose run isort
+```
+
+The imports can be sorted by passing a path to the service.
