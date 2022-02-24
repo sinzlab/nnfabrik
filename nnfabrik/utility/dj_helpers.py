@@ -1,15 +1,15 @@
 # helper functions for use with DataJoint tables
 
-import warnings
-from datetime import datetime
 import hashlib
-import datajoint as dj
-from git import Repo, cmd
-import numpy as np
 import inspect
+import warnings
+from collections import Iterable, Mapping, OrderedDict
 from datetime import date, datetime
+
+import datajoint as dj
+import numpy as np
 from datajoint.utils import to_camel_case
-from collections import OrderedDict, Iterable, Mapping
+from git import Repo, cmd
 
 # try/except is necessary to support all versions of dj
 try:

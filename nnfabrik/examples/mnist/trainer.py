@@ -1,9 +1,8 @@
-from typing import Dict, Tuple, Callable, List, Any
+from typing import Any, Callable, Dict, List, Tuple
 
-from tqdm import tqdm
 import torch
-from torch import nn
-from torch import optim
+from torch import nn, optim
+from tqdm import tqdm
 
 
 class MNISTTrainer:

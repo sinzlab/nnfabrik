@@ -1,10 +1,10 @@
 # helper functions concerning the ANN architecture
 
-import torch
-from torch import nn
+import random
 
 import numpy as np
-import random
+import torch
+from torch import nn
 
 
 def get_io_dims(data_loader):

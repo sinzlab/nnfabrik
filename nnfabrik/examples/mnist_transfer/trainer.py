@@ -3,14 +3,14 @@ Implements the trainer and data generator that is used for the knowledge distill
 with our TransferredTrainedModel-table
 """
 
-from typing import Dict, Tuple, Callable
+from typing import Callable, Dict, Tuple
 
 import numpy as np
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from nnfabrik.examples.mnist.trainer import MNISTTrainer
 

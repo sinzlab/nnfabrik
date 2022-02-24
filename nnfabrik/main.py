@@ -1,18 +1,18 @@
-import warnings
 import types
-from typing import Union, Optional, MutableMapping, Tuple
+import warnings
+from typing import MutableMapping, Optional, Tuple, Union
 
 import datajoint as dj
 
 from .builder import (
-    resolve_model,
-    resolve_data,
-    resolve_trainer,
     get_data,
     get_model,
     get_trainer,
+    resolve_data,
+    resolve_model,
+    resolve_trainer,
 )
-from .utility.dj_helpers import make_hash, CustomSchema, Schema
+from .utility.dj_helpers import CustomSchema, Schema, make_hash
 from .utility.nnf_helper import cleanup_numpy_scalar
 
 if "nnfabrik.schema_name" in dj.config:

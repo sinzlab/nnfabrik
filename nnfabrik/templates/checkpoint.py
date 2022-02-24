@@ -6,7 +6,7 @@ import datajoint as dj
 import torch
 
 from nnfabrik.templates.trained_model import TrainedModelBase
-from nnfabrik.utility.dj_helpers import make_hash, clone_conn, CustomSchema
+from nnfabrik.utility.dj_helpers import CustomSchema, clone_conn, make_hash
 
 
 def my_checkpoint(nnfabrik):

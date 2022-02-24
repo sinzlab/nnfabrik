@@ -1,6 +1,7 @@
-from .. import main
 from types import ModuleType
 from typing import Union
+
+from .. import main
 
 
 def find_object(context: Union[ModuleType, dict], attribute: str, prop_name: str = None):

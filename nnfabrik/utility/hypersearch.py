@@ -1,8 +1,10 @@
+import datajoint as dj
 import numpy as np
 from ax.service.managed_loop import optimize
-from .nnf_helper import split_module_name, dynamic_import
+
 from nnfabrik.main import *
-import datajoint as dj
+
+from .nnf_helper import dynamic_import, split_module_name
 
 
 class Bayesian:

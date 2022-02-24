@@ -1,8 +1,8 @@
-from . import utility
 from functools import partial
 
-from .utility.nnf_helper import split_module_name, dynamic_import
+from . import utility
 from .utility.nn_helpers import load_state_dict
+from .utility.nnf_helper import dynamic_import, split_module_name
 
 
 def resolve_fn(fn_name, default_base):

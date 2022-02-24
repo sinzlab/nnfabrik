@@ -1,13 +1,14 @@
+import os
 import tempfile
 from collections import Mapping, Sequence
 
-import torch
-import os
 import datajoint as dj
 import numpy as np
+import torch
+
 from nnfabrik.templates.checkpoint import TrainedModelChkptBase
-from nnfabrik.utility.dj_helpers import gitlog, make_hash
 from nnfabrik.templates.trained_model import TrainedModelBase
+from nnfabrik.utility.dj_helpers import gitlog, make_hash
 
 
 class TransferredTrainedModelBase(TrainedModelBase):
