@@ -15,5 +15,6 @@ setup(
         "sphinx",
         "pytorch_sphinx_theme",
         "recommonmark",
+        "ax_platform",
     ],
 )
