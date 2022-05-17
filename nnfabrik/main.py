@@ -104,7 +104,7 @@ class Fabrikant(dj.Manual):
 @schema
 class Model(dj.Manual):
     definition = """
-    model_fn:                   varchar(64)   # name of the model function
+    model_fn:                   varchar(128)   # name of the model function
     model_hash:                 varchar(64)   # hash of the model configuration
     ---
     model_config:               longblob      # model configuration to be passed into the function
