@@ -10,4 +10,4 @@ jobs:
     - uses: actions/setup-python@v2
     - uses: psf/black@stable
       with:
-        version: "22.1.0"
+        version: "22.3.0"
