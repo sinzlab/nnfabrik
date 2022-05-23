@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import loguniform
 from ax.service.managed_loop import optimize
 from .nnf_helper import split_module_name, dynamic_import
 from nnfabrik.main import *
@@ -471,7 +472,10 @@ class Random:
             elif param["type"] == "choice":
                 auto_params_val.update({param["name"]: np.random.choice(param["values"])})
             elif param["type"] == "range":
-                auto_params_val.update({param["name"]: np.random.uniform(*param["bounds"])})
+                if "log_scale" in param and param["log_scale"]:
+                    auto_params_val.update({param["name"]: loguniform.rvs(*param["bounds"])})
+                else:
+                    auto_params_val.update({param["name"]: np.random.uniform(*param["bounds"])})
 
         return auto_params_val
 
