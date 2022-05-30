@@ -4,7 +4,7 @@
 <html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8">
-  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
@@ -32,6 +32,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
@@ -172,7 +173,7 @@
            <div itemprop="articleBody">
             
   <section id="tutorial-1-train-your-first-model-with-nnfabrik">
-<h1>Tutorial 1: Train your first model with NNFabrik<a class="headerlink" href="#tutorial-1-train-your-first-model-with-nnfabrik" title="Permalink to this headline">¶</a></h1>
+<h1>Tutorial 1: Train your first model with NNFabrik<a class="headerlink" href="#tutorial-1-train-your-first-model-with-nnfabrik" title="Permalink to this heading">¶</a></h1>
 <p>In this tutorial, we will go through one example usage of the nnfabrik pipeline.</p>
 <p>The goal in this tutorial is to train multiple models with different hyperparameters
 (batchsize, number of layer, learning rate, etc.) in a parallel fashion,
@@ -182,7 +183,7 @@ Those are the basic functions which, if used together, train a simple MLP model 
 Therefore, what we are left with is to fill up the corresponding Datajoint tables with different hyper-parameter
 values and train models for every possible combination of those hyper-parameters.</p>
 <section id="the-fabrikant-table">
-<h2>The Fabrikant Table<a class="headerlink" href="#the-fabrikant-table" title="Permalink to this headline">¶</a></h2>
+<h2>The Fabrikant Table<a class="headerlink" href="#the-fabrikant-table" title="Permalink to this heading">¶</a></h2>
 <p>The Fabrikant table keeps a record of the users that interact with a specific schema.
 It is simply an extra level of information to know who is accountable for the entries
 in the Dataset, Model, and Trainer tables. simply add your information as follows:</p>
@@ -192,7 +193,7 @@ in the Dataset, Model, and Trainer tables. simply add your information as follow
 </div>
 </section>
 <section id="the-dataset-table">
-<h2>The Dataset Table<a class="headerlink" href="#the-dataset-table" title="Permalink to this headline">¶</a></h2>
+<h2>The Dataset Table<a class="headerlink" href="#the-dataset-table" title="Permalink to this heading">¶</a></h2>
 <p>Here we need to specify <strong>dataset function</strong> and the arguments passed to the dataset function, <strong>dataset config</strong>.
 The dataset function is specified as a string. the structure of this string is important since under the hood nnfabrik performs a dynamic import by parsing this string. For example, if you can import the function as
 <code class="code docutils literal notranslate"><span class="pre">from</span> <span class="pre">nnfabrik.datasets</span> <span class="pre">import</span> <span class="pre">toy_dataset_fn</span></code>
@@ -213,7 +214,7 @@ Also note that <code class="code docutils literal notranslate"><span class="pre"
 </div>
 </section>
 <section id="the-model-table">
-<h2>The Model Table<a class="headerlink" href="#the-model-table" title="Permalink to this headline">¶</a></h2>
+<h2>The Model Table<a class="headerlink" href="#the-model-table" title="Permalink to this heading">¶</a></h2>
 <p>Here we need to specify <strong>dataset function</strong> and the arguments passed to the dataset function, <strong>dataset config</strong>.
 Everything explained for the dataset function applied to model function as well.:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># specify model function as string (the function must be importable) as well as the model config</span>
@@ -232,7 +233,7 @@ Everything explained for the dataset function applied to model function as well.
 </div>
 </section>
 <section id="the-trainer-table">
-<h2>The Trainer Table<a class="headerlink" href="#the-trainer-table" title="Permalink to this headline">¶</a></h2>
+<h2>The Trainer Table<a class="headerlink" href="#the-trainer-table" title="Permalink to this heading">¶</a></h2>
 <p>Here we need to specify <strong>trainer function</strong> and the arguments passed to the trainer function, <strong>trainer config</strong>.
 Everything explained for the dataset function applies to trainer function as well.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># specify trainer function as string (the function must be importable) as well as the trainer config</span>
@@ -245,7 +246,7 @@ Everything explained for the dataset function applies to trainer function as wel
 </div>
 </section>
 <section id="the-seed-table">
-<h2>The Seed Table<a class="headerlink" href="#the-seed-table" title="Permalink to this headline">¶</a></h2>
+<h2>The Seed Table<a class="headerlink" href="#the-seed-table" title="Permalink to this heading">¶</a></h2>
 <p>Now we have one final table to fill up before we start training our models with all the combinations in Dataset, Model,
 and Trainer tables. That table is the <strong>Seed</strong> table.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Seed</span><span class="p">()</span><span class="o">.</span><span class="n">insert1</span><span class="p">({</span><span class="s1">&#39;seed&#39;</span><span class="p">:</span> <span class="mi">2020</span><span class="p">})</span>
@@ -253,12 +254,12 @@ and Trainer tables. That table is the <strong>Seed</strong> table.</p>
 </div>
 </section>
 <section id="the-trainedmodel-table">
-<h2>The TrainedModel Table<a class="headerlink" href="#the-trainedmodel-table" title="Permalink to this headline">¶</a></h2>
+<h2>The TrainedModel Table<a class="headerlink" href="#the-trainedmodel-table" title="Permalink to this heading">¶</a></h2>
 <p>Once we have bunch of trained models, the downstream analysis might be different for each specific project.
 For this reason, we keep the TrainedModel tables separate from the tables provided in the library.
 However, the process of creating your own TrainedModel becomes very easy with the template(s) provided by nnfabrik.</p>
 <section id="create-your-trainedmodel-table">
-<h3>Create your TrainedModel table<a class="headerlink" href="#create-your-trainedmodel-table" title="Permalink to this headline">¶</a></h3>
+<h3>Create your TrainedModel table<a class="headerlink" href="#create-your-trainedmodel-table" title="Permalink to this heading">¶</a></h3>
 <p>Inheritance of the <code class="code docutils literal notranslate"><span class="pre">TrainedModelBase</span></code> template</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">nnfabrik.templates.trained_model</span> <span class="kn">import</span> <span class="n">TrainedModelBase</span>
 <span class="kn">from</span> <span class="nn">nnfabrik.examples</span> <span class="kn">import</span> <span class="n">nnfabrik</span>
@@ -271,7 +272,7 @@ However, the process of creating your own TrainedModel becomes very easy with th
 </div>
 </section>
 <section id="populate-fill-up-the-trainedmodel-table">
-<h3>Populate (fill up) the TrainedModel table<a class="headerlink" href="#populate-fill-up-the-trainedmodel-table" title="Permalink to this headline">¶</a></h3>
+<h3>Populate (fill up) the TrainedModel table<a class="headerlink" href="#populate-fill-up-the-trainedmodel-table" title="Permalink to this heading">¶</a></h3>
 <p>Calling <code class="code docutils literal notranslate"><span class="pre">populate</span></code> on this table fills all combinations of <code class="code docutils literal notranslate"><span class="pre">Trainer</span></code>, <code class="code docutils literal notranslate"><span class="pre">Dataset</span></code>, <code class="code docutils literal notranslate"><span class="pre">Model</span></code> and
 <code class="code docutils literal notranslate"><span class="pre">Seed</span></code> (unless we restrict it)</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TrainedModel</span><span class="o">.</span><span class="n">populate</span><span class="p">(</span><span class="n">display_progress</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
