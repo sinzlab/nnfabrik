@@ -266,6 +266,8 @@ class Random:
         trainer_fn (str): name of the trainer function
         trainer_config (dict): dictionary of arguments for trainer function that are fixed
         trainer_config_auto (dict): dictionary of arguments for trainer function that are to be randomly sampled
+        seed_config_auto (dict): dictionary of arguments for setting (`dict(seed={"type": "fixed", "value": <VALUE>})`)
+            or random sampling (`dict(seed={"type": "int"})`) the seed
         architect (str): Name of the contributor that added this entry
         trained_model_table (str): name (importable) of the trained_model_table
         total_trials (int, optional): Number of experiments (i.e. training) to run. Defaults to 5.
@@ -499,7 +501,5 @@ class Random:
         """
         Runs the random hyperparameter search, for as many trials as specified.
         """
-        # n_trials = len(self.trained_model_table().seed_table()) * self.total_trials
-        # init_len = len(self.trained_model_table())
         for _ in range(self.total_trials):
             self.train_evaluate(self.gen_params_value())
