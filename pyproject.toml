@@ -1,2 +1,20 @@
-[tool.black]
-line-length = 120
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nnfabrik"
+version = "0.2.1"
+description = "A generalized model fitting pipeline"
+dependencies = [
+    "sphinx",
+    "pytorch_sphinx_theme",
+    "recommonmark",
+]
+
+[[project.authors]]
+name = "Sinz Lab"
+email = "software@sinzlab.net"
+
+[project.urls]
+GitHub = "https://github.com/sinzlab/nnfabrik"
