@@ -1,5 +1,8 @@
 import tempfile
-from collections import Mapping, Sequence
+try:
+    from collections import Mapping, Sequence
+except:
+    from collections.abc import Mapping, Sequence
 
 import torch
 import os
