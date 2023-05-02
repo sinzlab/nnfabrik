@@ -1,4 +1,5 @@
 import tempfile
+
 try:
     from collections import Mapping, Sequence
 except:
