@@ -79,6 +79,7 @@ def get_model(
             ignore_unused=model_config.get("transfer", False),
             ignore_dim_mismatch=model_config.get("transfer", False),
             ignore_missing=model_config.get("transfer", False),
+            strict=strict,
         )  # we want the most flexible loading in the case of transfer
 
     return net
