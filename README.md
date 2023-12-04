@@ -30,7 +30,7 @@ pip install git+https://github.com/sinzlab/nnfabrik.git
 
 ## :computer: Usage
 As mentioned above, nnfabrik helps with keeping track of different combinations of hyperparameters used for model creation and training. In order to achieve this nnfabrik would need the necessary components to train a model. These components include:
-* **model function**: a function that returns the data used for training
+* **dataset function**: a function that returns the data used for training
 * **model function**: a function that return the model to be trained
 * **trainer function**: a function that given dataset and a model trains the model and returns the resulting model
 
@@ -51,7 +51,7 @@ However, to ensure a generalized solution nnfabrik makes some minor assumptions 
   * a collection (list, tuple, or dictionary) of any other quantity 
   * the `state_dict` of the trained model.
 
-You can take a look at some examples in [toy_dataset](nnfabrik/toy_example/toy_datasets.py), [toy_model](nnfabrik/toy_example/toy_models.py), and [toy_trainer](nnfabrik/toy_example/toy_trainers.py).
+[Here](https://github.com/sinzlab/nnfabrik/tree/master/nnfabrik/examples/mnist) you can see an example of these functions to train an MNIST classifier within the nnfabrik pipeline.
 
 Once you have these three functions, all is left to do is to define the corresponding tables. Tables are structured similar to the the functions. That is, we have a `Dataset`, `Model`, and `Trainer` table. Each entry of the table corresponds to an specific instance of the corresponding function. For example one entry of the `Dataset` table refers to a specific dataset function and a specific `dataset_config`.
 

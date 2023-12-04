@@ -13,7 +13,6 @@ services:
       - ".:/src/nnfabrik"
     entrypoint: /bin/bash -c "cd /src/nnfabrik/docs/; make html; cd _build/html; python -m http.server 3000"
 
-
   sphinx:
     build: .
     volumes:
