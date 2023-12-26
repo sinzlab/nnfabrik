@@ -16,16 +16,11 @@ from .utility.dj_helpers import make_hash, CustomSchema, Schema
 from .utility.nnf_helper import cleanup_numpy_scalar
 
 if "nnfabrik.schema_name" in dj.config:
-    warnings.warn(
+    raise DeprecationWarning(
         "use of 'nnfabrik.schema_name' in dj.config is deprecated, use nnfabrik.main.my_nnfabrik function instead",
-        DeprecationWarning,
     )
 
 
-schema = CustomSchema(dj.config.get("nnfabrik.schema_name", "nnfabrik_core"))
-
-
-@schema
 class Fabrikant(dj.Manual):
     definition = """
     fabrikant_name: varchar(32)       # Name of the contributor that added this entry
@@ -101,7 +96,6 @@ class Fabrikant(dj.Manual):
             return entry.fetch1("fabrikant_name")
 
 
-@schema
 class Model(dj.Manual):
     definition = """
     model_fn:                   varchar(128)   # name of the model function
@@ -217,7 +211,6 @@ class Model(dj.Manual):
         )
 
 
-@schema
 class Dataset(dj.Manual):
     definition = """
     dataset_fn:                     varchar(64)    # name of the dataset loader function
@@ -328,7 +321,6 @@ class Dataset(dj.Manual):
         return get_data(dataset_fn, dataset_config)
 
 
-@schema
 class Trainer(dj.Manual):
     definition = """
     trainer_fn:                     varchar(64)     # name of the Trainer loader function
@@ -428,14 +420,12 @@ class Trainer(dj.Manual):
             return get_trainer(trainer_fn), trainer_config
 
 
-@schema
 class Seed(dj.Manual):
     definition = """
     seed:   int     # Random seed that is passed to the model- and dataset-builder
     """
 
 
-@schema
 class Experiments(dj.Manual):
     # Table to keep track of collections of trained networks that form an experiment.
     # Instructions:
@@ -488,8 +478,6 @@ class Experiments(dj.Manual):
 def my_nnfabrik(
     schema: Union[str, Schema],
     additional_tables: Tuple = (),
-    use_common_fabrikant: bool = True,
-    use_common_seed: bool = False,
     module_name: Optional[str] = None,
     context: Optional[MutableMapping] = None,
     spawn_existing_tables: bool = False,
@@ -580,4 +568,8 @@ def my_nnfabrik(
         context[table.__name__] = schema(new_table, context=context)
 
     # this returns None if context was set
-    return module
+    return (
+        module
+        if not return_main_tables
+        else [module_name, map(module.__dict__.get, ["Fabrikant", "Dataset", "Model", "Trainer", "Seed"])]
+    )
