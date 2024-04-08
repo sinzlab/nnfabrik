@@ -158,7 +158,7 @@ def load_state_dict(
             stripped_state_dict[new_key] = v
         state_dict = stripped_state_dict
 
-    if strict is None:
+    if strict:
         # 1. filter out missing keys
         filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
         unused = set(state_dict.keys()) - set(filtered_state_dict.keys())
