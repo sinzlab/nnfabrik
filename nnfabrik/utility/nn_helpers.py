@@ -129,7 +129,7 @@ def load_state_dict(
     match_names: bool = False,
     ignore_dim_mismatch: bool = False,
     prefix_agreement: float = 0.98,
-    strict=None,
+    strict=True,
 ):
     """
     Loads given state_dict into model, but allows for some more flexible loading.
