@@ -185,4 +185,4 @@ def load_state_dict(
         updated_model_dict = state_dict
 
     # 3. load the new state dict
-    model.load_state_dict(updated_model_dict, strict=(not ignore_missing) if strict is None else strict)
+    model.load_state_dict(updated_model_dict, strict=(not ignore_missing) if strict is True else False)
